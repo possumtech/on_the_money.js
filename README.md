@@ -8,8 +8,9 @@ An opinionated web project **Anti‑Framework** that provides the ergonomic bene
 - **CSS as UI Engine**: Visual changes (hiding, showing, coloring) are handled by CSS attribute selectors, never by JavaScript style manipulation.
 - **No String Injection**: `innerHTML` is forbidden. Use `<template>` cloning for dynamic content.
 - **Deterministic Localization**: Hard‑coded strings are errors. All UI text must be keyed through `_t()` or `data‑i18n`.
-- **Inclusive by Design**: Every state change must consider a11y (ARIA) parity.
-- **Built‑in Linter**: ESLint plugin enforces the architectural constraints (OTM‑001 … OTM‑005).
+- **Inclusive by Design**: Accessibility (ARIA) takes precedence over custom data attributes.
+- **Semantic HTML**: Proper HTML elements must be used for their intended purpose.
+- **Built‑in Linter**: Multi‑file‑type linter enforces architectural constraints across HTML, JavaScript, and CSS.
 
 ## Installation
 
@@ -41,21 +42,31 @@ Add to your ESLint configuration:
 module.exports = {
   plugins: ['on-the-money'],
   rules: {
-    'on-the-money/otm-001': 'error',
-    'on-the-money/otm-002': 'error',
-    'on-the-money/otm-003': 'error',
-    'on-the-money/otm-004': 'error',
-    'on-the-money/otm-005': 'error',
+    // JavaScript Rules
+    'on-the-money/js/no-inner-html': 'error',          // OTM-001
+    'on-the-money/js/state-in-dom': 'error',           // OTM-002  
+    'on-the-money/js/no-direct-style': 'error',        // OTM-003
+    'on-the-money/js/prefer-aria': 'warn',             // OTM-005
+    'on-the-money/js/event-delegation': 'error',       // OTM-009
+    'on-the-money/js/no-dynamic-attribute-names': 'error', // OTM-011
+    
+    // HTML Rules (via eslint-plugin-html)
+    'on-the-money/html/no-naked-strings': 'error',     // OTM-004
+    'on-the-money/html/semantic-elements': 'warn',     // OTM-013
+    'on-the-money/html/no-inline-handlers': 'error',   // OTM-014
+    
+    // CSS Rules (via stylelint)
+    'on-the-money/css/attribute-selectors': 'warn',    // OTM-012
   }
 };
 ```
 
 ### Standalone CLI
 
-For quick one‑off checks, CI/CD pipelines, or non‑JavaScript projects, you can use the standalone CLI:
+For quick one‑off checks, CI/CD pipelines, or non‑JavaScript projects:
 
 ```bash
-npx on_the_money.js --check
+npx on_the_money.js --check ./src
 ```
 
 To install globally:
@@ -70,7 +81,7 @@ Then run:
 otm-lint --check ./src
 ```
 
-The CLI supports the same five OTM rules and can check HTML, CSS, and JavaScript files.
+The CLI supports checking all file types (HTML, JS, CSS) with the same rules.
 
 ## Quick Start
 
@@ -86,13 +97,16 @@ The CLI supports the same five OTM rules and can check HTML, CSS, and JavaScript
 2. **Create templates**
    ```html
    <template id="todo-item">
-     <li data-i18n="todo_item">
-       <button data-action="complete">Complete</button>
+     <li>
+       <span data-i18n="todo_item_text"></span>
+       <button data-action="complete" aria-label="Complete task">
+         <span data-i18n="btn_complete"></span>
+       </button>
      </li>
    </template>
 
    <script type="module">
-     const todo = { id: 1, text: 'Buy milk' };
+     const todo = { id: 1, textKey: 'buy_milk' };
      const element = the('#todo-item', todo);
      document.querySelector('#todo-list').appendChild(element);
    </script>
@@ -100,17 +114,19 @@ The CLI supports the same five OTM rules and can check HTML, CSS, and JavaScript
 
 3. **Style with CSS**
    ```css
+   /* Good: Attribute selectors for state */
    [data-theme="dark"] {
      background: #000;
      color: #fff;
    }
 
-   .menu[data-open="true"] {
+   [aria-expanded="true"] {
      transform: translateX(0);
    }
 
-   .menu[data-open="true"][aria-expanded="true"] {
-     /* ARIA parity enforced by OTM‑005 */
+   /* Works perfectly with Pico CSS! */
+   button[data-variant="primary"] {
+     --pico-primary: #ff6b6b;
    }
    ```
 
@@ -129,35 +145,91 @@ Event delegation handler. Attaches a listener to `parent` that fires `callback` 
 - `$$(selector)` returns a real **Array** of matching elements (not a NodeList).
 
 ### `_t(key)`
-Localization engine. Returns the localized string for `key`. Automatically populates `innerText` of any element with a `data‑i18n` attribute.
+Localization engine. Returns the localized string for `key`. Automatically populates `innerText` of any element with a `data-i18n` attribute.
 
 ## Linter Rules
 
-The ESLint plugin enforces the deterministic patterns described in SPEC.md:
+### JavaScript Rules
 
-| Rule ID | Forbidden Pattern | Correct Pattern |
-| :--- | :--- | :--- |
-| **OTM‑001** | `el.innerHTML = "..."` | `the('#template', data)` |
-| **OTM‑002** | `let status = 'active'` (UI state) | `the('status', 'active')` |
-| **OTM‑003** | `el.style.display = 'none'` | `the(el, 'visible', 'false')` + CSS |
-| **OTM‑004** | `<span>Submit</span>` (naked strings) | `<span data‑i18n="btn_submit"></span>` |
-| **OTM‑005** | `the(el, 'open', true)` without ARIA | Must include corresponding ARIA attribute (e.g., `aria‑expanded="true"`) |
+| Rule ID | Forbidden Pattern | Correct Pattern | Severity |
+| :--- | :--- | :--- | :--- |
+| **JS‑001** | `el.innerHTML = "..."` | `the('#template', data)` | error |
+| **JS‑002** | `let status = 'active'` (UI state) | `the('status', 'active')` | error |
+| **JS‑003** | `el.style.display = 'none'` | `the(el, 'visible', 'false')` + CSS | error |
+| **JS‑005** | `data-expanded="true"` | `aria-expanded="true"` (for accessibility states) | warn |
+| **JS‑009** | `dynamicEl.addEventListener()` | `on(parent, 'click', selector, fn)` | error |
+| **JS‑011** | `el.setAttribute('data-' + key, value)` | Static attribute names only | error |
+
+### HTML Rules
+
+| Rule ID | Forbidden Pattern | Correct Pattern | Severity |
+| :--- | :--- | :--- | :--- |
+| **HTML‑004** | `<span>Submit</span>` | `<span data‑i18n="btn_submit"></span>` | error |
+| **HTML‑013** | `<div class="button">` | `<button type="button">` | warn |
+| **HTML‑014** | `onclick="handle()"` | `data-action="handle"` + JS event delegation | error |
+
+### CSS Rules
+
+| Rule ID | Forbidden Pattern | Correct Pattern | Severity |
+| :--- | :--- | :--- | :--- |
+| **CSS‑012** | `.is-active { display: block }` | `[data-active="true"] { display: block }` | warn |
+| **CSS‑006** | `!important` | Refactor specificity | error |
 
 ## Persistence & Rehydration
 
 All **Global State** (attributes on `<body>`) is automatically mirrored in `localStorage`. On page load, `on_the_money.js` performs a **Handshake**: it reads the `localStorage` table and re‑applies every `data‑` attribute to the `<body>` before the first frame paints.
 
-## CSS Standard
+## Compatibility with Pico CSS
 
-All CSS must react to the state provided by `the()`. Example:
+`on_the_money.js` works perfectly with Pico CSS's classless approach:
 
-```css
-/* Good: Deterministic & Decoupled */
-[data-theme="dark"] { background: #000; }
-.menu[aria-expanded="open"] { transform: translateX(0); }
+1. **Semantic HTML**: Both enforce proper HTML element usage
+2. **Attribute‑based styling**: Use `[data-*]` selectors alongside Pico's semantic selectors
+3. **CSS Variables**: Set theme variables via `the()`: `the('theme', 'dark')` → `[data-theme="dark"] { --pico-primary: ... }`
+4. **No Class Conflicts**: Since Pico doesn't require classes, you're free to use `data-*` attributes exclusively for state
 
-/* Bad: Imperative & Hardcoded */
-.is-active { display: block; }
+## Gradual Adoption
+
+Enable rules incrementally in your `.eslintrc.js`:
+
+```javascript
+module.exports = {
+  plugins: ['on-the-money'],
+  rules: {
+    // Start with these critical rules
+    'on-the-money/js/no-inner-html': 'error',
+    'on-the-money/html/no-naked-strings': 'error',
+    
+    // Add these after initial cleanup
+    'on-the-money/js/no-direct-style': 'warn',
+    'on-the-money/html/semantic-elements': 'warn',
+    
+    // Enable these when ready for full compliance
+    'on-the-money/js/event-delegation': 'error',
+    'on-the-money/css/attribute-selectors': 'warn',
+  }
+};
+```
+
+Use disable comments for exceptional cases:
+```javascript
+// eslint-disable-next-line on-the-money/js/no-inner-html
+el.innerHTML = trustedSanitizedHTML; // Legacy integration
+```
+
+## Test Suite
+
+Run the test suite to verify your code follows on_the_money.js principles:
+
+```bash
+npm test
+```
+
+Or check specific files:
+
+```bash
+otm-lint --check ./src/components
+otm-lint --check ./src --ext .html,.js,.css
 ```
 
 ## Contributing

@@ -18,6 +18,22 @@
     "otm-lint": "./cli.js"
   },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "lint": "otm-lint --check ./src",
+    "lint:js": "eslint --ext .js src/",
+    "lint:html": "eslint --ext .html src/",
+    "lint:css": "stylelint src/**/*.css"
+  },
+  "keywords": [
+    "anti-framework",
+    "deterministic",
+    "a11y",
+    "i18n",
+    "state-management",
+    "eslint-plugin",
+    "linter"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
