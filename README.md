@@ -1,6 +1,6 @@
 # on_the_money.js 💸
 
-An opinionated web project **Anti‑Framework** that provides the ergonomic benefits of modern frameworks using only native browser APIs and strict architectural constraints.
+An opinionated web project **Anti‑Framework** that provides the ergonomic benefits of modern frameworks using only native browser APIs and strict architectural constraints. It includes a **hybrid linting system** with both a standalone CLI and ESLint plugin to enforce deterministic constraints across your entire project.
 
 ## Features
 
@@ -49,6 +49,28 @@ module.exports = {
   }
 };
 ```
+
+### Standalone CLI
+
+For quick one‑off checks, CI/CD pipelines, or non‑JavaScript projects, you can use the standalone CLI:
+
+```bash
+npx on_the_money.js --check
+```
+
+To install globally:
+
+```bash
+npm install -g on_the_money.js
+```
+
+Then run:
+
+```bash
+otm-lint --check ./src
+```
+
+The CLI supports the same five OTM rules and can check HTML, CSS, and JavaScript files.
 
 ## Quick Start
 
