@@ -1,0 +1,20 @@
+{
+  "name": "on_the_money.js",
+  "version": "0.1.1",
+  "description": "an opinionated web project anti-framework",
+  "homepage": "https://github.com/possumtech/on_the_money.js#readme",
+  "bugs": {
+    "url": "https://github.com/possumtech/on_the_money.js/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/possumtech/on_the_money.js.git"
+  },
+  "license": "MIT",
+  "author": "@wikitopian",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test"
+  }
+}
