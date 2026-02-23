@@ -10,13 +10,16 @@
   "scripts": {
     "test": "node --test test/core/**/*.test.js test/linter/rules.test.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=100 test/core/**/*.test.js test/linter/rules.test.js",
-    "check": "npm run test && npm run test:coverage",
-    "lint": "node src/linter/main.js --check ./src"
+    "check": "npm run lint && npm run test && npm run test:coverage",
+    "lint": "biome check ./src ./test ./examples",
+    "lint:fix": "biome check --write ./src ./test ./examples",
+    "otm": "node src/linter/main.js --check"
   },
   "engines": {
     "node": ">=20.0.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.4.4",
     "css-tree": "^3.0.0",
     "espree": "^10.0.0",
     "linkedom": "^0.18.12",

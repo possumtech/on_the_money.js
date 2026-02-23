@@ -1,99 +1,111 @@
 export default class The {
-  static dictionary = {};
-  static locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
+	static dictionary = {};
+	static locale =
+		typeof navigator !== "undefined" ? navigator.language : "en-US";
 
-  static the(...args) {
-    if (args.length === 2 && typeof args[0] === 'string') {
-      return this.#setGlobal(args[0], args[1]);
-    }
-    
-    const [el, key, val] = args;
-    if (typeof key === 'object') {
-      Object.entries(key).forEach(([k, v]) => this.#setScoped(el, k, v));
-      return el;
-    }
-    
-    return this.#setScoped(el, key, val);
-  }
+	static the(...args) {
+		if (args.length === 2 && typeof args[0] === "string") {
+			return The.#setGlobal(args[0], args[1]);
+		}
 
-  static _t(key, options = {}) {
-    if (!key) {
-      document.querySelectorAll('[data-i18n]').forEach(el => {
-        const k = el.getAttribute('data-i18n');
-        const qty = el.getAttribute('data-i18n-qty');
-        const val = el.getAttribute('data-i18n-val');
-        const type = el.getAttribute('data-i18n-type');
-        el.textContent = this._t(k, { 
-          qty: qty !== null ? Number(qty) : undefined, 
-          val: val !== null ? val : undefined, 
-          type 
-        });
-      });
-      return;
-    }
+		const [el, key, val] = args;
+		if (typeof key === "object") {
+			Object.entries(key).forEach(([k, v]) => {
+				The.#setScoped(el, k, v);
+			});
+			return el;
+		}
 
-    let entry = this.dictionary[key];
-    if (!entry) return key;
+		return The.#setScoped(el, key, val);
+	}
 
-    if (typeof entry === 'object' && options.qty !== undefined) {
-      const rule = new Intl.PluralRules(this.locale).select(options.qty);
-      entry = entry[rule] || entry.other;
-    }
+	static _t(key, options = {}) {
+		if (!key) {
+			document.querySelectorAll("[data-i18n]").forEach((el) => {
+				const k = el.getAttribute("data-i18n");
+				const qty = el.getAttribute("data-i18n-qty");
+				const val = el.getAttribute("data-i18n-val");
+				const type = el.getAttribute("data-i18n-type");
+				el.textContent = The._t(k, {
+					qty: qty !== null ? Number(qty) : undefined,
+					val: val !== null ? val : undefined,
+					type,
+				});
+			});
+			return;
+		}
 
-    if (typeof entry !== 'string') return key;
+		let entry = The.dictionary[key];
+		if (!entry) return key;
 
-    let result = entry;
-    if (options.val !== undefined) {
-      let formattedVal = options.val;
-      const numericVal = Number(options.val);
-      
-      if (options.type === 'currency') {
-        formattedVal = new Intl.NumberFormat(this.locale, { style: 'currency', currency: 'USD' }).format(numericVal);
-      } else if (options.type === 'date') {
-        const date = new Date(options.val);
-        formattedVal = isNaN(date.getTime()) ? options.val : new Intl.DateTimeFormat(this.locale).format(date);
-      } else if (options.type === 'number') {
-        formattedVal = new Intl.NumberFormat(this.locale).format(numericVal);
-      }
-      result = result.replace('{val}', formattedVal);
-    }
+		if (typeof entry === "object" && options.qty !== undefined) {
+			const rule = new Intl.PluralRules(The.locale).select(options.qty);
+			entry = entry[rule] || entry.other;
+		}
 
-    if (options.qty !== undefined) {
-      result = result.replace('{qty}', options.qty);
-    }
+		if (typeof entry !== "string") return key;
 
-    return result;
-  }
+		let result = entry;
+		if (options.val !== undefined) {
+			let formattedVal = options.val;
+			const numericVal = Number(options.val);
 
-  static #setGlobal(key, val) {
-    this.#setScoped(document.body, key, val);
-    localStorage.setItem(key, val);
-    document.querySelectorAll(`[data-text="${key}"]`).forEach(el => el.textContent = val);
-  }
+			if (options.type === "currency") {
+				formattedVal = new Intl.NumberFormat(The.locale, {
+					style: "currency",
+					currency: "USD",
+				}).format(numericVal);
+			} else if (options.type === "date") {
+				const date = new Date(options.val);
+				formattedVal = Number.isNaN(date.getTime())
+					? options.val
+					: new Intl.DateTimeFormat(The.locale).format(date);
+			} else if (options.type === "number") {
+				formattedVal = new Intl.NumberFormat(The.locale).format(numericVal);
+			}
+			result = result.replace("{val}", formattedVal);
+		}
 
-  static #setScoped(el, key, val) {
-    const ariaMap = {
-      expanded: 'aria-expanded',
-      selected: 'aria-selected',
-      hidden: 'aria-hidden',
-      checked: 'aria-checked',
-      disabled: 'aria-disabled'
-    };
+		if (options.qty !== undefined) {
+			result = result.replace("{qty}", options.qty);
+		}
 
-    const attr = ariaMap[key] || `data-${key}`;
-    el.setAttribute(attr, val);
-    
-    el.querySelectorAll(`[data-text="${key}"]`).forEach(item => item.textContent = val);
-    if (el.getAttribute('data-text') === key) el.textContent = val;
+		return result;
+	}
 
-    return el;
-  }
+	static #setGlobal(key, val) {
+		The.#setScoped(document.body, key, val);
+		localStorage.setItem(key, val);
+		document.querySelectorAll(`[data-text="${key}"]`).forEach((el) => {
+			el.textContent = val;
+		});
+	}
 
-  static handshake() {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      this.#setGlobal(key, localStorage.getItem(key));
-    }
-    this._t();
-  }
+	static #setScoped(el, key, val) {
+		const ariaMap = {
+			expanded: "aria-expanded",
+			selected: "aria-selected",
+			hidden: "aria-hidden",
+			checked: "aria-checked",
+			disabled: "aria-disabled",
+		};
+
+		const attr = ariaMap[key] || `data-${key}`;
+		el.setAttribute(attr, val);
+
+		el.querySelectorAll(`[data-text="${key}"]`).forEach((item) => {
+			item.textContent = val;
+		});
+		if (el.getAttribute("data-text") === key) el.textContent = val;
+
+		return el;
+	}
+
+	static handshake() {
+		for (let i = 0; i < localStorage.length; i++) {
+			const key = localStorage.key(i);
+			The.#setGlobal(key, localStorage.getItem(key));
+		}
+		The._t();
+	}
 }

@@ -2,16 +2,25 @@
 
 An opinionated web project **Anti-Framework** that enforces a deterministic, DOM-first approach using native browser APIs and strict architectural constraints.
 
+## Philosophy
+
+The web development industry is trapped in a cycle of architectural slop, trading performance for "experience" via massive frameworks and proprietary DSLs. **on_the_money.js** breaks this cycle as an Anti-Framework—a surgical collection of standard-aligned wrappers that return the power to the native platform.
+
+We must face a new reality: LLMs and AI agents are becoming the primary consumers of the web. If your site relies on non-semantic "clickable divs" and hidden JSON states, it is opaque to the next generation of the internet. By enforcing a deterministic, DOM-first architecture, we ensure your application is perfectly legible to both humans and machines.
+
+Our built-in linter acts as your architectural mentor, scolding you for inaccessible patterns and imperative shortcuts. We don't just help you build faster; we force you to build better by mandating the "Golden Standard" of accessibility and semantic clarity as the path of least resistance.
+
+Arriving at less than 1KB gzipped, we refuse to reimplement what the browser already does. By utilizing native `Intl` for localization and attribute selectors for logic, we deliver a payload that is faster than a typical framework's router alone. It’s time to stop the slop and reclaim the standards.
+
 ## Core Features
 
-- **DOM as Database**: Application state is reflected in attributes on DOM elements.
-- **Interactive Integrity**: Linter enforces A11y standards (labels, roles, interactive semantics).
-- **Advanced Localization**: Built-in `Intl` integration for plurals, currency, and date formatting.
-- **Pure Templating**: `$.clone('#template')` returns standard DOM elements.
-- **State Persistence**: `the()` manages state and automatically syncs with `localStorage`.
-- **CSS as UI Engine**: Visual transitions are triggered by attribute selectors.
+- **DOM as Database**: State is reflected in attributes, making it inspectable and persistent.
+- **Interactive Integrity**: Built-in A11y enforcement (roles, labels, and semantics).
+- **Advanced Localization**: Native `Intl` integration for plurals, currency, and date formatting.
+- **Pure Templating**: Standard DOM cloning with zero magic or proprietary DSLs.
+- **CSS as UI Engine**: Visual transitions are driven exclusively by attribute selectors.
 
-## API Reference (First-Class Exports)
+## API Reference
 
 ### `on(parent, event, selector, fn)`
 Event delegation and message passing.
@@ -21,28 +30,37 @@ Event delegation and message passing.
 ### `the(...)`
 State management and rehydration.
 - `the('key', 'value')` – Global state.
-- `the(el, { expanded: true })` – Scoped state.
+- `the(el, { expanded: true })` – Scoped state with ARIA mapping.
+- **Reactivity:** `data-text="key"` updates automatically when state changes.
 
-### `_t(key)`
+### `_t(key, options)`
 Advanced `Intl` localization engine.
-- `_t('cart_items', { qty: 5 })` – Standard ICU-like plurals.
-- **Declarative:** `<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency"></span>`
+- `_t('items', { qty: 5 })` – Localized pluralization.
+- **Declarative:** `<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency"></span>`
 
 ### `$(context, selector)`
-Context-aware selector.
+Context-aware selector and cloning.
+- `$(container, '.item')`
+- `$$(container, '.items')` – Returns a real Array.
 - `$.clone('#template')` – Instantiate templates.
 
-### `$$(context, selector)`
-Collection selector. Returns a **real Array**.
+## Quick Example (Todo App)
+```javascript
+import { on, the, $, $$ } from 'on_the_money.js';
 
-## Linter Rules (The Golden Standard)
+on('#todo-form', 'submit', (e) => {
+  e.preventDefault();
+  const task = $('#todo-input').value;
+  const item = the($.clone('#todo-item'), { task });
+  $('#todo-list').appendChild(item);
+});
+```
 
-| Rule ID | Forbidden Pattern | Correct Pattern |
-| :--- | :--- | :--- |
-| **HTML-017** | `<div data-action="...">` | `<button>` or `role="button"` |
-| **HTML-018** | `<input>` (No label) | `<label>` or `aria-label` |
-| **JS-015** | `el.textContent = "..."` | `the(el, 'key', 'val')` |
-| **JS-019** | `on(..., 'click', ...)` | Use `<form>` and `submit` |
+## Linter Rules
+The built-in linter enforces 15+ "Anti-Slop" rules, including:
+- **JS-015:** No direct `.textContent` manipulation.
+- **HTML-017:** No `data-action` on non-interactive elements without ARIA.
+- **JS-016:** No nested objects in `the()` state.
 
 ## Contributing
-See `AGENTS.md` for the roadmap and `LLM.md` for AI reference.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, `AGENTS.md` for the roadmap and `LLM.md` for AI-assisted development.

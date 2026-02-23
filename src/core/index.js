@@ -1,6 +1,6 @@
-import On from './On.js';
-import The from './The.js';
-import Select from './Select.js';
+import On from "./On.js";
+import Select from "./Select.js";
+import The from "./The.js";
 
 // Named Exports (First-Class Citizens)
 export const on = On.on;
@@ -19,6 +19,6 @@ export const $$ = Select.$$;
 export default { on, the, $, $$, _t };
 
 // The Handshake (Auto-rehydrate on import)
-if (typeof document !== 'undefined') {
-  The.handshake();
+if (typeof document !== "undefined") {
+	The.handshake();
 }

@@ -3,50 +3,55 @@
 This file provides high-signal instructions for LLMs building with `on_the_money.js`. 
 
 ## 1. Core Mandates
-- **DOM is the Database:** Never store state in JS variables. Use `the()`.
-- **CSS is the UI Engine:** Never manipulate `.style`. Use attribute selectors.
-- **Interactive Integrity:** Every interactive element must have appropriate ARIA roles and labels.
-- **Pure Standards:** ESNext only. Utilize native `Intl` for all localization.
+- **DOM is the Database:** State lives in attributes. Use `the()`.
+- **CSS is the UI Engine:** No `.style` manipulation. Use attribute selectors.
+- **Interactive Integrity:** All interactive elements need proper ARIA roles and labels.
+- **Pure Standards:** ESNext only. No proprietary DSLs.
 
-## 2. First-Class API
+## 2. API Reference
 
 ### `on` (Events)
-- `on(parent, event, selector, fn)`: Event delegation.
-- `on.emit(el, event, detail)`: Dispatch `CustomEvent`.
+- `on(parent, event, selector, fn)`: Delegation. Default parent is `document.body`.
+- `on.emit(el, event, detail)`: Native `CustomEvent` dispatch.
 
-### `the` (State)
-- `the(key, val)`: Set global state on `<body>`.
-- `the(el, key, val)`: Set scoped state on `el`. Returns `el`.
-- **Constraint:** Values must be **FLAT**.
+### `the` (Data & State)
+- `the(key, val)`: Set global state (auto-syncs to `localStorage`).
+- `the(el, key, val)`: Set scoped state. Returns `el`.
+- `the(el, { k: v })`: Batch set state. Returns `el`.
+- **Mapping:** Maps `expanded`, `hidden`, `selected`, `checked` to `aria-*`.
+- **Constraint:** Values must be **FLAT** primitives.
 
 ### `_t` (Localization)
-- `_t(key, options)`: Returns translated string using `Intl`.
+- `_t(key, options)`: Returns string using `Intl`.
 - `_t()`: Hydrates `data-i18n` elements.
-- **Advanced Attributes:** `data-i18n-qty` (plurals), `data-i18n-val` (values), `data-i18n-type` (currency/date/number).
+- **Attributes:** `data-i18n-qty` (plurals), `data-i18n-val`, `data-i18n-type`.
 
 ### `$` (DOM)
-- `$(context, selector)`: Find first element.
-- `$$(context, selector)`: Returns a real **Array**.
-- `$.clone(selector)`: Clone `<template>`.
+- `$(context, selector)`: Context-aware find.
+- `$$(context, selector)`: Returns real **Array**.
+- `$.clone(selector)`: Instantiates a `<template>`.
 
-## 3. Mandatory Patterns
+## 3. Gold Standard Patterns
 
-### List Rendering (Map & Append)
+### List Rendering
 ```javascript
 container.append(...items.map(i => the($.clone('#tmp'), i)));
 ```
 
-### Advanced Localization
+### Reactive Text
 ```html
-<!-- Native pluralization + currency formatting -->
-<span data-i18n="cart_total" data-i18n-qty="5" data-i18n-val="99.99" data-i18n-type="currency"></span>
+<h1 data-text="user-name"></h1>
+```
+```javascript
+the('user-name', 'Alice'); // <h1> updates automatically
 ```
 
 ## 4. Illegal Slop (Linter Rules)
 - `innerHTML` / `outerHTML`
 - `el.style.*`
-- `textContent` / `innerText` (Use `data-text` or `_t`)
-- `addEventListener` (Use `on()`)
-- Clickable non-interactive elements (Missing `role` or `tabindex`)
-- Form inputs missing labels.
-- `on(..., 'click', 'button', ...)` when it should be a `<form>` `submit`.
+- assignments to `textContent`, `innerText`, `nodeValue`.
+- `addEventListener` (Use `on()`).
+- Nested objects in `the()`.
+- Missing roles/tabindex on `data-action` targets.
+- Input elements without labels.
+- Prefer `submit` events over button `click` for data gathering.
