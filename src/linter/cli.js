@@ -10,17 +10,13 @@ export default class Cli {
 			const dirIndex = args.indexOf("--check") + 1;
 			const targetDir = args[dirIndex] || ".";
 			try {
-				const violations = await Cli.scan(targetDir);
-				if (violations > 0) {
-					process.exitCode = 1;
-				}
+				return await Cli.scan(targetDir);
 			} catch (e) {
 				console.error(`Error scanning ${targetDir}: ${e.message}`);
-				return false;
+				return -1;
 			}
-			return true;
 		}
-		return false;
+		return 0;
 	}
 
 	static async scan(dir) {

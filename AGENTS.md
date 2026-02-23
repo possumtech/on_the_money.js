@@ -1,7 +1,16 @@
 # on_the_money.js - Implementation Plan
 
 ## Phase 1: Create Test Infrastructure
-- [x] Create `test/` directory structure
+- [x] Create flattened `test/` directory structure:
+  ```
+  test/
+  ├── on.test.js
+  ├── the.test.js
+  ├── selectors.test.js
+  ├── i18n.test.js
+  ├── rules.test.js
+  └── cli.test.js
+  ```
 - [x] Move `fixtures/` to root
 - [x] Configure Node.js test runner for **ESNext / Modules**
 - [x] Integrate `linkedom` for unit testing

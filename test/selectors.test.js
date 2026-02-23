@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
-import Select from "../../src/core/Select.js";
+import Select from "../src/core/Select.js";
 
 const setupDOM = (html = "") => {
 	const { document } = parseHTML(

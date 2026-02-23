@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import test from "node:test";
-import Linter from "../../src/linter/Linter.js";
+import Linter from "../src/linter/Linter.js";
 
 test("Linter.check: JS-001 - should catch innerHTML assignments", (_t) => {
 	const code = 'element.innerHTML = "<div>bad</div>";';

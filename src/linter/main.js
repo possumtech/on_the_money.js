@@ -1,4 +1,7 @@
 #!/usr/bin/env node
 import Cli from "./cli.js";
 
-Cli.run(process.argv.slice(2));
+const result = await Cli.run(process.argv.slice(2));
+if (result !== 0) {
+	process.exitCode = 1;
+}

@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
-import On from "../../src/core/On.js";
+import On from "../src/core/On.js";
 
 const setupDOM = (html = "") => {
 	const { document, CustomEvent, Node } = parseHTML(
