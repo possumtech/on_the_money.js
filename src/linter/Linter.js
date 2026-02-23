@@ -169,7 +169,7 @@ export default class Linter {
 					"form",
 				];
 				const isSemantic = interactiveTags.includes(node.nodeName);
-				const hasA11y = attrs["role"] && attrs["tabindex"] !== undefined;
+				const hasA11y = attrs.role && attrs.tabindex !== undefined;
 
 				if (!isSemantic && !hasA11y) {
 					const loc = node.sourceCodeLocation?.attrs?.["data-action"] ||
@@ -186,7 +186,7 @@ export default class Linter {
 
 			// HTML-018: The Label Law
 			const inputTags = ["input", "select", "textarea"];
-			if (inputTags.includes(node.nodeName) && attrs["type"] !== "hidden") {
+			if (inputTags.includes(node.nodeName) && attrs.type !== "hidden") {
 				const hasAriaLabel = attrs["aria-label"] || attrs["aria-labelledby"];
 				if (!hasAriaLabel) {
 					const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };

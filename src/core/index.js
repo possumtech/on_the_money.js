@@ -20,5 +20,5 @@ export default { on, the, $, $$, _t };
 
 // The Handshake (Auto-rehydrate on import)
 if (typeof document !== "undefined") {
-	The.handshake();
+	the.ready = The.handshake();
 }

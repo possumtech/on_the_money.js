@@ -55,8 +55,8 @@ export default class Cli {
 				return res.isDirectory() ? Cli.getFiles(resPath) : resPath;
 			}),
 		);
-		return Array.prototype
-			.concat(...files)
+		return Array.prototype.concat
+			.apply([], files)
 			.filter((f) => [".js", ".html", ".css"].includes(path.extname(f)));
 	}
 

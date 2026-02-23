@@ -2,6 +2,7 @@ export default class The {
 	static dictionary = {};
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
+	static ready = null;
 
 	static the(...args) {
 		if (args.length === 2 && typeof args[0] === "string") {
@@ -32,7 +33,7 @@ export default class The {
 					type,
 				});
 			});
-			return;
+			return "";
 		}
 
 		let entry = The.dictionary[key];
@@ -101,7 +102,22 @@ export default class The {
 		return el;
 	}
 
-	static handshake() {
+	static async handshake() {
+		const meta = document.querySelector('meta[name="otm-i18n"]');
+		if (meta) {
+			const path = meta.getAttribute("content");
+			const fallback = meta.getAttribute("data-fallback") || "en";
+			const lng = The.locale.split("-")[0];
+
+			try {
+				let res = await fetch(`${path}/${lng}.json`);
+				if (!res.ok) res = await fetch(`${path}/${fallback}.json`);
+				if (res.ok) The.dictionary = await res.json();
+			} catch (e) {
+				console.warn("otm: i18n fetch failed", e);
+			}
+		}
+
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
 			The.#setGlobal(key, localStorage.getItem(key));

@@ -17,14 +17,14 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 ### `the` (Data & State)
 - `the(key, val)`: Set global state (auto-syncs to `localStorage`).
 - `the(el, key, val)`: Set scoped state. Returns `el`.
-- `the(el, { k: v })`: Batch set state. Returns `el`.
+- `the.ready`: Promise that resolves after Handshake (rehydration + i18n fetch).
 - **Mapping:** Maps `expanded`, `hidden`, `selected`, `checked` to `aria-*`.
 - **Constraint:** Values must be **FLAT** primitives.
 
 ### `_t` (Localization)
 - `_t(key, options)`: Returns string using `Intl`.
 - `_t()`: Hydrates `data-i18n` elements.
-- **Attributes:** `data-i18n-qty` (plurals), `data-i18n-val`, `data-i18n-type`.
+- **Auto-Boot:** Presence of `<meta name="otm-i18n" content="/locales">` triggers automatic fetch of `{lang}.json`.
 
 ### `$` (DOM)
 - `$(context, selector)`: Context-aware find.
@@ -32,6 +32,12 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 - `$.clone(selector)`: Instantiates a `<template>`.
 
 ## 3. Gold Standard Patterns
+
+### Initialization
+```javascript
+import { the } from 'on_the_money.js';
+await the.ready; // Ensure i18n and state are rehydrated
+```
 
 ### List Rendering
 ```javascript
