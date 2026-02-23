@@ -11,9 +11,9 @@ export default class The {
 
 		const [el, key, val] = args;
 		if (typeof key === "object") {
-			Object.entries(key).forEach(([k, v]) => {
+			for (const [k, v] of Object.entries(key)) {
 				The.#setScoped(el, k, v);
-			});
+			}
 			return el;
 		}
 
@@ -22,7 +22,8 @@ export default class The {
 
 	static _t(key, options = {}) {
 		if (!key) {
-			document.querySelectorAll("[data-i18n]").forEach((el) => {
+			const elements = document.querySelectorAll("[data-i18n]");
+			for (const el of elements) {
 				const k = el.getAttribute("data-i18n");
 				const params = {};
 				for (const attr of el.attributes) {
@@ -36,7 +37,7 @@ export default class The {
 				}
 				const type = el.getAttribute("data-i18n-type");
 				el.textContent = The._t(k, { ...params, type });
-			});
+			}
 			return "";
 		}
 
@@ -79,9 +80,10 @@ export default class The {
 	static #setGlobal(key, val) {
 		The.#setScoped(document.body, key, val);
 		localStorage.setItem(key, val);
-		document.querySelectorAll(`[data-text="${key}"]`).forEach((el) => {
+		const elements = document.querySelectorAll(`[data-text="${key}"]`);
+		for (const el of elements) {
 			el.textContent = val;
-		});
+		}
 	}
 
 	static #setScoped(el, key, val) {
@@ -96,9 +98,10 @@ export default class The {
 		const attr = ariaMap[key] || `data-${key}`;
 		el.setAttribute(attr, val);
 
-		el.querySelectorAll(`[data-text="${key}"]`).forEach((item) => {
+		const items = el.querySelectorAll(`[data-text="${key}"]`);
+		for (const item of items) {
 			item.textContent = val;
-		});
+		}
 		if (el.getAttribute("data-text") === key) el.textContent = val;
 
 		return el;

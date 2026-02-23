@@ -58,10 +58,10 @@ export default class Cli {
 
 	static report(file, violations) {
 		console.log(`\nIn ${file}:`);
-		violations.forEach((v) => {
+		for (const v of violations) {
 			console.log(
 				`  [${v.ruleId}] Line ${v.line}, Col ${v.column}: ${v.message}`,
 			);
-		});
+		}
 	}
 }

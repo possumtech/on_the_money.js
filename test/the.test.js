@@ -10,7 +10,9 @@ const setupDOM = (html = "") => {
 	const storage = {};
 	globalThis.localStorage = {
 		getItem: (k) => storage[k] || null,
-		setItem: (k, v) => (storage[k] = String(v)),
+		setItem: (k, v) => {
+			storage[k] = String(v);
+		},
 		key: (i) => Object.keys(storage)[i],
 		get length() {
 			return Object.keys(storage).length;

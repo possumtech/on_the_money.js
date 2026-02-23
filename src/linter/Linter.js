@@ -123,9 +123,9 @@ export default class Linter {
 			if (args[0].type === "Literal") {
 				Linter.#checkPrimitive(args[1], violations, file);
 			} else if (args[1].type === "ObjectExpression") {
-				args[1].properties.forEach((prop) => {
+				for (const prop of args[1].properties) {
 					Linter.#checkPrimitive(prop.value, violations, file);
-				});
+				}
 			}
 		} else if (args.length === 3) {
 			Linter.#checkPrimitive(args[2], violations, file);
@@ -206,7 +206,7 @@ export default class Linter {
 			}
 
 			if (node.attrs) {
-				node.attrs.forEach((attr) => {
+				for (const attr of node.attrs) {
 					if (attr.name.startsWith("on")) {
 						const loc =
 							node.sourceCodeLocation?.attrs?.[attr.name] ||
@@ -221,7 +221,7 @@ export default class Linter {
 							`Inline handler '${attr.name}' is forbidden.`,
 						);
 					}
-				});
+				}
 			}
 
 			if (node.nodeName === "#text") {
@@ -332,9 +332,9 @@ export default class Linter {
 			const val = node[key];
 			if (val && typeof val === "object") {
 				if (Array.isArray(val)) {
-					val.forEach((item) => {
+					for (const item of val) {
 						Linter.#traverseJs(item, callback);
-					});
+					}
 				} else {
 					Linter.#traverseJs(val, callback);
 				}
@@ -346,9 +346,9 @@ export default class Linter {
 		if (!node) return;
 		callback(node);
 		if (node.childNodes) {
-			node.childNodes.forEach((child) => {
+			for (const child of node.childNodes) {
 				Linter.#traverseHtml(child, callback);
-			});
+			}
 		}
 	}
 }

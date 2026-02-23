@@ -1,18 +1,22 @@
 export default class Select {
 	static $(context, selector) {
-		if (typeof context === "string") {
-			selector = context;
-			context = document;
+		let ctx = context;
+		let sel = selector;
+		if (typeof ctx === "string") {
+			sel = ctx;
+			ctx = document;
 		}
-		return context.querySelector(selector);
+		return ctx.querySelector(sel);
 	}
 
 	static $$(context, selector) {
-		if (typeof context === "string") {
-			selector = context;
-			context = document;
+		let ctx = context;
+		let sel = selector;
+		if (typeof ctx === "string") {
+			sel = ctx;
+			ctx = document;
 		}
-		return Array.from(context.querySelectorAll(selector));
+		return Array.from(ctx.querySelectorAll(sel));
 	}
 
 	static clone(selector) {
