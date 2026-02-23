@@ -22,7 +22,7 @@
 		"otm": "node src/linter/main.js --check"
 	},
 	"engines": {
-		"node": ">=20.0.0"
+		"node": ">=24.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
