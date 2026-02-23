@@ -4,31 +4,32 @@ An opinionated web project **Anti-Framework** that enforces a deterministic, DOM
 
 ## Core Features
 
-- **ESNext-Only**: Pure ES modules. No polyfills, no backwards compatibility, no legacy support.
-- **Class-Based Modularity**: Every component is defined as an `export default class`.
 - **DOM as Database**: Application state is reflected in attributes on DOM elements.
-- **ARIA as State**: Standard `aria-` attributes (e.g., `aria-expanded`) are preferred for UI state.
-- **CSS as UI Engine**: Visual changes are handled by CSS attribute selectors, never by JS style manipulation.
-- **No String Injection**: `innerHTML` is forbidden. Use `<template>` cloning for dynamic content.
-- **Deterministic Localization**: UI text must be keyed through `_t()` or `data-i18n`.
-- **Persistence**: Global and scoped state is persisted in `localStorage`.
-- **Custom Linter**: A syntax-tree-based linter enforces these constraints using `espree`, `parse5`, and `css-tree`.
+- **Fluent Delegation**: `on().click(selector, fn)` defaults to `document.body` for concision.
+- **State Persistence**: `the()` manages state attributes and automatically syncs with `localStorage`.
+- **Pure Templating**: `clone('#template')` returns standard DOM elements for native manipulation.
+- **CSS as UI Engine**: Visual transitions are triggered by attribute selectors.
+- **Deterministic Localization**: UI text is populated via `_t()` or `data-i18n`.
 
 ## API Reference (Under Design)
 
-### `on(parent, event, selector, callback)`
-Event delegation handler. Implemented in `src/core/On.js`.
+### `on(parent)`
+Fluent event delegation handler. Implemented in `src/core/On.js`.
+- `on().click('.btn', fn)` – Body delegation.
+- `on('#menu').hover('.item', fn)` – Scoped delegation.
 
 ### `the(...)`
-Overloaded helper for state and templating. Implemented in `src/core/The.js`.
+State management and rehydration. Implemented in `src/core/The.js`.
 - `the('key', 'value')` – Sets global state on `<body>`.
-- `the('.selector', 'key', 'value')` – Sets scoped state on matched elements.
-- `the('#template-id', data)` – Clones a template and stamps it with data attributes.
+- `the(el, 'expanded', true)` – Sets scoped state on `el` and maps to `aria-expanded`.
+
+### `clone(selector)`
+Templates without the magic. Implemented in `src/core/Clone.js`.
+- `const card = clone('#user-card');` – Clones and returns the first element.
 
 ### `$()` and `$$()`
 Selectors implemented in `src/core/Select.js`.
-- `$(selector)` returns the first matching element.
-- `$$(selector)` returns an Array of matching elements.
+- `$(context, selector)` – Context defaults to `document`.
 
 ### `_t(key)`
 Localization engine implemented in `src/core/Translate.js`.
@@ -38,10 +39,10 @@ Localization engine implemented in `src/core/Translate.js`.
 ### JavaScript (JS)
 | Rule ID | Forbidden Pattern | Correct Pattern |
 | :--- | :--- | :--- |
-| **JS-001** | `el.innerHTML = "..."` | `the('#template', data)` |
+| **JS-001** | `el.innerHTML = "..."` | `const el = clone('#tmp');` |
 | **JS-002** | `let status = 'active'` | `the('status', 'active')` |
-| **JS-003** | `el.style.display = 'none'` | `the(el, 'visible', 'false')` + CSS |
-| **JS-009** | `dynamicEl.addEventListener()` | `on(parent, 'click', selector, fn)` |
+| **JS-003** | `el.style.display = 'none'` | `the(el, 'hidden', 'true')` + CSS |
+| **JS-009** | `el.addEventListener()` | `on().click(selector, fn)` |
 
 ### HTML (HTML)
 | Rule ID | Forbidden Pattern | Correct Pattern |
