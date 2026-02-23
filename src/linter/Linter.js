@@ -103,7 +103,7 @@ export default class Linter {
 
       // HTML-017: Interactive Identity
       if (attrs['data-action']) {
-        const interactiveTags = ['button', 'a', 'input', 'select', 'textarea'];
+        const interactiveTags = ['button', 'a', 'input', 'select', 'textarea', 'form'];
         const isSemantic = interactiveTags.includes(node.nodeName);
         const hasA11y = attrs['role'] && attrs['tabindex'] !== undefined;
         
