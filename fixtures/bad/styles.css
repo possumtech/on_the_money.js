@@ -1,0 +1,13 @@
+/* CSS-006: Bad (Important) */
+.active {
+  color: red !important;
+}
+
+/* CSS-012: Bad (Classes) */
+.is-open {
+  display: block;
+}
+
+.button-primary {
+  background: blue;
+}

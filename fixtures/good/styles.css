@@ -1,0 +1,12 @@
+/* CSS-006 & CSS-012: Good */
+main {
+  color: #333;
+}
+
+[aria-expanded="true"] {
+  display: block;
+}
+
+[data-theme="dark"] {
+  background: black;
+}
