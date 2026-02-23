@@ -10,20 +10,20 @@
   │   ├── the.test.js
   │   ├── selectors.test.js
   │   └── i18n.test.js
-  ├── linter/
-  │   ├── rules.test.js
-  │   └── cli.test.js
-  └── fixtures/
-      ├── good/
-      │   ├── event-delegation.js
-      │   ├── template-stamping.js
-      │   ├── semantic.html
-      │   └── attribute-selectors.css
-      └── bad/
-          ├── inner-html.js
-          ├── direct-style.js
-          ├── naked-strings.html
-          └── important.css
+  └── linter/
+      ├── rules.test.js
+      └── cli.test.js
+  fixtures/
+  ├── good/
+  │   ├── event-delegation.js
+  │   ├── template-stamping.js
+  │   ├── semantic.html
+  │   └── attribute-selectors.css
+  └── bad/
+      ├── inner-html.js
+      ├── direct-style.js
+      ├── naked-strings.html
+      └── important.css
   ```
 - [ ] Configure Node.js test runner for **ESNext / Modules**
 - [ ] Create failing tests for all core functions (`on`, `the`, `$`, `$$`, `_t`)

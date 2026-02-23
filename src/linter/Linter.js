@@ -33,8 +33,45 @@ export default class Linter {
           message: 'Assignment to innerHTML is strictly forbidden.'
         });
       }
+
+      // JS-003: No direct style manipulation
+      if (this.#isDirectStyleManipulation(node)) {
+        violations.push({
+          file,
+          ruleId: 'JS-003',
+          line: node.loc.start.line,
+          column: node.loc.start.column,
+          message: 'Direct style manipulation is forbidden. Use the() and CSS instead.'
+        });
+      }
     });
   }
+
+  static #isDirectStyleManipulation(node) {
+    // el.style.color = "..."
+    if (
+      node.type === 'AssignmentExpression' &&
+      node.left.type === 'MemberExpression' &&
+      node.left.object.type === 'MemberExpression' &&
+      node.left.object.property.name === 'style'
+    ) {
+      return true;
+    }
+
+    // delete el.style.color
+    if (
+      node.type === 'UnaryExpression' &&
+      node.operator === 'delete' &&
+      node.argument.type === 'MemberExpression' &&
+      node.argument.object.type === 'MemberExpression' &&
+      node.argument.object.property.name === 'style'
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
 
   static #traverse(node, callback) {
     if (!node) return;

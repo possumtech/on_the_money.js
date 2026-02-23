@@ -20,3 +20,17 @@ test('Linter.check: JS-001 - should allow normal properties', (t) => {
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 0);
 });
+
+test('Linter.check: JS-003 - should catch direct style assignments', (t) => {
+  const code = 'el.style.display = "none";';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'JS-003');
+});
+
+test('Linter.check: JS-003 - should catch style property deletions', (t) => {
+  const code = 'delete el.style.color;';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
+});
+
