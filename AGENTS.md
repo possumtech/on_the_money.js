@@ -4,7 +4,7 @@
 - [x] Create `test/` directory structure
 - [x] Move `fixtures/` to root
 - [x] Configure Node.js test runner for **ESNext / Modules**
-- [ ] Create failing tests for refined core functions (`on`, `the`, `$`, `$$`, `_t`, `clone`)
+- [ ] Create failing tests for refined core functions (`on`, `the`, `$`, `$$`, `_t`, `clone`, `emit`)
 
 ## Phase 2: Implement Syntax-Tree Based Linter
 - [x] Integrate parsing libraries: `espree`, `parse5`, `css-tree`
@@ -17,8 +17,9 @@
 
 ## Phase 3: Implement Core Library
 ### Goal: Implement core functions using `export default class` structure
-- [ ] Create `src/core/On.js` - Fluent event delegation
-- [ ] Create `src/core/The.js` - State management & ARIA mapping
+- [ ] Create `src/core/On.js` - Standard event delegation
+- [ ] Create `src/core/Emit.js` - CustomEvent dispatcher
+- [ ] Create `src/core/The.js` - State, ARIA mapping, and `data-text` syncing
 - [ ] Create `src/core/Clone.js` - Pure template cloning
 - [ ] Create `src/core/Select.js` - Context-aware selectors
 - [ ] Create `src/core/Translate.js` - Localization
@@ -30,10 +31,10 @@
 - [ ] Verify ARIA attributes are correctly used as state
 
 ## Phase 5: Documentation & Polish
-- [ ] Finalize API documentation in README.md and SPEC.md
+- [ ] Finalize API documentation in README.md, SPEC.md, and THEORY.md
 
 ## Immediate Next Actions:
-1. Update `src/core/index.js` to include `Clone.js`
-2. Implement refined `Select.js` with `$(context, selector)`
-3. Implement `Clone.js` skeleton
-4. Update core tests to match new signatures
+1. Create `src/core/Emit.js` skeleton
+2. Update `src/core/index.js` to include `Emit.js`
+3. Update core tests to match new `on` signature and add `emit`
+4. Implement refined `Select.js` with `$(context, selector)`
