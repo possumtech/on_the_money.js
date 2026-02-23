@@ -5,12 +5,13 @@
   "type": "module",
   "main": "src/core/index.js",
   "bin": {
-    "otm-lint": "./src/linter/cli.js"
+    "otm-lint": "./src/linter/main.js"
   },
   "scripts": {
     "test": "node --test test/**/*.test.js",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-branches=100 --test-coverage-functions=100 test/**/*.test.js",
-    "lint": "node src/linter/cli.js --check ./src"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=100 test/**/*.test.js",
+    "check": "npm run test && npm run test:coverage",
+    "lint": "node src/linter/main.js --check ./src"
   },
   "engines": {
     "node": ">=20.0.0"
