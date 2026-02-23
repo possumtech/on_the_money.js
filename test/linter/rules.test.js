@@ -54,6 +54,13 @@ test('Linter.check: JS-011 - should allow static attribute names', (t) => {
   assert.strictEqual(violations.length, 0);
 });
 
+test('Linter.check: JS-015 - should catch textContent assignments', (t) => {
+  const code = 'el.textContent = "bad";';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'JS-015');
+});
+
 test('Linter.check: Unsupported extension should return empty violations', (t) => {
   const violations = Linter.check('test.txt', 'hello');
   assert.strictEqual(violations.length, 0);

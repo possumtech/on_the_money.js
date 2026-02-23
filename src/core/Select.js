@@ -1,9 +1,13 @@
 export default class Select {
-  static $(selector) {
+  static $(context, selector) {
     throw new Error('Select.$: Not implemented');
   }
 
-  static $$(selector) {
+  static $$(context, selector) {
     throw new Error('Select.$$: Not implemented');
+  }
+
+  static clone(selector) {
+    throw new Error('Select.clone: Not implemented');
   }
 }

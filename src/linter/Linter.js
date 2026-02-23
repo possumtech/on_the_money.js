@@ -50,6 +50,12 @@ export default class Linter {
           node.arguments?.[0]?.type !== 'Literal') {
         this.#addViolation(violations, file, node.loc.start, 'JS-011', 'Dynamic attribute names are forbidden. Use static strings only.');
       }
+
+      // JS-015: No direct text manipulation
+      if (node.type === 'AssignmentExpression' && 
+          ['textContent', 'innerText', 'nodeValue'].includes(node.left?.property?.name)) {
+        this.#addViolation(violations, file, node.loc.start, 'JS-015', 'Direct text manipulation is forbidden. Use the() or the._t() instead.');
+      }
     });
   }
 
