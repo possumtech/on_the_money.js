@@ -1,5 +1,6 @@
 export default class The {
   static dictionary = {};
+  static locale = typeof navigator !== 'undefined' ? navigator.language : 'en-US';
 
   static the(...args) {
     if (args.length === 2 && typeof args[0] === 'string') {
@@ -15,21 +16,58 @@ export default class The {
     return this.#setScoped(el, key, val);
   }
 
-  static _t(key) {
+  static _t(key, options = {}) {
     if (!key) {
       document.querySelectorAll('[data-i18n]').forEach(el => {
         const k = el.getAttribute('data-i18n');
-        if (this.dictionary[k]) el.textContent = this.dictionary[k];
+        const qty = el.getAttribute('data-i18n-qty');
+        const val = el.getAttribute('data-i18n-val');
+        const type = el.getAttribute('data-i18n-type');
+        el.textContent = this._t(k, { 
+          qty: qty !== null ? Number(qty) : undefined, 
+          val: val !== null ? val : undefined, 
+          type 
+        });
       });
       return;
     }
-    return this.dictionary[key];
+
+    let entry = this.dictionary[key];
+    if (!entry) return key;
+
+    if (typeof entry === 'object' && options.qty !== undefined) {
+      const rule = new Intl.PluralRules(this.locale).select(options.qty);
+      entry = entry[rule] || entry.other;
+    }
+
+    if (typeof entry !== 'string') return key;
+
+    let result = entry;
+    if (options.val !== undefined) {
+      let formattedVal = options.val;
+      const numericVal = Number(options.val);
+      
+      if (options.type === 'currency') {
+        formattedVal = new Intl.NumberFormat(this.locale, { style: 'currency', currency: 'USD' }).format(numericVal);
+      } else if (options.type === 'date') {
+        const date = new Date(options.val);
+        formattedVal = isNaN(date.getTime()) ? options.val : new Intl.DateTimeFormat(this.locale).format(date);
+      } else if (options.type === 'number') {
+        formattedVal = new Intl.NumberFormat(this.locale).format(numericVal);
+      }
+      result = result.replace('{val}', formattedVal);
+    }
+
+    if (options.qty !== undefined) {
+      result = result.replace('{qty}', options.qty);
+    }
+
+    return result;
   }
 
   static #setGlobal(key, val) {
     this.#setScoped(document.body, key, val);
     localStorage.setItem(key, val);
-    // Sync all data-text elements in the whole document
     document.querySelectorAll(`[data-text="${key}"]`).forEach(el => el.textContent = val);
   }
 
@@ -45,9 +83,7 @@ export default class The {
     const attr = ariaMap[key] || `data-${key}`;
     el.setAttribute(attr, val);
     
-    // Sync scoped data-text elements if this is a container
     el.querySelectorAll(`[data-text="${key}"]`).forEach(item => item.textContent = val);
-    // Also check if el itself is a data-text target
     if (el.getAttribute('data-text') === key) el.textContent = val;
 
     return el;
