@@ -1,13 +1,23 @@
 export default class Select {
   static $(context, selector) {
-    throw new Error('Select.$: Not implemented');
+    if (typeof context === 'string') {
+      selector = context;
+      context = document;
+    }
+    return context.querySelector(selector);
   }
 
   static $$(context, selector) {
-    throw new Error('Select.$$: Not implemented');
+    if (typeof context === 'string') {
+      selector = context;
+      context = document;
+    }
+    return Array.from(context.querySelectorAll(selector));
   }
 
   static clone(selector) {
-    throw new Error('Select.clone: Not implemented');
+    const template = document.querySelector(selector);
+    if (!template) throw new Error(`Template not found: ${selector}`);
+    return template.content.cloneNode(true).firstElementChild;
   }
 }
