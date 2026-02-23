@@ -5,8 +5,8 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 ## 1. Core Mandates
 - **DOM is the Database:** Never store state in JS variables. Use `the()`.
 - **CSS is the UI Engine:** Never manipulate `.style`. Use attribute selectors.
-- **No DSLs:** Use standard HTML/CSS. No `{{}}`, no `v-if`.
-- **Pure Standards:** ESNext only. No polyfills.
+- **Interactive Integrity:** Every interactive element must have appropriate ARIA roles and labels.
+- **Pure Standards:** ESNext only. Utilize native `Intl` for all localization.
 
 ## 2. First-Class API
 
@@ -17,40 +17,36 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 ### `the` (State)
 - `the(key, val)`: Set global state on `<body>`.
 - `the(el, key, val)`: Set scoped state on `el`. Returns `el`.
-- `the(el, { k: v })`: Set multiple states. Returns `el`.
+- **Constraint:** Values must be **FLAT**.
 
 ### `_t` (Localization)
-- `_t(key)`: Returns translated string.
-- `_t()`: Hydrates all `data-i18n` elements.
+- `_t(key, options)`: Returns translated string using `Intl`.
+- `_t()`: Hydrates `data-i18n` elements.
+- **Advanced Attributes:** `data-i18n-qty` (plurals), `data-i18n-val` (values), `data-i18n-type` (currency/date/number).
 
 ### `$` (DOM)
 - `$(context, selector)`: Find first element.
-- `$.clone(selector)`: Clone `<template>`. Returns first element node.
-
-### `$$` (Collections)
 - `$$(context, selector)`: Returns a real **Array**.
+- `$.clone(selector)`: Clone `<template>`.
 
 ## 3. Mandatory Patterns
 
 ### List Rendering (Map & Append)
 ```javascript
-const items = [{id: 1, name: 'A'}];
 container.append(...items.map(i => the($.clone('#tmp'), i)));
 ```
 
-### Text Reactivity
+### Advanced Localization
 ```html
-<h1 data-text="user-name"></h1>
-```
-```javascript
-the('user-name', 'Alice'); // Updates <h1> automatically
+<!-- Native pluralization + currency formatting -->
+<span data-i18n="cart_total" data-i18n-qty="5" data-i18n-val="99.99" data-i18n-type="currency"></span>
 ```
 
 ## 4. Illegal Slop (Linter Rules)
 - `innerHTML` / `outerHTML`
 - `el.style.*`
-- `addEventListener`
-- `textContent` / `innerText`
-- Nested objects in `the()` (State must be flat)
-- Class selectors in CSS for state
-- `!important` in CSS
+- `textContent` / `innerText` (Use `data-text` or `_t`)
+- `addEventListener` (Use `on()`)
+- Clickable non-interactive elements (Missing `role` or `tabindex`)
+- Form inputs missing labels.
+- `on(..., 'click', 'button', ...)` when it should be a `<form>` `submit`.

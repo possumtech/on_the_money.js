@@ -64,6 +64,14 @@ export default class Linter {
           this.#checkFlatState(node, violations, file);
         }
       }
+
+      // JS-019: Prefer Form Submit
+      if (node.type === 'CallExpression' && 
+          (node.callee?.name === 'on' || node.callee?.property?.name === 'on') &&
+          node.arguments?.[1]?.value === 'click' &&
+          (node.arguments?.[2]?.value === 'button' || node.arguments?.[2]?.value?.includes('button'))) {
+        this.#addViolation(violations, file, node.loc.start, 'JS-019', 'Prefer using <form> submit events over direct button click listeners for data gathering.');
+      }
     });
   }
 
@@ -91,6 +99,32 @@ export default class Linter {
 
   static #checkHtmlRules(document, violations, file) {
     this.#traverseHtml(document, (node) => {
+      const attrs = node.attrs ? Object.fromEntries(node.attrs.map(a => [a.name, a.value])) : {};
+
+      // HTML-017: Interactive Identity
+      if (attrs['data-action']) {
+        const interactiveTags = ['button', 'a', 'input', 'select', 'textarea'];
+        const isSemantic = interactiveTags.includes(node.nodeName);
+        const hasA11y = attrs['role'] && attrs['tabindex'] !== undefined;
+        
+        if (!isSemantic && !hasA11y) {
+          const loc = node.sourceCodeLocation?.attrs?.['data-action'] || node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+          this.#addViolation(violations, file, { line: loc.startLine, column: loc.startCol }, 'HTML-017', 'Non-semantic interactive element. Use a <button> or add role and tabindex.');
+        }
+      }
+
+      // HTML-018: The Label Law
+      const inputTags = ['input', 'select', 'textarea'];
+      if (inputTags.includes(node.nodeName) && attrs['type'] !== 'hidden') {
+        const hasAriaLabel = attrs['aria-label'] || attrs['aria-labelledby'];
+        // Note: Simple check for <label> association would require traversing up/down, 
+        // for now we enforce aria-label or explicit role if needed.
+        if (!hasAriaLabel) {
+          const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+          this.#addViolation(violations, file, { line: loc.startLine, column: loc.startCol }, 'HTML-018', 'Form inputs must have a label or aria-label.');
+        }
+      }
+
       if (node.attrs) {
         node.attrs.forEach(attr => {
           if (attr.name.startsWith('on')) {

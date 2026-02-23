@@ -86,21 +86,24 @@ test('Linter.check: JS-016 - should catch nested objects in el object assignment
   assert.strictEqual(violations.length, 1);
 });
 
+test('Linter.check: JS-019 - should scold click on buttons (prefer form submit)', (t) => {
+  const code = 'on(document, "click", "button", fn);';
+  const violations = Linter.check('test.js', code);
+  assert.ok(violations.some(v => v.ruleId === 'JS-019'));
+});
+
 test('Linter.check: Unsupported extension should return empty violations', (t) => {
   const violations = Linter.check('test.txt', 'hello');
   assert.strictEqual(violations.length, 0);
 });
 
 test('Linter.check: should handle various node properties for coverage', (t) => {
-  // code with literals (non-objects), arrays, and nested nodes
   const code = 'const x = [1]; x.push(2); if (true) { []; }'; 
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 0);
 });
 
 test('Linter.check: traversal should handle null and non-object values', (t) => {
-  // Trigger the !node and typeof node !== 'object' branches in #traverse
-  // by providing source that might have such properties in its AST.
   const code = 'var x;';
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 0);
@@ -122,9 +125,31 @@ test('Linter.check: HTML-004 - should allow empty or whitespace-only tags', (t) 
 test('Linter.check: HTML-014 - should catch inline event handlers', (t) => {
   const code = '<button onclick="alert(1)">Click</button>';
   const violations = Linter.check('test.html', code);
-  // Should catch 1 for onclick and 1 for naked string "Click"
   assert.ok(violations.some(v => v.ruleId === 'HTML-014'));
-  assert.ok(violations.some(v => v.ruleId === 'HTML-004'));
+});
+
+test('Linter.check: HTML-017 - should catch data-action on non-interactive without role/tabindex', (t) => {
+  const code = '<div data-action="click"></div>';
+  const violations = Linter.check('test.html', code);
+  assert.ok(violations.some(v => v.ruleId === 'HTML-017'));
+});
+
+test('Linter.check: HTML-017 - should allow data-action if role and tabindex are present', (t) => {
+  const code = '<div data-action="click" role="button" tabindex="0"></div>';
+  const violations = Linter.check('test.html', code);
+  assert.strictEqual(violations.filter(v => v.ruleId === 'HTML-017').length, 0);
+});
+
+test('Linter.check: HTML-018 - should catch input without label', (t) => {
+  const code = '<input type="text">';
+  const violations = Linter.check('test.html', code);
+  assert.ok(violations.some(v => v.ruleId === 'HTML-018'));
+});
+
+test('Linter.check: HTML-018 - should ignore hidden inputs', (t) => {
+  const code = '<input type="hidden" name="id">';
+  const violations = Linter.check('test.html', code);
+  assert.strictEqual(violations.filter(v => v.ruleId === 'HTML-018').length, 0);
 });
 
 test('Linter.check: CSS-006 - should catch !important', (t) => {

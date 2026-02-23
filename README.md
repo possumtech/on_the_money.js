@@ -5,46 +5,44 @@ An opinionated web project **Anti-Framework** that enforces a deterministic, DOM
 ## Core Features
 
 - **DOM as Database**: Application state is reflected in attributes on DOM elements.
-- **Pure Templating**: `$.clone('#template')` returns standard DOM elements for native manipulation.
+- **Interactive Integrity**: Linter enforces A11y standards (labels, roles, interactive semantics).
+- **Advanced Localization**: Built-in `Intl` integration for plurals, currency, and date formatting.
+- **Pure Templating**: `$.clone('#template')` returns standard DOM elements.
 - **State Persistence**: `the()` manages state and automatically syncs with `localStorage`.
-- **Reactivity**: `data-text="key"` automatically syncs state to text content.
 - **CSS as UI Engine**: Visual transitions are triggered by attribute selectors.
-- **Deterministic Localization**: UI text is populated via `_t()` or `data-i18n`.
 
 ## API Reference (First-Class Exports)
 
 ### `on(parent, event, selector, fn)`
-Standard event delegation.
+Event delegation and message passing.
 - `on(document.body, 'click', '.btn', fn)`
 - `on.emit(el, 'custom-event', { detail })`
 
 ### `the(...)`
 State management and rehydration.
-- `the('key', 'value')` – Global state on `<body>`.
-- `the(el, { expanded: true })` – Scoped state and ARIA mapping.
+- `the('key', 'value')` – Global state.
+- `the(el, { expanded: true })` – Scoped state.
 
 ### `_t(key)`
-Localization engine.
-- `_t('save')` – Returns translation.
-- `_t()` – Hydrates all `data-i18n` elements.
+Advanced `Intl` localization engine.
+- `_t('cart_items', { qty: 5 })` – Standard ICU-like plurals.
+- **Declarative:** `<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency"></span>`
 
 ### `$(context, selector)`
 Context-aware selector.
-- `$(container, '.item')`
-- `$.clone('#template')` – Clones and returns first element.
+- `$.clone('#template')` – Instantiate templates.
 
 ### `$$(context, selector)`
 Collection selector. Returns a **real Array**.
-- `$$('.items').filter(el => ...)`
 
-## Linter Rules
+## Linter Rules (The Golden Standard)
 
 | Rule ID | Forbidden Pattern | Correct Pattern |
 | :--- | :--- | :--- |
-| **JS-001** | `el.innerHTML = "..."` | `const el = $.clone('#tmp');` |
-| **JS-002** | `let status = 'active'` | `the('status', 'active')` |
-| **JS-003** | `el.style.display = 'none'` | `the(el, 'hidden', 'true')` |
+| **HTML-017** | `<div data-action="...">` | `<button>` or `role="button"` |
+| **HTML-018** | `<input>` (No label) | `<label>` or `aria-label` |
 | **JS-015** | `el.textContent = "..."` | `the(el, 'key', 'val')` |
+| **JS-019** | `on(..., 'click', ...)` | Use `<form>` and `submit` |
 
 ## Contributing
 See `AGENTS.md` for the roadmap and `LLM.md` for AI reference.
