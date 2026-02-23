@@ -9,7 +9,15 @@ export default class Cli {
     if (args.includes('--check')) {
       const dirIndex = args.indexOf('--check') + 1;
       const targetDir = args[dirIndex] || '.';
-      await this.scan(targetDir);
+      try {
+        const violations = await this.scan(targetDir);
+        if (violations > 0) {
+          process.exitCode = 1;
+        }
+      } catch (e) {
+        console.error(`Error scanning ${targetDir}: ${e.message}`);
+        return false;
+      }
       return true;
     }
     return false;
@@ -33,8 +41,8 @@ export default class Cli {
       console.log('✔ No violations found.');
     } else {
       console.log(`\n✖ Found ${totalViolations} violations across ${files.length} files.`);
-      process.exitCode = 1;
     }
+    return totalViolations;
   }
 
   static async getFiles(dir) {

@@ -15,8 +15,8 @@ test('Linter.check: JS-001 - should catch innerHTML on nested objects', (t) => {
   assert.strictEqual(violations.length, 1);
 });
 
-test('Linter.check: JS-001 - should allow normal properties', (t) => {
-  const code = 'element.textContent = "good";';
+test('Linter.check: JS-001/JS-015 - should allow normal attributes but flag textContent', (t) => {
+  const code = 'element.id = "good";';
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 0);
 });
@@ -59,6 +59,31 @@ test('Linter.check: JS-015 - should catch textContent assignments', (t) => {
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 1);
   assert.strictEqual(violations[0].ruleId, 'JS-015');
+});
+
+test('Linter.check: JS-016 - should catch nested objects in the()', (t) => {
+  const code = 'the("user", { name: "Alice" });';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'JS-016');
+});
+
+test('Linter.check: JS-016 - should catch arrays in the()', (t) => {
+  const code = 'the(el, "list", [1, 2, 3]);';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
+});
+
+test('Linter.check: JS-016 - should allow flat object assignments to el', (t) => {
+  const code = 'the(el, { name: "Alice", age: 30 });';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 0);
+});
+
+test('Linter.check: JS-016 - should catch nested objects in el object assignment', (t) => {
+  const code = 'the(el, { name: "Alice", meta: { color: "red" } });';
+  const violations = Linter.check('test.js', code);
+  assert.strictEqual(violations.length, 1);
 });
 
 test('Linter.check: Unsupported extension should return empty violations', (t) => {
@@ -121,4 +146,3 @@ test('Linter.check: CSS-012 - should allow attribute selectors', (t) => {
   const violations = Linter.check('test.css', code);
   assert.strictEqual(violations.length, 0);
 });
-

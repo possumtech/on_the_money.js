@@ -56,22 +56,50 @@ export default class Linter {
           ['textContent', 'innerText', 'nodeValue'].includes(node.left?.property?.name)) {
         this.#addViolation(violations, file, node.loc.start, 'JS-015', 'Direct text manipulation is forbidden. Use the() or the._t() instead.');
       }
+
+      // JS-016: Flat state only (No nested objects in the())
+      if (node.type === 'CallExpression') {
+        const name = node.callee?.name || node.callee?.property?.name;
+        if (name === 'the') {
+          this.#checkFlatState(node, violations, file);
+        }
+      }
     });
+  }
+
+  static #checkFlatState(node, violations, file) {
+    const args = node.arguments;
+    if (args.length === 2) {
+      if (args[0].type === 'Literal') {
+        this.#checkPrimitive(args[1], violations, file);
+      } else if (args[1].type === 'ObjectExpression') {
+        args[1].properties.forEach(prop => {
+          this.#checkPrimitive(prop.value, violations, file);
+        });
+      }
+    } else if (args.length === 3) {
+      this.#checkPrimitive(args[2], violations, file);
+    }
+  }
+
+  static #checkPrimitive(node, violations, file) {
+    if (!node) return;
+    if (node.type === 'ObjectExpression' || node.type === 'ArrayExpression') {
+      this.#addViolation(violations, file, node.loc.start, 'JS-016', 'State must be flat. Nested objects or arrays are forbidden in the().');
+    }
   }
 
   static #checkHtmlRules(document, violations, file) {
     this.#traverseHtml(document, (node) => {
-      // HTML-014: No inline handlers
       if (node.attrs) {
         node.attrs.forEach(attr => {
           if (attr.name.startsWith('on')) {
             const loc = node.sourceCodeLocation?.attrs?.[attr.name] || node.sourceCodeLocation;
-            this.#addViolation(violations, file, loc.startLine ? { line: loc.startLine, column: loc.startCol } : { line: 1, column: 1 }, 'HTML-014', `Inline handler '${attr.name}' is forbidden. Use data-action and JS delegation.`);
+            this.#addViolation(violations, file, loc.startLine ? { line: loc.startLine, column: loc.startCol } : { line: 1, column: 1 }, 'HTML-014', `Inline handler '${attr.name}' is forbidden.`);
           }
         });
       }
 
-      // HTML-004: No naked strings
       if (node.nodeName === '#text') {
         const parentName = node.parentNode?.nodeName;
         if (parentName !== 'script' && parentName !== 'style' && node.value.trim() !== '') {
@@ -84,14 +112,11 @@ export default class Linter {
 
   static #checkCssRules(ast, violations, file) {
     csstree.walk(ast, (node) => {
-      // CSS-006: No !important
       if (node.type === 'Declaration' && node.important) {
-        this.#addViolation(violations, file, { line: node.loc.start.line, column: node.loc.start.column }, 'CSS-006', '!important is forbidden. Refactor CSS specificity instead.');
+        this.#addViolation(violations, file, { line: node.loc.start.line, column: node.loc.start.column }, 'CSS-006', '!important is forbidden.');
       }
-
-      // CSS-012: Prefer attribute selectors over classes
       if (node.type === 'ClassSelector') {
-        this.#addViolation(violations, file, { line: node.loc.start.line, column: node.loc.start.column }, 'CSS-012', `Class selector '.${node.name}' is forbidden. Use attribute selectors ([aria-*] or [data-*]) for state.`);
+        this.#addViolation(violations, file, { line: node.loc.start.line, column: node.loc.start.column }, 'CSS-012', `Class selector '.${node.name}' is forbidden.`);
       }
     });
   }
@@ -109,8 +134,8 @@ export default class Linter {
     violations.push({
       file,
       ruleId,
-      line: loc.line,
-      column: loc.column,
+      line: loc.line || loc.startLine,
+      column: loc.column || loc.startCol,
       message
     });
   }

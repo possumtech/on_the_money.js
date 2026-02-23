@@ -1,13 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert';
-import Translate from '../../src/core/Translate.js';
+import The from '../../src/core/The.js';
 
-test('Translate._t: should exist as a static function', (t) => {
-  assert.strictEqual(typeof Translate._t, 'function');
+test('The._t: should exist as a static function', (t) => {
+  assert.strictEqual(typeof The._t, 'function');
 });
 
-test('Translate._t: should throw "Not implemented"', (t) => {
+test('The._t: should throw "Not implemented"', (t) => {
   assert.throws(() => {
-    Translate._t('key');
-  }, { message: 'Translate._t: Not implemented' });
+    The._t('key');
+  }, { message: 'The._t: Not implemented' });
 });
