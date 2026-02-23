@@ -25,7 +25,7 @@
           ├── naked-strings.html
           └── important.css
   ```
-- [ ] Configure Node.js test runner
+- [ ] Configure Node.js test runner for **ESNext / Modules**
 - [ ] Create failing tests for all core functions (`on`, `the`, `$`, `$$`, `_t`)
 - [ ] Create failing tests for linter rules (categorized by JS, HTML, CSS)
 
@@ -33,9 +33,9 @@
 ### Goal: Create a simple linter using standard parsing libraries
 - [ ] Create `src/linter/` directory
 - [ ] Integrate parsing libraries:
-  - [ ] JS: `acorn` or `espree`
-  - [ ] HTML: `parse5` or `htmlparser2`
-  - [ ] CSS: `postcss-selector-parser` or similar
+  - [ ] JS: `espree` (for ESNext)
+  - [ ] HTML: `parse5` (for standard-compliant HTML)
+  - [ ] CSS: `css-tree` (for detailed AST traversal)
 - [ ] Implement rule detection based on AST traversal:
   - [ ] **JS-001**: Detect `innerHTML` assignments
   - [ ] **JS-003**: Detect direct `style` property manipulation
@@ -43,19 +43,19 @@
   - [ ] **HTML-014**: Detect `on*` inline handlers
   - [ ] **CSS-006**: Detect `!important`
   - [ ] **CSS-012**: Prefer attribute selectors (ARIA or data-) over classes
-- [ ] Create CLI interface (`cli.js`) to scan directories and report violations
+- [ ] Create CLI interface (`cli.js`) using a modular class structure
 - [ ] Verify linter catches violations in test fixtures
 
 ## Phase 3: Implement Core Library
-### Goal: Implement core functions to pass all tests and follow linter rules
+### Goal: Implement core functions using `export default class` structure
 - [ ] Create `src/core/` directory
-- [ ] Implement `on()` - Event delegation
-- [ ] Implement `the()` - State & Persistence
+- [ ] Implement `on()` in `On.js` - Event delegation
+- [ ] Implement `the()` in `The.js` - State & Persistence
   - [ ] Global state (body + localStorage)
   - [ ] Scoped state (element attributes + localStorage)
   - [ ] Template stamping logic
-- [ ] Implement `$(selector)` and `$$()`
-- [ ] Implement `_t()` - Localization
+- [ ] Implement `$(selector)` and `$$()` in `Select.js`
+- [ ] Implement `_t()` in `Translate.js` - Localization
   - [ ] Hydrate on load, template stamp, and direct calls
 - [ ] Verify our implementation passes our own linter
 
@@ -70,6 +70,6 @@
 - [ ] Update README.md and SPEC.md with final API details
 
 ## Immediate Next Actions:
-1. Initialize project with `package.json`
+1. Update `package.json` for ESNext/Module only and clean up old scripts
 2. Set up the `test/` structure
-3. Implement the AST-based linter skeleton
+3. Implement the AST-based linter skeleton using `espree`, `parse5`, and `css-tree`
