@@ -149,7 +149,7 @@ export default class Linter {
 		let hasLang = false;
 		let hasCharset = false;
 		let hasViewport = false;
-		let hasOtmI18n = false;
+		let hasI18nMeta = false;
 		let usesI18n = false;
 
 		Linter.#traverseHtml(document, (node) => {
@@ -161,7 +161,7 @@ export default class Linter {
 			if (node.nodeName === "meta") {
 				if (attrs.charset?.toLowerCase() === "utf-8") hasCharset = true;
 				if (attrs.name === "viewport") hasViewport = true;
-				if (attrs.name === "otm-i18n") hasOtmI18n = true;
+				if (attrs.name === "i18n") hasI18nMeta = true;
 			}
 			if (attrs["data-i18n"]) usesI18n = true;
 
@@ -178,8 +178,10 @@ export default class Linter {
 				const hasA11y = attrs.role && attrs.tabindex !== undefined;
 
 				if (!isSemantic && !hasA11y) {
-					const loc = node.sourceCodeLocation?.attrs?.["data-action"] ||
-						node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+					const loc =
+						node.sourceCodeLocation?.attrs?.["data-action"] ||
+						node.sourceCodeLocation ||
+						{ startLine: 1, startCol: 1 };
 					Linter.#addViolation(
 						violations,
 						file,
@@ -243,14 +245,13 @@ export default class Linter {
 			}
 		});
 
-		// Global HTML Checks
 		if (!hasLang) {
 			Linter.#addViolation(
 				violations,
 				file,
 				{ line: 1, column: 1 },
 				"HTML-020",
-				"Missing <html lang='...'> attribute. Required for A11y and OTM localization.",
+				"Missing <html lang='...'> attribute. Required for A11y and localization.",
 			);
 		}
 		if (!hasCharset) {
@@ -271,13 +272,13 @@ export default class Linter {
 				"Missing <meta name='viewport' ...> tag.",
 			);
 		}
-		if (usesI18n && !hasOtmI18n) {
+		if (usesI18n && !hasI18nMeta) {
 			Linter.#addViolation(
 				violations,
 				file,
 				{ line: 1, column: 1 },
 				"HTML-023",
-				"Localization (data-i18n) detected, but missing <meta name='otm-i18n' ...> config.",
+				"Localization (data-i18n) detected, but missing <meta name='i18n' ...> config.",
 			);
 		}
 	}

@@ -55,7 +55,7 @@ test("The.handshake: should rehydrate state from localStorage", async (_t) => {
 });
 
 test("The.handshake: should fetch dictionary if meta tag is present", async (_t) => {
-	setupDOM('<meta name="otm-i18n" content="/locales">');
+	setupDOM('<meta name="i18n" content="/locales">');
 	The.dictionary = {};
 	await The.handshake();
 	assert.strictEqual(The.dictionary.fetched, "success");

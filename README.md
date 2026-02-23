@@ -61,7 +61,7 @@ on('#todo-form', 'submit', (e) => {
 The built-in linter enforces 20+ "Anti-Slop" rules, including:
 - **JS-015:** No direct `.textContent` manipulation.
 - **HTML-017:** No `data-action` on non-interactive elements without ARIA.
-- **HTML-023:** Missing `<meta name="otm-i18n">` when localization is used.
+- **HTML-023:** Missing `<meta name="i18n">` when localization is used.
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [LLM.md](LLM.md) for AI-assisted development reference.

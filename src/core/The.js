@@ -114,7 +114,7 @@ export default class The {
 			document.documentElement.lang ||
 			"en";
 
-		const meta = document.querySelector('meta[name="otm-i18n"]');
+		const meta = document.querySelector('meta[name="i18n"]');
 		if (meta) {
 			const path = meta.getAttribute("content");
 			const fallback = meta.getAttribute("data-fallback") || "en";

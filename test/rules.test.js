@@ -173,7 +173,7 @@ test("Linter.check: HTML-020/021/022 - should catch missing base tags", (_t) => 
 	assert.ok(violations.some((v) => v.ruleId === "HTML-022")); // viewport
 });
 
-test("Linter.check: HTML-023 - should catch missing otm-i18n meta if data-i18n is used", (_t) => {
+test("Linter.check: HTML-023 - should catch missing i18n meta if data-i18n is used", (_t) => {
 	const code =
 		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><span data-i18n="key"></span></body></html>';
 	const violations = Linter.check("test.html", code);

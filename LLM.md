@@ -25,7 +25,7 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 ### `_t` (Localization)
 - `_t(key, options)`: Returns string using `Intl`.
 - `_t()`: Hydrates `data-i18n` elements.
-- **Auto-Boot:** Presence of `<meta name="otm-i18n" content="/locales">` triggers automatic fetch of `{lang}.json`.
+- **Auto-Boot:** Presence of `<meta name="i18n" content="/locales">` triggers automatic fetch of `{lang}.json`.
 
 ### `$` (DOM)
 - `$(context, selector)`: Context-aware find.
@@ -62,5 +62,5 @@ the('user-name', 'Alice'); // <h1> updates automatically
 - Missing roles/tabindex on `data-action` targets.
 - Input elements without labels.
 - Missing `lang`, `charset`, or `viewport` tags.
-- Missing `<meta name="otm-i18n" ...>` when `data-i18n` is present.
+- Missing `<meta name="i18n" ...>` when `data-i18n` is present.
 - Prefer `submit` events over button `click` for data gathering.
