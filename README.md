@@ -10,7 +10,7 @@ We must face a new reality: LLMs and AI agents are becoming the primary consumer
 
 Our built-in linter acts as your architectural mentor, scolding you for inaccessible patterns and imperative shortcuts. We don't just help you build faster; we force you to build better by mandating the "Golden Standard" of accessibility and semantic clarity as the path of least resistance.
 
-Arriving at less than 1KB gzipped, we refuse to reimplement what the browser already does. By utilizing native `Intl` for localization and attribute selectors for logic, we deliver a payload that is faster than a typical framework's router alone. It’s time to stop the slop and reclaim the standards.
+Arriving at less than 2KB gzipped, we refuse to reimplement what the browser already does. By utilizing native `Intl` for localization and attribute selectors for logic, we deliver a payload that is faster than a typical framework's router alone. It’s time to stop the slop and reclaim the standards.
 
 ## Core Features
 
@@ -31,6 +31,7 @@ Event delegation and message passing.
 State management and rehydration.
 - `the('key', 'value')` – Global state.
 - `the(el, { expanded: true })` – Scoped state with ARIA mapping.
+- `the.ready` – Promise that resolves when the boot sequence (Handshake) is complete.
 - **Reactivity:** `data-text="key"` updates automatically when state changes.
 
 ### `_t(key, options)`
@@ -57,10 +58,10 @@ on('#todo-form', 'submit', (e) => {
 ```
 
 ## Linter Rules
-The built-in linter enforces 15+ "Anti-Slop" rules, including:
+The built-in linter enforces 20+ "Anti-Slop" rules, including:
 - **JS-015:** No direct `.textContent` manipulation.
 - **HTML-017:** No `data-action` on non-interactive elements without ARIA.
-- **JS-016:** No nested objects in `the()` state.
+- **HTML-023:** Missing `<meta name="otm-i18n">` when localization is used.
 
 ## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, `AGENTS.md` for the roadmap and `LLM.md` for AI-assisted development.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [LLM.md](LLM.md) for AI-assisted development reference.

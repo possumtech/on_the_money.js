@@ -17,6 +17,7 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 ### `the` (Data & State)
 - `the(key, val)`: Set global state (auto-syncs to `localStorage`).
 - `the(el, key, val)`: Set scoped state. Returns `el`.
+- `the(el, { k: v })`: Batch set state. Returns `el`.
 - `the.ready`: Promise that resolves after Handshake (rehydration + i18n fetch).
 - **Mapping:** Maps `expanded`, `hidden`, `selected`, `checked` to `aria-*`.
 - **Constraint:** Values must be **FLAT** primitives.
@@ -60,4 +61,6 @@ the('user-name', 'Alice'); // <h1> updates automatically
 - Nested objects in `the()`.
 - Missing roles/tabindex on `data-action` targets.
 - Input elements without labels.
+- Missing `lang`, `charset`, or `viewport` tags.
+- Missing `<meta name="otm-i18n" ...>` when `data-i18n` is present.
 - Prefer `submit` events over button `click` for data gathering.
