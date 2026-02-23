@@ -8,29 +8,33 @@ This file provides high-signal instructions for LLMs building with `on_the_money
 - **No DSLs:** Use standard HTML/CSS. No `{{}}`, no `v-if`.
 - **Pure Standards:** ESNext only. No polyfills.
 
-## 2. The Three Pillars (API)
+## 2. First-Class API
 
 ### `on` (Events)
-- `on(parent, event, selector, fn)`: Event delegation. Default parent is `document.body`.
+- `on(parent, event, selector, fn)`: Event delegation.
 - `on.emit(el, event, detail)`: Dispatch `CustomEvent`.
 
-### `the` (Data & State)
+### `the` (State)
 - `the(key, val)`: Set global state on `<body>`.
 - `the(el, key, val)`: Set scoped state on `el`. Returns `el`.
 - `the(el, { k: v })`: Set multiple states. Returns `el`.
-- `the.t(key)`: Localize string (alias: `_t`).
-- **Constraint:** Values must be **FLAT** (string, number, boolean). No objects/arrays.
+
+### `_t` (Localization)
+- `_t(key)`: Returns translated string.
+- `_t()`: Hydrates all `data-i18n` elements.
 
 ### `$` (DOM)
-- `$(context, selector)`: Find first element. Default context is `document`.
-- `$$(context, selector)`: Find all elements. Returns a REAL **Array**.
+- `$(context, selector)`: Find first element.
 - `$.clone(selector)`: Clone `<template>`. Returns first element node.
+
+### `$$` (Collections)
+- `$$(context, selector)`: Returns a real **Array**.
 
 ## 3. Mandatory Patterns
 
 ### List Rendering (Map & Append)
 ```javascript
-const items = [{id: 1, name: 'A'}, {id: 2, name: 'B'}];
+const items = [{id: 1, name: 'A'}];
 container.append(...items.map(i => the($.clone('#tmp'), i)));
 ```
 
@@ -43,16 +47,10 @@ the('user-name', 'Alice'); // Updates <h1> automatically
 ```
 
 ## 4. Illegal Slop (Linter Rules)
-The following patterns are **Strictly Forbidden**:
-- `innerHTML` / `outerHTML` (Use `$.clone`)
-- `el.style.*` (Use `the()` + CSS)
-- `addEventListener` (Use `on()`)
-- `textContent` / `innerText` (Use `data-text` or `data-i18n`)
+- `innerHTML` / `outerHTML`
+- `el.style.*`
+- `addEventListener`
+- `textContent` / `innerText`
 - Nested objects in `the()` (State must be flat)
-- Class selectors in CSS for state (Use `[aria-*]` or `[data-*]`)
+- Class selectors in CSS for state
 - `!important` in CSS
-
-## 5. Metadata
-- **Gzipped Size:** < 1KB
-- **Philosophy:** Anti-Framework / Anti-Slop
-- **Source of Truth:** Native DOM Attributes

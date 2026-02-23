@@ -2,9 +2,7 @@ import On from './On.js';
 import The from './The.js';
 import Select from './Select.js';
 
-export { On, The, Select };
-
-// The Three Pillars
+// Named Exports (First-Class Citizens)
 export const on = On.on;
 on.emit = On.emit;
 
@@ -13,9 +11,12 @@ export const _t = The._t;
 the.t = _t;
 
 export const $ = Select.$;
-export const $$ = Select.$$;
 $.clone = Select.clone;
-$.all = $$;
+
+export const $$ = Select.$$;
+
+// Default Export (Everything included)
+export default { on, the, $, $$, _t };
 
 // The Handshake (Auto-rehydrate on import)
 if (typeof document !== 'undefined') {
