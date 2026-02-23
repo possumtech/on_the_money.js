@@ -73,3 +73,45 @@ test('Linter.check: traversal should handle null and non-object values', (t) => 
   const violations = Linter.check('test.js', code);
   assert.strictEqual(violations.length, 0);
 });
+
+test('Linter.check: HTML-004 - should catch naked strings in HTML', (t) => {
+  const code = '<div>Submit</div>';
+  const violations = Linter.check('test.html', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'HTML-004');
+});
+
+test('Linter.check: HTML-004 - should allow empty or whitespace-only tags', (t) => {
+  const code = '<div>  </div><div data-i18n="key"></div>';
+  const violations = Linter.check('test.html', code);
+  assert.strictEqual(violations.length, 0);
+});
+
+test('Linter.check: HTML-014 - should catch inline event handlers', (t) => {
+  const code = '<button onclick="alert(1)">Click</button>';
+  const violations = Linter.check('test.html', code);
+  // Should catch 1 for onclick and 1 for naked string "Click"
+  assert.ok(violations.some(v => v.ruleId === 'HTML-014'));
+  assert.ok(violations.some(v => v.ruleId === 'HTML-004'));
+});
+
+test('Linter.check: CSS-006 - should catch !important', (t) => {
+  const code = 'div { color: red !important; }';
+  const violations = Linter.check('test.css', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'CSS-006');
+});
+
+test('Linter.check: CSS-012 - should catch class selectors', (t) => {
+  const code = '.is-active { display: block; }';
+  const violations = Linter.check('test.css', code);
+  assert.strictEqual(violations.length, 1);
+  assert.strictEqual(violations[0].ruleId, 'CSS-012');
+});
+
+test('Linter.check: CSS-012 - should allow attribute selectors', (t) => {
+  const code = '[aria-expanded="true"] { display: block; }';
+  const violations = Linter.check('test.css', code);
+  assert.strictEqual(violations.length, 0);
+});
+
