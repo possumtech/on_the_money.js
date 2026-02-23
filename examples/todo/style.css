@@ -1,0 +1,71 @@
+/* OTM: CSS is the UI Engine */
+:root {
+  --primary: #2ecc71;
+  --bg: #f9f9f9;
+  --text: #2c3e50;
+}
+
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  padding: 2rem;
+}
+
+main {
+  width: 100%;
+  max-width: 400px;
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+input[type="text"] {
+  flex: 1;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+button {
+  cursor: pointer;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+}
+
+ul {
+  list-style: none;
+  padding: 0;
+}
+
+[data-item] {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+/* REACTIVITY: Visual state driven by ARIA */
+[data-item][aria-checked="true"] [data-text="task"] {
+  color: #999;
+  text-decoration: line-through;
+}
+
+[data-item] button[data-action="delete-todo"] {
+  margin-left: auto;
+  background: #e74c3c;
+  padding: 0.2rem 0.5rem;
+}
