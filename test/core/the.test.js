@@ -34,6 +34,14 @@ test('The.the: should set scoped state on element and return it', (t) => {
   assert.strictEqual(result, el);
 });
 
+test('The.the: should handle object assignments', (t) => {
+  const dom = setupDOM('<div id="el"></div>');
+  const el = dom.querySelector('#el');
+  The.the(el, { a: '1', b: '2' });
+  assert.strictEqual(el.getAttribute('data-a'), '1');
+  assert.strictEqual(el.getAttribute('data-b'), '2');
+});
+
 test('The.the: should sync data-text elements', (t) => {
   const dom = setupDOM('<h1 data-text="user"></h1>');
   The.the('user', 'Alice');
