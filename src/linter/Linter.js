@@ -178,10 +178,8 @@ export default class Linter {
 				const hasA11y = attrs.role && attrs.tabindex !== undefined;
 
 				if (!isSemantic && !hasA11y) {
-					const loc =
-						node.sourceCodeLocation?.attrs?.["data-action"] ||
-						node.sourceCodeLocation ||
-						{ startLine: 1, startCol: 1 };
+					const loc = node.sourceCodeLocation?.attrs?.["data-action"] ||
+						node.sourceCodeLocation || { startLine: 1, startCol: 1 };
 					Linter.#addViolation(
 						violations,
 						file,
