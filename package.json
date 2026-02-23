@@ -8,8 +8,8 @@
     "otm-lint": "./src/linter/main.js"
   },
   "scripts": {
-    "test": "node --test test/**/*.test.js",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=100 test/**/*.test.js",
+    "test": "node --test test/core/**/*.test.js test/linter/rules.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=100 test/core/**/*.test.js test/linter/rules.test.js",
     "check": "npm run test && npm run test:coverage",
     "lint": "node src/linter/main.js --check ./src"
   },

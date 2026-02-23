@@ -16,3 +16,8 @@ export const $ = Select.$;
 export const $$ = Select.$$;
 $.clone = Select.clone;
 $.all = $$;
+
+// The Handshake (Auto-rehydrate on import)
+if (typeof document !== 'undefined') {
+  The.handshake();
+}
