@@ -4,13 +4,19 @@
   "description": "An opinionated web project anti-framework enforcing deterministic, DOM-first architecture.",
   "type": "module",
   "main": "src/core/index.js",
+  "module": "dist/on_the_money.min.js",
   "bin": {
     "otm-lint": "./src/linter/main.js"
   },
+  "exports": {
+    ".": "./src/core/index.js",
+    "./dist": "./dist/on_the_money.min.js"
+  },
   "scripts": {
+    "build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
     "test": "node --test test/core/**/*.test.js test/linter/rules.test.js",
     "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=100 test/core/**/*.test.js test/linter/rules.test.js",
-    "check": "npm run lint && npm run test && npm run test:coverage",
+    "check": "npm run lint && npm run build && npm run test && npm run test:coverage",
     "lint": "biome check ./src ./test ./examples",
     "lint:fix": "biome check --write ./src ./test ./examples",
     "otm": "node src/linter/main.js --check"
@@ -21,6 +27,7 @@
   "devDependencies": {
     "@biomejs/biome": "2.4.4",
     "css-tree": "^3.0.0",
+    "esbuild": "^0.27.3",
     "espree": "^10.0.0",
     "linkedom": "^0.18.12",
     "parse5": "^7.0.0"
