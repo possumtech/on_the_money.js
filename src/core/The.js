@@ -24,14 +24,18 @@ export default class The {
 		if (!key) {
 			document.querySelectorAll("[data-i18n]").forEach((el) => {
 				const k = el.getAttribute("data-i18n");
-				const qty = el.getAttribute("data-i18n-qty");
-				const val = el.getAttribute("data-i18n-val");
+				const params = {};
+				for (const attr of el.attributes) {
+					if (
+						attr.name.startsWith("data-i18n-") &&
+						attr.name !== "data-i18n-type"
+					) {
+						const paramName = attr.name.replace("data-i18n-", "");
+						params[paramName] = attr.value;
+					}
+				}
 				const type = el.getAttribute("data-i18n-type");
-				el.textContent = The._t(k, {
-					qty: qty !== null ? Number(qty) : undefined,
-					val: val !== null ? val : undefined,
-					type,
-				});
+				el.textContent = The._t(k, { ...params, type });
 			});
 			return "";
 		}
@@ -39,36 +43,34 @@ export default class The {
 		let entry = The.dictionary[key];
 		if (!entry) return key;
 
-		if (typeof entry === "object" && options.qty !== undefined) {
-			const rule = new Intl.PluralRules(The.locale).select(options.qty);
-			entry = entry[rule] || entry.other;
+		if (typeof entry === "object") {
+			const qty = options.qty !== undefined ? Number(options.qty) : 0;
+			const rule = new Intl.PluralRules(The.locale).select(qty);
+			entry = entry[rule] || entry.other || key;
 		}
 
 		if (typeof entry !== "string") return key;
 
 		let result = entry;
-		if (options.val !== undefined) {
-			let formattedVal = options.val;
-			const numericVal = Number(options.val);
-
-			if (options.type === "currency") {
-				formattedVal = new Intl.NumberFormat(The.locale, {
-					style: "currency",
-					currency: "USD",
-				}).format(numericVal);
-			} else if (options.type === "date") {
-				const date = new Date(options.val);
-				formattedVal = Number.isNaN(date.getTime())
-					? options.val
-					: new Intl.DateTimeFormat(The.locale).format(date);
-			} else if (options.type === "number") {
-				formattedVal = new Intl.NumberFormat(The.locale).format(numericVal);
+		for (const [k, v] of Object.entries(options)) {
+			let val = v;
+			if (k === "val" && options.type) {
+				const num = Number(v);
+				if (options.type === "currency") {
+					val = new Intl.NumberFormat(The.locale, {
+						style: "currency",
+						currency: "USD",
+					}).format(num);
+				} else if (options.type === "date") {
+					const date = new Date(v);
+					val = Number.isNaN(date.getTime())
+						? v
+						: new Intl.DateTimeFormat(The.locale).format(date);
+				} else if (options.type === "number") {
+					val = new Intl.NumberFormat(The.locale).format(num);
+				}
 			}
-			result = result.replace("{val}", formattedVal);
-		}
-
-		if (options.qty !== undefined) {
-			result = result.replace("{qty}", options.qty);
+			result = result.replace(`{${k}}`, val);
 		}
 
 		return result;
@@ -103,25 +105,43 @@ export default class The {
 	}
 
 	static async handshake() {
+		const search = typeof window !== "undefined" ? window.location.search : "";
+		const params = new URLSearchParams(search);
+		The.locale =
+			params.get("lang") ||
+			localStorage.getItem("lang") ||
+			(typeof navigator !== "undefined" ? navigator.language : null) ||
+			document.documentElement.lang ||
+			"en";
+
 		const meta = document.querySelector('meta[name="otm-i18n"]');
 		if (meta) {
 			const path = meta.getAttribute("content");
 			const fallback = meta.getAttribute("data-fallback") || "en";
-			const lng = The.locale.split("-")[0];
+			const base = The.locale.split("-")[0].toLowerCase();
+			const full = The.locale.toLowerCase();
 
-			try {
-				let res = await fetch(`${path}/${lng}.json`);
-				if (!res.ok) res = await fetch(`${path}/${fallback}.json`);
-				if (res.ok) The.dictionary = await res.json();
-			} catch (e) {
-				console.warn("otm: i18n fetch failed", e);
-			}
+			const tryFetch = async (l) => {
+				try {
+					const res = await fetch(`${path}/${l}.json`);
+					return res.ok ? await res.json() : null;
+				} catch {
+					return null;
+				}
+			};
+
+			The.dictionary =
+				(await tryFetch(full)) ||
+				(await tryFetch(base)) ||
+				(await tryFetch(fallback)) ||
+				{};
 		}
 
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
-			The.#setGlobal(key, localStorage.getItem(key));
+			if (key !== "lang") The.#setGlobal(key, localStorage.getItem(key));
 		}
+
 		The._t();
 	}
 }

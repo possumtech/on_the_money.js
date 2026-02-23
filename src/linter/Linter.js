@@ -27,7 +27,6 @@ export default class Linter {
 
 	static #checkJsRules(ast, violations, file) {
 		Linter.#traverseJs(ast, (node) => {
-			// JS-001: No innerHTML
 			if (
 				node.type === "AssignmentExpression" &&
 				node.left?.property?.name === "innerHTML"
@@ -41,7 +40,6 @@ export default class Linter {
 				);
 			}
 
-			// JS-003: No direct style manipulation
 			if (Linter.#isStyle(node)) {
 				Linter.#addViolation(
 					violations,
@@ -52,7 +50,6 @@ export default class Linter {
 				);
 			}
 
-			// JS-009: No addEventListener
 			if (
 				node.type === "CallExpression" &&
 				node.callee?.property?.name === "addEventListener"
@@ -66,7 +63,6 @@ export default class Linter {
 				);
 			}
 
-			// JS-011: No dynamic attribute names
 			if (
 				node.type === "CallExpression" &&
 				node.callee?.property?.name === "setAttribute" &&
@@ -81,7 +77,6 @@ export default class Linter {
 				);
 			}
 
-			// JS-015: No direct text manipulation
 			if (
 				node.type === "AssignmentExpression" &&
 				["textContent", "innerText", "nodeValue"].includes(
@@ -97,7 +92,6 @@ export default class Linter {
 				);
 			}
 
-			// JS-016: Flat state only (No nested objects in the())
 			if (node.type === "CallExpression") {
 				const name = node.callee?.name || node.callee?.property?.name;
 				if (name === "the") {
@@ -105,7 +99,6 @@ export default class Linter {
 				}
 			}
 
-			// JS-019: Prefer Form Submit
 			if (
 				node.type === "CallExpression" &&
 				(node.callee?.name === "on" || node.callee?.property?.name === "on") &&
@@ -118,7 +111,7 @@ export default class Linter {
 					file,
 					node.loc.start,
 					"JS-019",
-					"Prefer using <form> submit events over direct button click listeners for data gathering.",
+					"Prefer using <form> submit events over direct button click listeners.",
 				);
 			}
 		});
@@ -153,12 +146,25 @@ export default class Linter {
 	}
 
 	static #checkHtmlRules(document, violations, file) {
+		let hasLang = false;
+		let hasCharset = false;
+		let hasViewport = false;
+		let hasOtmI18n = false;
+		let usesI18n = false;
+
 		Linter.#traverseHtml(document, (node) => {
 			const attrs = node.attrs
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
 
-			// HTML-017: Interactive Identity
+			if (node.nodeName === "html" && attrs.lang) hasLang = true;
+			if (node.nodeName === "meta") {
+				if (attrs.charset?.toLowerCase() === "utf-8") hasCharset = true;
+				if (attrs.name === "viewport") hasViewport = true;
+				if (attrs.name === "otm-i18n") hasOtmI18n = true;
+			}
+			if (attrs["data-i18n"]) usesI18n = true;
+
 			if (attrs["data-action"]) {
 				const interactiveTags = [
 					"button",
@@ -184,7 +190,6 @@ export default class Linter {
 				}
 			}
 
-			// HTML-018: The Label Law
 			const inputTags = ["input", "select", "textarea"];
 			if (inputTags.includes(node.nodeName) && attrs.type !== "hidden") {
 				const hasAriaLabel = attrs["aria-label"] || attrs["aria-labelledby"];
@@ -237,6 +242,44 @@ export default class Linter {
 				}
 			}
 		});
+
+		// Global HTML Checks
+		if (!hasLang) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: 1, column: 1 },
+				"HTML-020",
+				"Missing <html lang='...'> attribute. Required for A11y and OTM localization.",
+			);
+		}
+		if (!hasCharset) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: 1, column: 1 },
+				"HTML-021",
+				"Missing <meta charset='UTF-8'>.",
+			);
+		}
+		if (!hasViewport) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: 1, column: 1 },
+				"HTML-022",
+				"Missing <meta name='viewport' ...> tag.",
+			);
+		}
+		if (usesI18n && !hasOtmI18n) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: 1, column: 1 },
+				"HTML-023",
+				"Localization (data-i18n) detected, but missing <meta name='otm-i18n' ...> config.",
+			);
+		}
 	}
 
 	static #checkCssRules(ast, violations, file) {

@@ -110,16 +110,23 @@ test("Linter.check: traversal should handle null and non-object values", (_t) =>
 });
 
 test("Linter.check: HTML-004 - should catch naked strings in HTML", (_t) => {
-	const code = "<div>Submit</div>";
+	const code =
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><div>Submit</div></body></html>';
 	const violations = Linter.check("test.html", code);
-	assert.strictEqual(violations.length, 1);
-	assert.strictEqual(violations[0].ruleId, "HTML-004");
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-004").length,
+		1,
+	);
 });
 
 test("Linter.check: HTML-004 - should allow empty or whitespace-only tags", (_t) => {
-	const code = '<div>  </div><div data-i18n="key"></div>';
+	const code =
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><div>  </div><div data-i18n="key"></div></body></html>';
 	const violations = Linter.check("test.html", code);
-	assert.strictEqual(violations.length, 0);
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-004").length,
+		0,
+	);
 });
 
 test("Linter.check: HTML-014 - should catch inline event handlers", (_t) => {
@@ -156,6 +163,21 @@ test("Linter.check: HTML-018 - should ignore hidden inputs", (_t) => {
 		violations.filter((v) => v.ruleId === "HTML-018").length,
 		0,
 	);
+});
+
+test("Linter.check: HTML-020/021/022 - should catch missing base tags", (_t) => {
+	const code = "<html><body></body></html>";
+	const violations = Linter.check("test.html", code);
+	assert.ok(violations.some((v) => v.ruleId === "HTML-020")); // lang
+	assert.ok(violations.some((v) => v.ruleId === "HTML-021")); // charset
+	assert.ok(violations.some((v) => v.ruleId === "HTML-022")); // viewport
+});
+
+test("Linter.check: HTML-023 - should catch missing otm-i18n meta if data-i18n is used", (_t) => {
+	const code =
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><span data-i18n="key"></span></body></html>';
+	const violations = Linter.check("test.html", code);
+	assert.ok(violations.some((v) => v.ruleId === "HTML-023"));
 });
 
 test("Linter.check: CSS-006 - should catch !important", (_t) => {
