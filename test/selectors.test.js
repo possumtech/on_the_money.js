@@ -2,13 +2,13 @@ import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
 import Select from "../src/core/Select.js";
+import The from "../src/core/The.js";
 
 const setupDOM = (html = "") => {
-	const { document } = parseHTML(
-		`<!DOCTYPE html><html><body>${html}</body></html>`,
-	);
-	globalThis.document = document;
-	return document;
+	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
+	globalThis.document = dom.document;
+	globalThis.Node = dom.Node;
+	return dom.document;
 };
 
 test("Select.$: should find element in document by default", (_t) => {
@@ -39,7 +39,7 @@ test("Select.$$: should return real Array", (_t) => {
 });
 
 test("Select.clone: should clone template and return first element", (_t) => {
-	const _dom = setupDOM(`
+	setupDOM(`
     <template id="tmp">
       <div class="cloned">Hello</div>
     </template>
@@ -48,6 +48,17 @@ test("Select.clone: should clone template and return first element", (_t) => {
 	assert.ok(el);
 	assert.strictEqual(el.className, "cloned");
 	assert.strictEqual(el.textContent, "Hello");
+});
+
+test("Select.clone: should hydrate i18n inside the clone", (_t) => {
+	setupDOM(`
+    <template id="tmp">
+      <div data-i18n="greeting"></div>
+    </template>
+  `);
+	The.dictionary = { greeting: "Bonjour" };
+	const el = Select.clone("#tmp");
+	assert.strictEqual(el.textContent, "Bonjour");
 });
 
 test("Select.clone: should throw if template not found", (_t) => {

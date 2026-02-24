@@ -1,3 +1,5 @@
+import The from "./The.js";
+
 export default class Select {
 	static $(context, selector) {
 		let ctx = context;
@@ -22,6 +24,9 @@ export default class Select {
 	static clone(selector) {
 		const template = document.querySelector(selector);
 		if (!template) throw new Error(`Template not found: ${selector}`);
-		return template.content.cloneNode(true).firstElementChild;
+		const el = template.content.cloneNode(true).firstElementChild;
+		// Surgical hydration of the new fragment
+		The._t(el);
+		return el;
 	}
 }

@@ -6,6 +6,7 @@ import The from "../src/core/The.js";
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
 	globalThis.document = dom.document;
+	globalThis.Node = dom.Node;
 
 	const storage = {};
 	globalThis.localStorage = {
@@ -57,7 +58,7 @@ test("The.handshake: should rehydrate state from localStorage", async (_t) => {
 });
 
 test("The.handshake: should fetch dictionary if meta tag is present", async (_t) => {
-	setupDOM('<meta name="i18n" content="/locales">');
+	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
 	The.dictionary = {};
 	await The.handshake();
 	assert.strictEqual(The.dictionary.fetched, "success");

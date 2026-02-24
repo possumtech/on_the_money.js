@@ -21,23 +21,35 @@ export default class The {
 	}
 
 	static _t(key, options = {}) {
-		if (!key) {
-			const elements = document.querySelectorAll("[data-i18n]");
+		// Surgical Hydration: Check for Node safely
+		const isNode =
+			typeof Node !== "undefined" ? key instanceof Node : key?.nodeType;
+		if (isNode) {
+			const elements = key.querySelectorAll
+				? [key, ...key.querySelectorAll("[data-i18n]")]
+				: [key];
 			for (const el of elements) {
-				const k = el.getAttribute("data-i18n");
-				const params = {};
-				for (const attr of el.attributes) {
-					if (
-						attr.name.startsWith("data-i18n-") &&
-						attr.name !== "data-i18n-type"
-					) {
-						const paramName = attr.name.replace("data-i18n-", "");
-						params[paramName] = attr.value;
+				if (el.hasAttribute?.("data-i18n")) {
+					const k = el.getAttribute("data-i18n");
+					const params = {};
+					for (const attr of el.attributes) {
+						if (
+							attr.name.startsWith("data-i18n-") &&
+							attr.name !== "data-i18n-type"
+						) {
+							const paramName = attr.name.replace("data-i18n-", "");
+							params[paramName] = attr.value;
+						}
 					}
+					const type = el.getAttribute("data-i18n-type");
+					el.textContent = The._t(k, { ...params, type });
 				}
-				const type = el.getAttribute("data-i18n-type");
-				el.textContent = The._t(k, { ...params, type });
 			}
+			return key;
+		}
+
+		if (!key) {
+			The._t(document.body);
 			return "";
 		}
 
