@@ -1,5 +1,5 @@
 {
-	"name": "on-the-money",
+	"name": "on_the_money",
 	"version": "0.1.1",
 	"description": "An opinionated web project anti-framework enforcing deterministic, DOM-first architecture.",
 	"type": "module",
