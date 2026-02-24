@@ -110,34 +110,35 @@ export default class The {
 	static async handshake() {
 		const search = typeof window !== "undefined" ? window.location.search : "";
 		const params = new URLSearchParams(search);
-		The.locale =
-			params.get("lang") ||
-			localStorage.getItem("lang") ||
+		const browserLoc =
 			(typeof navigator !== "undefined" ? navigator.language : null) ||
 			document.documentElement.lang ||
 			"en";
+
+		The.locale =
+			params.get("lang") || localStorage.getItem("lang") || browserLoc;
 
 		const meta = document.querySelector('meta[name="i18n"]');
 		if (meta) {
 			const path = meta.getAttribute("content");
 			const fallback = meta.getAttribute("data-fallback") || "en";
-			const base = The.locale.split("-")[0].toLowerCase();
+			const available = (meta.getAttribute("data-available") || "")
+				.split(",")
+				.map((s) => s.trim().toLowerCase());
+
 			const full = The.locale.toLowerCase();
+			const base = full.split("-")[0];
 
-			const tryFetch = async (l) => {
-				try {
-					const res = await fetch(`${path}/${l}.json`);
-					return res.ok ? await res.json() : null;
-				} catch {
-					return null;
-				}
-			};
+			let target = fallback;
+			if (available.includes(full)) target = full;
+			else if (available.includes(base)) target = base;
 
-			The.dictionary =
-				(await tryFetch(full)) ||
-				(await tryFetch(base)) ||
-				(await tryFetch(fallback)) ||
-				{};
+			try {
+				const res = await fetch(`${path}/${target}.json`);
+				if (res.ok) The.dictionary = await res.json();
+			} catch (e) {
+				console.warn("otm: i18n fetch failed", e);
+			}
 		}
 
 		for (let i = 0; i < localStorage.length; i++) {

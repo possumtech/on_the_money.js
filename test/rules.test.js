@@ -111,7 +111,7 @@ test("Linter.check: traversal should handle null and non-object values", (_t) =>
 
 test("Linter.check: HTML-004 - should catch naked strings in HTML", (_t) => {
 	const code =
-		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><div>Submit</div></body></html>';
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><meta name="i18n" content="/locales" data-available="en"><body><div>Submit</div></body></html>';
 	const violations = Linter.check("test.html", code);
 	assert.strictEqual(
 		violations.filter((v) => v.ruleId === "HTML-004").length,
@@ -121,7 +121,7 @@ test("Linter.check: HTML-004 - should catch naked strings in HTML", (_t) => {
 
 test("Linter.check: HTML-004 - should allow empty or whitespace-only tags", (_t) => {
 	const code =
-		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><div>  </div><div data-i18n="key"></div></body></html>';
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><meta name="i18n" content="/locales" data-available="en"><body><div>  </div><div data-i18n="key"></div></body></html>';
 	const violations = Linter.check("test.html", code);
 	assert.strictEqual(
 		violations.filter((v) => v.ruleId === "HTML-004").length,
@@ -178,6 +178,23 @@ test("Linter.check: HTML-023 - should catch missing i18n meta if data-i18n is us
 		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><body><span data-i18n="key"></span></body></html>';
 	const violations = Linter.check("test.html", code);
 	assert.ok(violations.some((v) => v.ruleId === "HTML-023"));
+});
+
+test("Linter.check: HTML-024 - should catch mismatch between manifest and locales folder", (_t) => {
+	const code =
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><meta name="i18n" content="/locales" data-available="en"><body><span data-i18n="key"></span></body></html>';
+	const violations = Linter.check("test.html", code, ["en", "fr"]);
+	assert.ok(violations.some((v) => v.ruleId === "HTML-024"));
+});
+
+test("Linter.check: HTML-024 - should allow matching manifest and locales", (_t) => {
+	const code =
+		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><meta name="i18n" content="/locales" data-available="en, fr"><body><span data-i18n="key"></span></body></html>';
+	const violations = Linter.check("test.html", code, ["en", "fr"]);
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-024").length,
+		0,
+	);
 });
 
 test("Linter.check: CSS-006 - should catch !important", (_t) => {

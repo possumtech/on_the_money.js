@@ -23,9 +23,33 @@ export default class Cli {
 		const files = await Cli.getFiles(dir);
 		let totalViolations = 0;
 
+		// 1. Pre-scan for i18n config to find locales folder
+		let availableLocales = null;
+		for (const file of files) {
+			if (file.endsWith(".html")) {
+				const source = await fs.readFile(file, "utf-8");
+				const match = source.match(/<meta\s+name="i18n"\s+content="([^"]+)"/);
+				if (match) {
+					const localesDir = path.resolve(
+						path.dirname(file),
+						match[1].startsWith("/") ? `.${match[1]}` : match[1],
+					);
+					try {
+						const entries = await fs.readdir(localesDir);
+						availableLocales = entries
+							.filter((f) => f.endsWith(".json"))
+							.map((f) => f.replace(".json", ""));
+					} catch {
+						// Folder not found or unreadable
+					}
+					break;
+				}
+			}
+		}
+
 		for (const file of files) {
 			const source = await fs.readFile(file, "utf-8");
-			const violations = Linter.check(file, source);
+			const violations = Linter.check(file, source, availableLocales);
 
 			if (violations.length > 0) {
 				totalViolations += violations.length;

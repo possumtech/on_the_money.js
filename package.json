@@ -1,5 +1,5 @@
 {
-	"name": "on_the_money.js",
+	"name": "on-the-money",
 	"version": "0.1.1",
 	"description": "An opinionated web project anti-framework enforcing deterministic, DOM-first architecture.",
 	"type": "module",
@@ -14,8 +14,8 @@
 	},
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
-		"test": "node --test",
-		"test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=100",
+		"test": "node --test test/on.test.js test/the.test.js test/selectors.test.js test/i18n.test.js test/rules.test.js",
+		"test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=100 test/on.test.js test/the.test.js test/selectors.test.js test/i18n.test.js test/rules.test.js",
 		"check": "npm run lint && npm run build && npm run test && npm run test:coverage",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:fix": "biome check --write ./src ./test ./examples",

@@ -3,7 +3,7 @@ import * as espree from "espree";
 import * as parse5 from "parse5";
 
 export default class Linter {
-	static check(file, source) {
+	static check(file, source, availableLocales = null) {
 		const ext = file.split(".").pop();
 		const violations = [];
 
@@ -16,7 +16,7 @@ export default class Linter {
 			Linter.#checkJsRules(ast, violations, file);
 		} else if (ext === "html") {
 			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
-			Linter.#checkHtmlRules(document, violations, file);
+			Linter.#checkHtmlRules(document, violations, file, availableLocales);
 		} else if (ext === "css") {
 			const ast = csstree.parse(source, { positions: true });
 			Linter.#checkCssRules(ast, violations, file);
@@ -145,11 +145,12 @@ export default class Linter {
 		}
 	}
 
-	static #checkHtmlRules(document, violations, file) {
+	static #checkHtmlRules(document, violations, file, availableLocales) {
 		let hasLang = false;
 		let hasCharset = false;
 		let hasViewport = false;
 		let hasI18nMeta = false;
+		let manifestMatches = true;
 		let usesI18n = false;
 
 		Linter.#traverseHtml(document, (node) => {
@@ -161,7 +162,21 @@ export default class Linter {
 			if (node.nodeName === "meta") {
 				if (attrs.charset?.toLowerCase() === "utf-8") hasCharset = true;
 				if (attrs.name === "viewport") hasViewport = true;
-				if (attrs.name === "i18n") hasI18nMeta = true;
+				if (attrs.name === "i18n") {
+					hasI18nMeta = true;
+					if (availableLocales) {
+						const manifest = (attrs["data-available"] || "")
+							.split(",")
+							.map((s) => s.trim())
+							.filter(Boolean);
+						if (
+							manifest.length !== availableLocales.length ||
+							!availableLocales.every((l) => manifest.includes(l))
+						) {
+							manifestMatches = false;
+						}
+					}
+				}
 			}
 			if (attrs["data-i18n"]) usesI18n = true;
 
@@ -249,7 +264,7 @@ export default class Linter {
 				file,
 				{ line: 1, column: 1 },
 				"HTML-020",
-				"Missing <html lang='...'> attribute. Required for A11y and localization.",
+				"Missing <html lang='...'> attribute.",
 			);
 		}
 		if (!hasCharset) {
@@ -270,14 +285,24 @@ export default class Linter {
 				"Missing <meta name='viewport' ...> tag.",
 			);
 		}
-		if (usesI18n && !hasI18nMeta) {
-			Linter.#addViolation(
-				violations,
-				file,
-				{ line: 1, column: 1 },
-				"HTML-023",
-				"Localization (data-i18n) detected, but missing <meta name='i18n' ...> config.",
-			);
+		if (usesI18n) {
+			if (!hasI18nMeta) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: 1, column: 1 },
+					"HTML-023",
+					"Localization detected, but missing <meta name='i18n' ...>.",
+				);
+			} else if (!manifestMatches) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: 1, column: 1 },
+					"HTML-024",
+					"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
+				);
+			}
 		}
 	}
 
