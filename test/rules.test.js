@@ -187,6 +187,21 @@ test("Linter.check: HTML-024 - should catch mismatch between manifest and locale
 	assert.ok(violations.some((v) => v.ruleId === "HTML-024"));
 });
 
+test("Linter.check: HTML-020/021/022 - should skip base tags for fragments", (_t) => {
+	const code = "<div>Fragment</div>";
+	const violations = Linter.check("test.html", code);
+	assert.strictEqual(
+		violations.filter(
+			(v) =>
+				v.ruleId === "HTML-020" ||
+				v.ruleId === "HTML-021" ||
+				v.ruleId === "HTML-022" ||
+				v.ruleId === "HTML-023",
+		).length,
+		0,
+	);
+});
+
 test("Linter.check: HTML-024 - should allow matching manifest and locales", (_t) => {
 	const code =
 		'<html lang="en"><meta charset="UTF-8"><meta name="viewport" content="width=device-width"><meta name="i18n" content="/locales" data-available="en, fr"><body><span data-i18n="key"></span></body></html>';

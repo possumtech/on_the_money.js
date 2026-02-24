@@ -152,8 +152,16 @@ export default class Linter {
 		let hasI18nMeta = false;
 		let manifestMatches = true;
 		let usesI18n = false;
+		let isFullDocument = false;
 
 		Linter.#traverseHtml(document, (node) => {
+			if (
+				(node.nodeName === "html" || node.nodeName === "#documentType") &&
+				node.sourceCodeLocation
+			) {
+				isFullDocument = true;
+			}
+
 			const attrs = node.attrs
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
@@ -258,50 +266,52 @@ export default class Linter {
 			}
 		});
 
-		if (!hasLang) {
-			Linter.#addViolation(
-				violations,
-				file,
-				{ line: 1, column: 1 },
-				"HTML-020",
-				"Missing <html lang='...'> attribute.",
-			);
-		}
-		if (!hasCharset) {
-			Linter.#addViolation(
-				violations,
-				file,
-				{ line: 1, column: 1 },
-				"HTML-021",
-				"Missing <meta charset='UTF-8'>.",
-			);
-		}
-		if (!hasViewport) {
-			Linter.#addViolation(
-				violations,
-				file,
-				{ line: 1, column: 1 },
-				"HTML-022",
-				"Missing <meta name='viewport' ...> tag.",
-			);
-		}
-		if (usesI18n) {
-			if (!hasI18nMeta) {
+		if (isFullDocument) {
+			if (!hasLang) {
 				Linter.#addViolation(
 					violations,
 					file,
 					{ line: 1, column: 1 },
-					"HTML-023",
-					"Localization detected, but missing <meta name='i18n' ...>.",
+					"HTML-020",
+					"Missing <html lang='...'> attribute.",
 				);
-			} else if (!manifestMatches) {
+			}
+			if (!hasCharset) {
 				Linter.#addViolation(
 					violations,
 					file,
 					{ line: 1, column: 1 },
-					"HTML-024",
-					"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
+					"HTML-021",
+					"Missing <meta charset='UTF-8'>.",
 				);
+			}
+			if (!hasViewport) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: 1, column: 1 },
+					"HTML-022",
+					"Missing <meta name='viewport' ...> tag.",
+				);
+			}
+			if (usesI18n) {
+				if (!hasI18nMeta) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: 1, column: 1 },
+						"HTML-023",
+						"Localization detected, but missing <meta name='i18n' ...>.",
+					);
+				} else if (!manifestMatches) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: 1, column: 1 },
+						"HTML-024",
+						"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
+					);
+				}
 			}
 		}
 	}
