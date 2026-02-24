@@ -21,7 +21,7 @@ export default class The {
 	}
 
 	static _t(key, options = {}) {
-		// Surgical Hydration: Check for Node safely
+		// Surgical Hydration
 		const isNode =
 			typeof Node !== "undefined" ? key instanceof Node : key?.nodeType;
 		if (isNode) {
@@ -69,19 +69,17 @@ export default class The {
 			let val = v;
 			if (k === "val" && options.type) {
 				const num = Number(v);
-				if (options.type === "currency") {
-					val = new Intl.NumberFormat(The.locale, {
-						style: "currency",
-						currency: "USD",
-					}).format(num);
-				} else if (options.type === "date") {
-					const date = new Date(v);
-					val = Number.isNaN(date.getTime())
-						? v
-						: new Intl.DateTimeFormat(The.locale).format(date);
-				} else if (options.type === "number") {
-					val = new Intl.NumberFormat(The.locale).format(num);
-				}
+				const fmt =
+					options.type === "currency"
+						? new Intl.NumberFormat(The.locale, {
+								style: "currency",
+								currency: "USD",
+							})
+						: options.type === "date"
+							? new Intl.DateTimeFormat(The.locale)
+							: new Intl.NumberFormat(The.locale);
+				val =
+					options.type === "date" ? fmt.format(new Date(v)) : fmt.format(num);
 			}
 			result = result.replace(`{${k}}`, val);
 		}
@@ -110,17 +108,22 @@ export default class The {
 		const attr = ariaMap[key] || `data-${key}`;
 		el.setAttribute(attr, val);
 
-		const items = el.querySelectorAll(`[data-text="${key}"]`);
-		for (const item of items) {
-			item.textContent = val;
+		if (el.querySelectorAll) {
+			const items = el.querySelectorAll(`[data-text="${key}"]`);
+			for (const item of items) {
+				item.textContent = val;
+			}
 		}
-		if (el.getAttribute("data-text") === key) el.textContent = val;
+		if (el.getAttribute?.("data-text") === key) el.textContent = val;
 
 		return el;
 	}
 
 	static async handshake() {
-		const search = typeof window !== "undefined" ? window.location.search : "";
+		const search =
+			typeof window !== "undefined" && window.location
+				? window.location.search
+				: "";
 		const params = new URLSearchParams(search);
 		const browserLoc =
 			(typeof navigator !== "undefined" ? navigator.language : null) ||
@@ -155,7 +158,14 @@ export default class The {
 
 		for (let i = 0; i < localStorage.length; i++) {
 			const key = localStorage.key(i);
-			if (key !== "lang") The.#setGlobal(key, localStorage.getItem(key));
+			if (key !== "lang") {
+				const val = localStorage.getItem(key);
+				The.#setScoped(document.body, key, val);
+				const elements = document.querySelectorAll(`[data-text="${key}"]`);
+				for (const el of elements) {
+					el.textContent = val;
+				}
+			}
 		}
 
 		The._t();
