@@ -37,11 +37,38 @@ const setupDOM = (html = "") => {
 	return dom.document;
 };
 
+test("The.the: should act as a getter for global state", (_t) => {
+	const dom = setupDOM();
+	dom.body.setAttribute("data-theme", "dark");
+	assert.strictEqual(The.the("theme"), "dark");
+});
+
+test("The.the: should act as a getter for scoped state", (_t) => {
+	const dom = setupDOM('<div id="el" aria-selected="true"></div>');
+	const el = dom.querySelector("#el");
+	assert.strictEqual(The.the(el, "selected"), "true");
+});
+
+test("The.the: should handle aria mapping in getters", (_t) => {
+	const dom = setupDOM();
+	dom.body.setAttribute("aria-expanded", "true");
+	assert.strictEqual(The.the("expanded"), "true");
+});
+
 test("The.the: should set global state on body and localStorage", (_t) => {
 	const dom = setupDOM();
 	The.the("theme", "dark");
 	assert.strictEqual(dom.body.getAttribute("data-theme"), "dark");
 	assert.strictEqual(localStorage.getItem("theme"), "dark");
+});
+
+test("The.the: should set multiple global states when passing an object", (_t) => {
+	const dom = setupDOM();
+	The.the({ theme: "light", layout: "grid" });
+	assert.strictEqual(dom.body.getAttribute("data-theme"), "light");
+	assert.strictEqual(localStorage.getItem("theme"), "light");
+	assert.strictEqual(dom.body.getAttribute("data-layout"), "grid");
+	assert.strictEqual(localStorage.getItem("layout"), "grid");
 });
 
 test("The.the: should sync data-text elements", (_t) => {

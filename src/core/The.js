@@ -5,11 +5,30 @@ export default class The {
 	static ready = null;
 
 	static the(...args) {
+		if (args.length === 1 && typeof args[0] === "string") {
+			return The.#getScoped(document.body, args[0]);
+		}
+
+		if (args.length === 1 && typeof args[0] === "object") {
+			for (const [k, v] of Object.entries(args[0])) {
+				The.#setGlobal(k, v);
+			}
+			return document.body;
+		}
+
+		if (args.length === 2 && typeof args[1] === "undefined") {
+			return The.#getScoped(args[0], args[1]);
+		}
+
 		if (args.length === 2 && typeof args[0] === "string") {
 			return The.#setGlobal(args[0], args[1]);
 		}
 
 		const [el, key, val] = args;
+		if (typeof val === "undefined" && typeof key === "string") {
+			return The.#getScoped(el, key);
+		}
+
 		if (typeof key === "object") {
 			for (const [k, v] of Object.entries(key)) {
 				The.#setScoped(el, k, v);
@@ -94,6 +113,19 @@ export default class The {
 		for (const el of elements) {
 			el.textContent = val;
 		}
+	}
+
+	static #getScoped(el, key) {
+		const ariaMap = {
+			expanded: "aria-expanded",
+			selected: "aria-selected",
+			hidden: "aria-hidden",
+			checked: "aria-checked",
+			disabled: "aria-disabled",
+		};
+
+		const attr = ariaMap[key] || `data-${key}`;
+		return el.getAttribute(attr);
 	}
 
 	static #setScoped(el, key, val) {
