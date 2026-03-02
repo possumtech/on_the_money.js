@@ -18,6 +18,7 @@ Arriving at less than 2KB gzipped, we refuse to reimplement what the browser alr
 - **Interactive Integrity**: Built-in A11y enforcement (roles, labels, and semantics).
 - **Advanced Localization**: Native `Intl` integration for plurals, currency, and date formatting.
 - **Pure Templating**: Standard DOM cloning with zero magic or proprietary DSLs.
+- **Surgical Routing**: Intercept internal navigation without full page reloads.
 - **CSS as UI Engine**: Visual transitions are driven exclusively by attribute selectors.
 
 ## API Reference
@@ -29,31 +30,49 @@ Event delegation and message passing.
 
 ### `the(...)`
 State management and rehydration.
-- `the('key', 'value')` – Global state.
+- `the('key', 'value')` – Global state (persisted to `localStorage` with `otm:` prefix).
 - `the(el, { expanded: true })` – Scoped state with ARIA mapping.
+- `the.form(formEl)` – Extracts a structured JSON object from a form (supports `name[]` and `user[name]`).
 - `the.ready` – Promise that resolves when the boot sequence (Handshake) is complete.
 - **Reactivity:** `data-text="key"` updates automatically when state changes.
+
+### `route(callback)`
+Non-opinionated Surgical Router.
+- `route((path, search, hash) => { /* render logic */ })`
+- Intercepts all internal `<a>` clicks, `popstate`, and `hashchange` events.
+- Add `data-external` to links to skip interception.
 
 ### `_t(key, options)`
 Advanced `Intl` localization engine.
 - `_t('items', { qty: 5 })` – Localized pluralization.
-- **Declarative:** `<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency"></span>`
+- **Declarative:** `<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency">Welcome</span>`
+- **SEO Friendly:** Text content is preserved as a fallback if the translation key is missing.
 
 ### `$(context, selector)`
 Context-aware selector and cloning.
 - `$(container, '.item')`
 - `$$(container, '.items')` – Returns a real Array.
-- `$.clone('#template')` – Instantiate templates.
+- `$.clone(parent, '#template')` – Instantiate templates and attach them to the DOM. Triggers a `mounted` event.
 
 ## Quick Example (Todo App)
 ```javascript
-import { on, the, $, $$ } from 'on_the_money.js';
+import { on, the, $, route } from 'on_the_money.js';
 
+// Simple Routing
+route((path) => {
+  console.log('Navigated to:', path);
+});
+
+// Form Handling
 on('#todo-form', 'submit', (e) => {
   e.preventDefault();
-  const task = $('#todo-input').value;
-  const item = the($.clone('#todo-item'), { task });
-  $('#todo-list').appendChild(item);
+  const data = the.form(e.target); // { task: "..." }
+  const item = the($.clone('#todo-list', '#todo-item'), data);
+});
+
+// Lifecycle
+on('#todo-list', 'mounted', '[data-item]', (e) => {
+  e.target.classList.add('fade-in');
 });
 ```
 
@@ -61,7 +80,7 @@ on('#todo-form', 'submit', (e) => {
 The built-in linter enforces 20+ "Anti-Slop" rules, including:
 - **JS-015:** No direct `.textContent` manipulation.
 - **HTML-017:** No `data-action` on non-interactive elements without ARIA.
-- **HTML-023:** Missing `<meta name="i18n">` when localization is used.
+- **HTML-004:** Naked strings must be localizable (`data-i18n`) or wrapped in a semantic tag.
 
 ## Contributing
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [LLM.md](LLM.md) for AI-assisted development reference.

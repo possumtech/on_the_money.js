@@ -248,11 +248,15 @@ export default class Linter {
 			}
 
 			if (node.nodeName === "#text") {
-				const parentName = node.parentNode?.nodeName;
+				const parent = node.parentNode;
+				const parentName = parent?.nodeName;
+				const hasI18n = parent?.attrs?.some((a) => a.name === "data-i18n");
+
 				if (
 					parentName !== "script" &&
 					parentName !== "style" &&
-					node.value.trim() !== ""
+					node.value.trim() !== "" &&
+					!hasI18n
 				) {
 					const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
 					Linter.#addViolation(
@@ -260,7 +264,7 @@ export default class Linter {
 						file,
 						{ line: loc.startLine, column: loc.startCol },
 						"HTML-004",
-						"Naked strings in HTML are forbidden. Use data-i18n.",
+						"Naked strings in HTML are forbidden. Use data-i18n or wrap in a semantic tag.",
 					);
 				}
 			}

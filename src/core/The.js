@@ -3,10 +3,19 @@ export default class The {
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
 	static ready = null;
+	static #prefix = "otm:";
 
 	static the(...args) {
 		if (args.length === 1 && typeof args[0] === "string") {
 			return The.#getScoped(document.body, args[0]);
+		}
+
+		if (
+			args.length === 1 &&
+			typeof window !== "undefined" &&
+			args[0] instanceof HTMLFormElement
+		) {
+			return The.#fromForm(args[0]);
 		}
 
 		if (args.length === 1 && typeof args[0] === "object") {
@@ -40,7 +49,6 @@ export default class The {
 	}
 
 	static _t(key, options = {}) {
-		// Surgical Hydration
 		const isNode =
 			typeof Node !== "undefined" ? key instanceof Node : key?.nodeType;
 		if (isNode) {
@@ -106,9 +114,87 @@ export default class The {
 		return result;
 	}
 
+	/**
+	 * Non-opinionated Surgical Router.
+	 * Intercepts internal link clicks and provides a callback for URL changes.
+	 * @param {Function} callback - Called whenever the URL changes
+	 */
+	static route(callback) {
+		if (typeof window === "undefined") return;
+
+		const navigate = () =>
+			callback(
+				window.location.pathname,
+				window.location.search,
+				window.location.hash,
+			);
+
+		window.addEventListener("popstate", navigate);
+		window.addEventListener("hashchange", navigate);
+
+		document.addEventListener("click", (e) => {
+			const link = e.target.closest("a");
+			if (
+				!link ||
+				!link.href ||
+				link.origin !== window.location.origin ||
+				link.hasAttribute("data-external") ||
+				link.target === "_blank"
+			) {
+				return;
+			}
+
+			// If it's just a hash on the current page, let the browser handle scrolling
+			// but we still listen for 'hashchange' to trigger the callback.
+			if (
+				link.pathname === window.location.pathname &&
+				link.search === window.location.search &&
+				link.hash
+			) {
+				return;
+			}
+
+			e.preventDefault();
+			window.history.pushState({}, "", link.href);
+			navigate();
+		});
+
+		// Initial route
+		navigate();
+	}
+
+	static #fromForm(form) {
+		const data = new FormData(form);
+		const obj = {};
+
+		for (const [key, value] of data.entries()) {
+			// Handle nested keys like user[name] or hobbies[]
+			const parts = key.split(/[\[\]]/).filter(Boolean);
+			let current = obj;
+
+			for (let i = 0; i < parts.length; i++) {
+				const part = parts[i];
+				const isLast = i === parts.length - 1;
+
+				if (isLast) {
+					if (current[part] !== undefined) {
+						if (!Array.isArray(current[part])) current[part] = [current[part]];
+						current[part].push(value);
+					} else {
+						current[part] = value;
+					}
+				} else {
+					current[part] = current[part] || {};
+					current = current[part];
+				}
+			}
+		}
+		return obj;
+	}
+
 	static #setGlobal(key, val) {
 		The.#setScoped(document.body, key, val);
-		localStorage.setItem(key, val);
+		localStorage.setItem(`${The.#prefix}${key}`, val);
 		const elements = document.querySelectorAll(`[data-text="${key}"]`);
 		for (const el of elements) {
 			el.textContent = val;
@@ -163,7 +249,9 @@ export default class The {
 			"en";
 
 		The.locale =
-			params.get("lang") || localStorage.getItem("lang") || browserLoc;
+			params.get("lang") ||
+			localStorage.getItem(`${The.#prefix}lang`) ||
+			browserLoc;
 
 		const meta = document.querySelector('meta[name="i18n"]');
 		if (meta) {
@@ -182,20 +270,25 @@ export default class The {
 
 			try {
 				const res = await fetch(`${path}/${target}.json`);
-				if (res.ok) The.dictionary = await res.json();
+				if (res.ok) {
+					The.dictionary = await res.json();
+				}
 			} catch (e) {
 				console.warn("otm: i18n fetch failed", e);
 			}
 		}
 
 		for (let i = 0; i < localStorage.length; i++) {
-			const key = localStorage.key(i);
-			if (key !== "lang") {
-				const val = localStorage.getItem(key);
-				The.#setScoped(document.body, key, val);
-				const elements = document.querySelectorAll(`[data-text="${key}"]`);
-				for (const el of elements) {
-					el.textContent = val;
+			const fullKey = localStorage.key(i);
+			if (fullKey.startsWith(The.#prefix)) {
+				const key = fullKey.slice(The.#prefix.length);
+				if (key !== "lang") {
+					const val = localStorage.getItem(fullKey);
+					The.#setScoped(document.body, key, val);
+					const elements = document.querySelectorAll(`[data-text="${key}"]`);
+					for (const el of elements) {
+						el.textContent = val;
+					}
 				}
 			}
 		}
