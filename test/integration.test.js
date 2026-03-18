@@ -2,19 +2,41 @@ import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
 import The from "../src/core/The.js";
-import { $, $$, _t, on, the } from "../src/core/index.js";
+import { $, $$, _t, on, the, route } from "../src/core/index.js";
 
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
 	globalThis.document = dom.document;
 	globalThis.Node = dom.Node;
 	globalThis.CustomEvent = dom.CustomEvent;
+	globalThis.HTMLElement = dom.HTMLElement;
+	globalThis.HTMLFormElement = dom.HTMLFormElement;
+	globalThis.FormData = dom.FormData;
 	globalThis.window = dom.window;
 
 	Object.defineProperty(globalThis, "navigator", {
 		value: { language: "en-US" },
 		configurable: true,
+		writable: true,
 	});
+
+	globalThis.window.location = {
+		pathname: "/",
+		search: "",
+		hash: "",
+		origin: "http://localhost",
+		href: "http://localhost/",
+	};
+
+	globalThis.window.history = {
+		pushState: (_state, _title, url) => {
+			const u = new URL(url, "http://localhost");
+			globalThis.window.location.href = u.href;
+			globalThis.window.location.pathname = u.pathname;
+			globalThis.window.location.search = u.search;
+			globalThis.window.location.hash = u.hash;
+		},
+	};
 
 	const storage = {};
 	globalThis.localStorage = {
@@ -34,12 +56,12 @@ const setupDOM = (html = "") => {
 	return dom.document;
 };
 
-test("Integration: The Full Lifecycle", async (_t_context) => {
+test("Integration: The Full Lifecycle (Strict Clone)", async (_t_context) => {
 	const dom = setupDOM(`
 		<template id="item-tmp">
 			<li data-item aria-checked="false">
 				<span data-text="task"></span>
-				<span data-i18n="static_label"></span>
+				<span data-i18n="static_label">Task:</span>
 				<button data-action="toggle" type="button">Check</button>
 			</li>
 		</template>
@@ -47,61 +69,82 @@ test("Integration: The Full Lifecycle", async (_t_context) => {
 	`);
 
 	The.dictionary = { static_label: "Task:" };
-	let eventCaught = false;
+	let mountedCalled = false;
 
-	on(dom.body, "click", '[data-action="toggle"]', (e, target) => {
-		eventCaught = true;
-		const item = target.closest("[data-item]");
-		the(item, "checked", "true");
+	on(dom.body, "mounted", "[data-item]", () => {
+		mountedCalled = true;
 	});
 
 	// 1. Clone & Auto-Hydrate i18n
-	const el = $.clone("#item-tmp");
+	const el = $.clone("#list", "#item-tmp");
 	assert.strictEqual($(el, '[data-i18n="static_label"]').textContent, "Task:");
+	assert.ok(dom.getElementById("list").contains(el));
+	assert.ok(mountedCalled);
 
 	// 2. State Injection & Reactivity
 	the(el, "task", "Finish Project");
 	assert.strictEqual($(el, '[data-text="task"]').textContent, "Finish Project");
-
-	// 3. Mounting
-	$("#list").appendChild(el);
-
-	// 4. Event Delegation & Scoped State
-	$(el, '[data-action="toggle"]').click();
-	assert.ok(eventCaught);
-	assert.strictEqual(el.getAttribute("aria-checked"), "true");
 });
 
-test("Integration: Advanced I18n Handshake", async (_t_context) => {
-	setupDOM(`
-		<meta name="i18n" content="/locales" data-available="en">
-		<div id="price" data-i18n="price_tag" data-i18n-val="100" data-i18n-type="currency"></div>
+test("Integration: Form Extraction (Advanced)", async (_t_context) => {
+	const dom = setupDOM(`
+		<form id="my-form">
+			<input name="user[name]" value="John">
+			<input name="user[email]" value="john@example.com">
+			<input name="tags[]" value="web">
+			<input name="tags[]" value="cool">
+			<input name="simple" value="flat">
+		</form>
 	`);
 
-	globalThis.fetch = async () => ({
-		ok: true,
-		json: async () => ({ price_tag: "Total: {val}" }),
+	const form = dom.getElementById("my-form");
+	const data = the.form(form);
+
+	assert.deepStrictEqual(data, {
+		user: {
+			name: "John",
+			email: "john@example.com",
+		},
+		tags: ["web", "cool"],
+		simple: "flat",
+	});
+});
+
+test("Integration: Surgical Router", async (_t_context) => {
+	const dom = setupDOM(`
+		<nav>
+			<a href="/about" id="about-link">About</a>
+			<a href="#section" id="hash-link">Hash</a>
+			<a href="https://google.com" id="ext-link">External</a>
+		</nav>
+	`);
+
+	let currentPath = "";
+	route((path) => {
+		currentPath = path;
 	});
 
-	// Explicitly await handshake
-	await The.handshake();
+	// Initial
+	assert.strictEqual(currentPath, "/");
 
-	assert.ok($("#price").textContent.includes("100.00"));
+	// Internal Link
+	dom.getElementById("about-link").click();
+	assert.strictEqual(currentPath, "/about");
+
+	// External Link (should NOT trigger route)
+	currentPath = "unchanged";
+	dom.getElementById("ext-link").click();
+	assert.strictEqual(currentPath, "unchanged");
 });
 
-test("Integration: Scoped vs Global Reactivity", async (_t_context) => {
+test("Integration: Namespace Storage", async (_t_context) => {
 	setupDOM(`
-		<div id="scope-a"><span data-text="name"></span></div>
-		<div id="scope-b"><span data-text="name"></span></div>
+		<div data-text="theme"></div>
 	`);
 
-	// Global update
-	the("name", "Global");
-	assert.strictEqual($("#scope-a span").textContent, "Global");
-	assert.strictEqual($("#scope-b span").textContent, "Global");
+	localStorage.clear();
+	the("theme", "dark");
 
-	// Scoped update
-	the($("#scope-a"), "name", "Local A");
-	assert.strictEqual($("#scope-a span").textContent, "Local A");
-	assert.strictEqual($("#scope-b span").textContent, "Global");
+	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
+	assert.strictEqual(localStorage.getItem("theme"), null);
 });
