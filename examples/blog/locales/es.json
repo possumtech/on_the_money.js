@@ -1,0 +1,21 @@
+{
+	"app_title": "Blog OnTheMoney",
+	"nav_home": "Inicio",
+	"nav_about": "Acerca de",
+	"home_title": "Últimas Publicaciones",
+	"post_count": {
+		"one": "1 publicación",
+		"other": "{qty} publicaciones"
+	},
+	"posted_at": "Publicado {val}",
+	"comments_heading": "Comentarios",
+	"comments_count": {
+		"one": "1 comentario",
+		"other": "{qty} comentarios"
+	},
+	"comment_form_label": "Añadir un comentario",
+	"comment_form_submit": "Publicar",
+	"about_title": "Acerca de",
+	"about_body": "Una pequeña demostración hecha con on_the_money.js y Pico Classless.",
+	"locale_label": "Idioma"
+}

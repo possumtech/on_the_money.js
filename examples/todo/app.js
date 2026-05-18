@@ -1,15 +1,6 @@
 import { $, $$, on, the } from "../../src/core/index.js";
 
-await the.boot({
-	dictionary: {
-		app_title: "onTheMoney • Todo",
-		btn_add: "Add",
-		items_left: {
-			one: "1 item left",
-			other: "{qty} items left",
-		},
-	},
-});
+await the.boot({ locales: "./locales" });
 
 const updateCount = () => {
 	const count = $$("#todo-list [data-item]").filter(

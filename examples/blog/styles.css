@@ -1,0 +1,21 @@
+main > section {
+	display: none;
+}
+
+body[data-page="home"] main > section[data-route="home"],
+body[data-page="post"] main > section[data-route="post"],
+body[data-page="about"] main > section[data-route="about"] {
+	display: block;
+}
+
+#post-list [data-item] a {
+	cursor: pointer;
+	display: block;
+	padding: 0.5rem 0;
+}
+
+#comments-list [data-item] {
+	border-top: 1px solid var(--pico-muted-border-color);
+	padding-top: 0.5rem;
+	margin-top: 0.5rem;
+}
