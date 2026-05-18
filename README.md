@@ -1,86 +1,130 @@
-# on_the_money.js 💸
+# on_the_money.js
 
-An opinionated web project **Anti-Framework** that enforces a deterministic, DOM-first approach using native browser APIs and strict architectural constraints.
+DOM-first anti-framework. <2KB gzip. Native browser APIs only. ESNext.
 
-## Philosophy
+## Mandates
+- **DOM is the database.** State lives in attributes. Reads/writes via `the()`.
+- **CSS is the UI engine.** No `.style` mutation. Drive transitions from attribute selectors.
+- **A11y by construction.** Interactive elements get roles + labels. ARIA states are first-class.
+- **Standards only.** No DSLs. No JSX. No virtual DOM. ES modules.
 
-The web development industry is trapped in a cycle of architectural slop, trading performance for "experience" via massive frameworks and proprietary DSLs. **on_the_money.js** breaks this cycle as an Anti-Framework—a surgical collection of standard-aligned wrappers that return the power to the native platform.
+## Install
+```bash
+npm install on_the_money
+```
 
-We must face a new reality: LLMs and AI agents are becoming the primary consumers of the web. If your site relies on non-semantic "clickable divs" and hidden JSON states, it is opaque to the next generation of the internet. By enforcing a deterministic, DOM-first architecture, we ensure your application is perfectly legible to both humans and machines.
-
-Our built-in linter acts as your architectural mentor, scolding you for inaccessible patterns and imperative shortcuts. We don't just help you build faster; we force you to build better by mandating the "Golden Standard" of accessibility and semantic clarity as the path of least resistance.
-
-Arriving at less than 2KB gzipped, we refuse to reimplement what the browser already does. By utilizing native `Intl` for localization and attribute selectors for logic, we deliver a payload that is faster than a typical framework's router alone. It’s time to stop the slop and reclaim the standards.
-
-## Core Features
-
-- **DOM as Database**: State is reflected in attributes, making it inspectable and persistent.
-- **Interactive Integrity**: Built-in A11y enforcement (roles, labels, and semantics).
-- **Advanced Localization**: Native `Intl` integration for plurals, currency, and date formatting.
-- **Pure Templating**: Standard DOM cloning with zero magic or proprietary DSLs.
-- **Surgical Routing**: Intercept internal navigation without full page reloads.
-- **CSS as UI Engine**: Visual transitions are driven exclusively by attribute selectors.
-
-## API Reference
-
-### `on(parent, event, selector, fn)`
-Event delegation and message passing.
-- `on(document.body, 'click', '.btn', fn)`
-- `on.emit(el, 'custom-event', { detail })`
-
-### `the(...)`
-State management and rehydration.
-- `the('key', 'value')` – Global state (persisted to `localStorage` with `otm:` prefix).
-- `the(el, { expanded: true })` – Scoped state with ARIA mapping.
-- `the.form(formEl)` – Extracts a structured JSON object from a form (supports `name[]` and `user[name]`).
-- `the.ready` – Promise that resolves when the boot sequence (Handshake) is complete.
-- **Reactivity:** `data-text="key"` updates automatically when state changes.
-
-### `route(callback)`
-Non-opinionated Surgical Router.
-- `route((path, search, hash) => { /* render logic */ })`
-- Intercepts all internal `<a>` clicks, `popstate`, and `hashchange` events.
-- Add `data-external` to links to skip interception.
-
-### `_t(key, options)`
-Advanced `Intl` localization engine.
-- `_t('items', { qty: 5 })` – Localized pluralization.
-- **Declarative:** `<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency">Welcome</span>`
-- **SEO Friendly:** Text content is preserved as a fallback if the translation key is missing.
-
-### `$(context, selector)`
-Context-aware selector and cloning.
-- `$(container, '.item')`
-- `$$(container, '.items')` – Returns a real Array.
-- `$.clone(parent, '#template')` – Instantiate templates and attach them to the DOM. Triggers a `mounted` event.
-
-## Quick Example (Todo App)
+## Exports
 ```javascript
-import { on, the, $, route } from 'on_the_money.js';
+import { on, the, _t, route, $, $$ } from "on_the_money";
+```
+Aliases: `the.t === _t`, `the.route === route`, `the.form(el)` extracts form data.
 
-// Simple Routing
-route((path) => {
-  console.log('Navigated to:', path);
-});
+## API
 
-// Form Handling
-on('#todo-form', 'submit', (e) => {
+### `on(parent, event, selector, fn)` — event delegation
+- `parent`: `Element` | selector string | falsy (→ `document.body`).
+- Listener attaches to `parent`; `fn(event, target)` fires when `event.target.closest(selector)` is inside `parent`.
+
+### `on.emit(el, event, detail)` — `CustomEvent` dispatch
+- `el`: `Element` | selector string. Dispatches `{ bubbles: true, cancelable: true, detail }`.
+
+### `the(...)` — state
+Polymorphic. Global state is body `data-*` + `localStorage["otm:KEY"]`.
+
+| Call | Behavior |
+| --- | --- |
+| `the(key)` | Read global attribute on `document.body`. |
+| `the(key, val)` | Write global: body attr + `localStorage["otm:KEY"]` + all `[data-text="key"]`. |
+| `the({ k: v, ... })` | Batch global write. |
+| `the(el, key)` | Read scoped attribute on `el`. |
+| `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. |
+| `the(el, { k: v, ... })` | Batch scoped write. |
+| `the(formEl)` / `the.form(formEl)` | Extract `FormData` into nested object. Supports `user[name]`, `tags[]`. |
+
+- `the.ready` — `Promise` that resolves when the Handshake (rehydration + i18n fetch) completes.
+- **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. All other keys → `data-*`.
+- **Values MUST be flat primitives.** Nested objects are illegal.
+
+### `_t(key, options)` — `Intl` localization
+- `_t(key, options)` → string from `The.dictionary[key]` with `{var}` interpolation.
+  - `options.qty` (number) → `Intl.PluralRules` selection across `{ one, other, ... }` entries.
+  - `options.type` = `"currency"` | `"date"` + `options.val` → formatted via `Intl.NumberFormat` / `Intl.DateTimeFormat` under `The.locale`.
+- `_t(node)` — hydrate every `[data-i18n]` inside `node`. Reads `data-i18n-*` attrs as `options`; `data-i18n-type` selects the formatter.
+- `_t()` — hydrate `document.body`. Missing dictionary keys preserve existing `textContent` (SEO fallback).
+
+### `route(callback)` — pushState router
+- `callback(pathname, search, hash)` fires on `popstate`, `hashchange`, and intercepted internal `<a>` clicks.
+- Skip interception: `data-external` attribute, `target="_blank"`, or cross-origin `href`.
+- Same-page hash-only links are left to the browser; `hashchange` still triggers `callback`.
+
+### `$(context, selector)` / `$$(context, selector)` — context-aware DOM query
+- `context`: `Element` | `Document` | selector string (then `context = document`).
+- `$` returns one element (or `null`); `$$` returns a real `Array`.
+
+### `$.clone(parent, selector)` — template instantiation
+- Clones first element from `<template>` matched by `selector`, runs `_t(el)` for i18n hydration, appends to `parent`, dispatches `mounted` `CustomEvent` (`bubbles: true`, `detail: { parent }`) on the new element. Returns the mounted element.
+- `parent`: `Element` | selector string. Throws if `parent` or template is missing.
+
+## Handshake (auto-runs on import in a browser)
+1. Resolve locale: `?lang=` query param → `localStorage["otm:lang"]` → `navigator.language`. Assigns `The.locale`.
+2. If `<meta name="i18n" content="/locales" data-available="en,fr" data-fallback="en">` is present, `fetch("/locales/{lang}.json")` and assign JSON to `The.dictionary`. Falls back through full → base → `data-fallback`.
+3. Iterate `localStorage` and replay every `otm:KEY` (except `otm:lang`) back onto `document.body` `data-*` and `[data-text="KEY"]` elements.
+4. Run `_t()` to hydrate `[data-i18n]`.
+
+`await the.ready` to gate code on completion.
+
+## Patterns
+
+### Reactive text
+```html
+<h1 data-text="user"></h1>
+```
+```javascript
+the("user", "Alice"); // <h1>Alice</h1>
+```
+
+### List rendering
+```javascript
+for (const item of items) the($.clone("#list", "#tmp"), item);
+```
+
+### Form intake
+```javascript
+on("#todo-form", "submit", (e) => {
   e.preventDefault();
-  const data = the.form(e.target); // { task: "..." }
-  const item = the($.clone('#todo-list', '#todo-item'), data);
-});
-
-// Lifecycle
-on('#todo-list', 'mounted', '[data-item]', (e) => {
-  e.target.classList.add('fade-in');
+  const data = the.form(e.target);                // { task, tags: [...] }
+  the($.clone("#todo-list", "#todo-item"), data);
 });
 ```
 
-## Linter Rules
-The built-in linter enforces 20+ "Anti-Slop" rules, including:
-- **JS-015:** No direct `.textContent` manipulation.
-- **HTML-017:** No `data-action` on non-interactive elements without ARIA.
-- **HTML-004:** Naked strings must be localizable (`data-i18n`) or wrapped in a semantic tag.
+### Lifecycle hook
+```javascript
+on("#todo-list", "mounted", "[data-item]", (e) => {
+  e.target.classList.add("fade-in");
+});
+```
 
-## Contributing
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines and [LLM.md](LLM.md) for AI-assisted development reference.
+## Illegal slop (linter rejects)
+- `innerHTML`, `outerHTML`
+- `el.style.*` assignments
+- Assignments to `textContent`, `innerText`, `nodeValue` (use `the()` or `data-text`)
+- `addEventListener` (use `on()`)
+- Nested objects passed to `the()`
+- `data-action` on elements missing `role`/`tabindex`
+- `<input>` without an associated `<label>`
+- Missing `<html lang>`, `<meta charset>`, `<meta name="viewport">`
+- `data-i18n` without `<meta name="i18n">`
+- Button `click` for data gathering — use `submit`
+
+Run: `npm run otm` (lint) · `npm test` (node:test) · `npm run check` (lint + build + test + coverage).
+
+## Layout
+- `src/core/{On,The,Select}.js` — runtime
+- `src/linter/` — `otm-lint` rules
+- `test/*.test.js` — unit (`node --test`)
+- `test/integration.test.js` — full-surface integration
+- `examples/` — runnable samples
+- `dist/on_the_money.min.js` — built ESM bundle
+
+## License
+MIT. Issues and PRs: https://github.com/possumtech/on_the_money.js
