@@ -1,7 +1,7 @@
 {
 	"name": "on_the_money",
 	"version": "0.1.1",
-	"description": "An opinionated web project anti-framework enforcing deterministic, DOM-first architecture.",
+	"description": "Opinionated, attribute-driven, standards-oriented modern framework. <2KB gzip. Native browser APIs only.",
 	"type": "module",
 	"main": "src/core/index.js",
 	"module": "dist/on_the_money.min.js",
