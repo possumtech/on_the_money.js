@@ -1,8 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
-import Select from "../src/core/Select.js";
-import The from "../src/core/The.js";
+import Select from "./Select.js";
+import The from "./The.js";
 
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
