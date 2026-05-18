@@ -1,6 +1,6 @@
 import assert from "node:assert";
 import test from "node:test";
-import Cli from "../src/linter/cli.js";
+import Cli from "./cli.js";
 
 test("Cli.run: should return 0 when called with empty args", async (_t) => {
 	const result = await Cli.run([]);

@@ -1,8 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
-import The from "../src/core/The.js";
-import { the } from "../src/core/index.js";
+import The from "./The.js";
+import { the } from "./index.js";
 
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
@@ -271,10 +271,7 @@ test("the.boot({ signal }): aborts the fetch", async (_t) => {
 
 test("import: index.js has no top-level boot or ready assignment", async (_t) => {
 	const { readFile } = await import("node:fs/promises");
-	const src = await readFile(
-		new URL("../src/core/index.js", import.meta.url),
-		"utf8",
-	);
+	const src = await readFile(new URL("./index.js", import.meta.url), "utf8");
 	assert.doesNotMatch(
 		src,
 		/^\s*the\.boot\(/m,
