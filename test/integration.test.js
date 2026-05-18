@@ -2,7 +2,7 @@ import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
 import The from "../src/core/The.js";
-import { $, $$, _t, on, the, route } from "../src/core/index.js";
+import { $, $$, _t, on, route, the } from "../src/core/index.js";
 
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
