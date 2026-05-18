@@ -302,28 +302,81 @@ await the.boot();   // localStorage values, if any, override the server-rendered
 
 The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates when localStorage has matching keys.
 
-## Anti-patterns (linter rejects)
+## Lint stack
+
+on_the_money ships a three-tool stack. Each layer covers what the others can't.
+
+### 1. JavaScript — ESLint + `eslint-plugin-otm`
+
+```bash
+npm install -D eslint
+```
+
+```javascript
+// eslint.config.js
+import otm from "on_the_money/eslint-config";
+import nounsanitized from "eslint-plugin-no-unsanitized";
+
+export default [
+  ...otm,
+  nounsanitized.configs.recommended,
+];
+```
+
+| Rule | Source | Behavior |
+| --- | --- | --- |
+| `otm/prefer-on` | eslint-plugin-otm | Ban `addEventListener`; use `on()`. |
+| `otm/prefer-the-set` | eslint-plugin-otm | Ban `textContent`/`innerText`/`nodeValue` assignment. |
+| `otm/flat-state` | eslint-plugin-otm | Ban nested objects/arrays in `the()` calls. |
+| `otm/prefer-submit` | eslint-plugin-otm | Warn on `on(btn, "click", ...)` for form data. |
+| `otm/no-style-mutation` | eslint-plugin-otm | Ban `el.style.* = ...`. |
+| `no-unsanitized/no-inner-html` | external | Ban `innerHTML`/`outerHTML`. |
+| `no-unsanitized/method` | external | Ban `document.write`, `insertAdjacentHTML`. |
+
+### 2. CSS — Stylelint + `stylelint-plugin-otm`
+
+```bash
+npm install -D stylelint stylelint-config-standard
+```
+
+```javascript
+// stylelint.config.js
+import otm from "on_the_money/stylelint-config";
+
+export default {
+  extends: ["stylelint-config-standard"],
+  ...otm,
+};
+```
+
+| Rule | Source | Behavior |
+| --- | --- | --- |
+| `otm/prefer-attribute-selector` | stylelint-plugin-otm | Ban `.class` selectors; use `[data-state="..."]`. |
+| `declaration-no-important` | stylelint built-in | Ban `!important`. |
+
+### 3. HTML / cross-file — `otm-lint`
+
+```bash
+npx otm-lint --check ./src
+```
 
 | Rule | Forbidden | Use instead |
 | --- | --- | --- |
-| **JS-001** | `el.innerHTML = "..."` | `$.clone(parent, "#tmpl")` for structure; `the(el, "key", val)` for text. |
-| **JS-003** | `el.style.color = "red"` | CSS with attribute selectors: `[data-theme="dark"] h1 { color: red }`. |
-| **JS-009** | `el.addEventListener("click", fn)` | `on(parent, "click", selector, fn)`. |
-| **JS-011** | `el.setAttribute(name, val)` with dynamic name | Static attribute names only. Use `the()` for state. |
-| **JS-015** | `el.textContent = "x"` | `the(el, "key", "x")` writes via `[data-text]`. |
-| **JS-016** | `the(el, { nested: { obj: 1 } })` | `the(el, the.flat({ nested: { obj: 1 } }))`. |
-| **JS-019** | `on(btn, "click", ...)` for form data | `on(form, "submit", ...)`. |
-| **HTML-004** | Naked text in HTML | Wrap in `<p>`/`<span>`/etc. or use `data-i18n="key"`. |
-| **HTML-014** | `<button onclick="...">` | `on(parent, "click", "button", fn)`. |
-| **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>`. |
-| **HTML-018** | `<input>` without label or `aria-label` | Add `<label>` or `aria-label`. |
-| **HTML-020/021/022** | Missing `<html lang>`, `<meta charset>`, `<meta viewport>` | Include all three. |
+| **HTML-004** | Naked text in HTML | Wrap in a semantic tag or use `data-i18n="key"`. |
+| **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
-| **HTML-024** | `<meta name="i18n" data-available="...">` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
-| **CSS-006** | `color: red !important;` | Refactor specificity. |
-| **CSS-012** | `.active { ... }` class selectors | Use attribute selectors: `[data-state="active"] { ... }`. |
+| **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
 
-Run the linter against your project: `npx otm-lint --check ./src`. It default-excludes `node_modules`, `dist`, `.git`, and dotdirs.
+`otm-lint` default-excludes `node_modules`, `dist`, `.git`, and dotdirs. It only scans `.html` — everything else delegates to the layers above.
+
+### Recommended companions (not shipped)
+
+| Concern | Tool |
+| --- | --- |
+| HTML correctness (lang/charset/viewport, inline handlers, deprecated attrs) | `html-validate` |
+| Static a11y | `eslint-plugin-jsx-a11y` (works on plain HTML via parsers) |
+| Runtime a11y | `axe-core` via Playwright/Cypress against the rendered page |
+| Supply-chain | `npm audit`, `osv-scanner` |
 
 ## Suggested project layout
 

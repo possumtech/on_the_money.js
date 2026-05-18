@@ -1,160 +1,21 @@
-import * as csstree from "css-tree";
-import * as espree from "espree";
 import * as parse5 from "parse5";
 
 export default class Linter {
 	static check(file, source, availableLocales = null) {
-		const ext = file.split(".").pop();
+		if (!file.endsWith(".html")) return [];
 		const violations = [];
-
-		if (ext === "js") {
-			const ast = espree.parse(source, {
-				ecmaVersion: "latest",
-				sourceType: "module",
-				loc: true,
-			});
-			Linter.#checkJsRules(ast, violations, file);
-		} else if (ext === "html") {
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
-			Linter.#checkHtmlRules(document, violations, file, availableLocales);
-		} else if (ext === "css") {
-			const ast = csstree.parse(source, { positions: true });
-			Linter.#checkCssRules(ast, violations, file);
-		}
-
+		const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+		Linter.#checkHtmlRules(document, violations, file, availableLocales);
 		return violations;
 	}
 
-	static #checkJsRules(ast, violations, file) {
-		Linter.#traverseJs(ast, (node) => {
-			if (
-				node.type === "AssignmentExpression" &&
-				node.left?.property?.name === "innerHTML"
-			) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-001",
-					"Assignment to innerHTML is strictly forbidden.",
-				);
-			}
-
-			if (Linter.#isStyle(node)) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-003",
-					"Direct style manipulation is forbidden. Use the() and CSS instead.",
-				);
-			}
-
-			if (
-				node.type === "CallExpression" &&
-				node.callee?.property?.name === "addEventListener"
-			) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-009",
-					"Direct addEventListener is forbidden. Use on() for event delegation.",
-				);
-			}
-
-			if (
-				node.type === "CallExpression" &&
-				node.callee?.property?.name === "setAttribute" &&
-				node.arguments?.[0]?.type !== "Literal"
-			) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-011",
-					"Dynamic attribute names are forbidden. Use static strings only.",
-				);
-			}
-
-			if (
-				node.type === "AssignmentExpression" &&
-				["textContent", "innerText", "nodeValue"].includes(
-					node.left?.property?.name,
-				)
-			) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-015",
-					"Direct text manipulation is forbidden. Use the() or the._t() instead.",
-				);
-			}
-
-			if (node.type === "CallExpression") {
-				const name = node.callee?.name || node.callee?.property?.name;
-				if (name === "the") {
-					Linter.#checkFlatState(node, violations, file);
-				}
-			}
-
-			if (
-				node.type === "CallExpression" &&
-				(node.callee?.name === "on" || node.callee?.property?.name === "on") &&
-				node.arguments?.[1]?.value === "click" &&
-				(node.arguments?.[2]?.value === "button" ||
-					node.arguments?.[2]?.value?.includes("button"))
-			) {
-				Linter.#addViolation(
-					violations,
-					file,
-					node.loc.start,
-					"JS-019",
-					"Prefer using <form> submit events over direct button click listeners.",
-				);
-			}
-		});
-	}
-
-	static #checkFlatState(node, violations, file) {
-		const args = node.arguments;
-		if (args.length === 2) {
-			if (args[0].type === "Literal") {
-				Linter.#checkPrimitive(args[1], violations, file);
-			} else if (args[1].type === "ObjectExpression") {
-				for (const prop of args[1].properties) {
-					Linter.#checkPrimitive(prop.value, violations, file);
-				}
-			}
-		} else if (args.length === 3) {
-			Linter.#checkPrimitive(args[2], violations, file);
-		}
-	}
-
-	static #checkPrimitive(node, violations, file) {
-		if (!node) return;
-		if (node.type === "ObjectExpression" || node.type === "ArrayExpression") {
-			Linter.#addViolation(
-				violations,
-				file,
-				node.loc.start,
-				"JS-016",
-				"State must be flat. Nested objects or arrays are forbidden in the().",
-			);
-		}
-	}
-
 	static #checkHtmlRules(document, violations, file, availableLocales) {
-		let hasLang = false;
-		let hasCharset = false;
-		let hasViewport = false;
 		let hasI18nMeta = false;
 		let manifestMatches = true;
 		let usesI18n = false;
 		let isFullDocument = false;
 
-		Linter.#traverseHtml(document, (node) => {
+		Linter.#traverse(document, (node) => {
 			if (
 				(node.nodeName === "html" || node.nodeName === "#documentType") &&
 				node.sourceCodeLocation
@@ -166,23 +27,18 @@ export default class Linter {
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
 
-			if (node.nodeName === "html" && attrs.lang) hasLang = true;
-			if (node.nodeName === "meta") {
-				if (attrs.charset?.toLowerCase() === "utf-8") hasCharset = true;
-				if (attrs.name === "viewport") hasViewport = true;
-				if (attrs.name === "i18n") {
-					hasI18nMeta = true;
-					if (availableLocales) {
-						const manifest = (attrs["data-available"] || "")
-							.split(",")
-							.map((s) => s.trim())
-							.filter(Boolean);
-						if (
-							manifest.length !== availableLocales.length ||
-							!availableLocales.every((l) => manifest.includes(l))
-						) {
-							manifestMatches = false;
-						}
+			if (node.nodeName === "meta" && attrs.name === "i18n") {
+				hasI18nMeta = true;
+				if (availableLocales) {
+					const manifest = (attrs["data-available"] || "")
+						.split(",")
+						.map((s) => s.trim())
+						.filter(Boolean);
+					if (
+						manifest.length !== availableLocales.length ||
+						!availableLocales.every((l) => manifest.includes(l))
+					) {
+						manifestMatches = false;
 					}
 				}
 			}
@@ -210,40 +66,6 @@ export default class Linter {
 						"HTML-017",
 						"Non-semantic interactive element. Use a <button> or add role and tabindex.",
 					);
-				}
-			}
-
-			const inputTags = ["input", "select", "textarea"];
-			if (inputTags.includes(node.nodeName) && attrs.type !== "hidden") {
-				const hasAriaLabel = attrs["aria-label"] || attrs["aria-labelledby"];
-				if (!hasAriaLabel) {
-					const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
-					Linter.#addViolation(
-						violations,
-						file,
-						{ line: loc.startLine, column: loc.startCol },
-						"HTML-018",
-						"Form inputs must have a label or aria-label.",
-					);
-				}
-			}
-
-			if (node.attrs) {
-				for (const attr of node.attrs) {
-					if (attr.name.startsWith("on")) {
-						const loc =
-							node.sourceCodeLocation?.attrs?.[attr.name] ||
-							node.sourceCodeLocation;
-						Linter.#addViolation(
-							violations,
-							file,
-							loc.startLine
-								? { line: loc.startLine, column: loc.startCol }
-								: { line: 1, column: 1 },
-							"HTML-014",
-							`Inline handler '${attr.name}' is forbidden.`,
-						);
-					}
 				}
 			}
 
@@ -276,88 +98,33 @@ export default class Linter {
 			}
 		});
 
-		if (isFullDocument) {
-			if (!hasLang) {
+		if (isFullDocument && usesI18n) {
+			if (!hasI18nMeta) {
 				Linter.#addViolation(
 					violations,
 					file,
 					{ line: 1, column: 1 },
-					"HTML-020",
-					"Missing <html lang='...'> attribute.",
+					"HTML-023",
+					"Localization detected, but missing <meta name='i18n' ...>.",
 				);
-			}
-			if (!hasCharset) {
+			} else if (!manifestMatches) {
 				Linter.#addViolation(
 					violations,
 					file,
 					{ line: 1, column: 1 },
-					"HTML-021",
-					"Missing <meta charset='UTF-8'>.",
+					"HTML-024",
+					"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
 				);
-			}
-			if (!hasViewport) {
-				Linter.#addViolation(
-					violations,
-					file,
-					{ line: 1, column: 1 },
-					"HTML-022",
-					"Missing <meta name='viewport' ...> tag.",
-				);
-			}
-			if (usesI18n) {
-				if (!hasI18nMeta) {
-					Linter.#addViolation(
-						violations,
-						file,
-						{ line: 1, column: 1 },
-						"HTML-023",
-						"Localization detected, but missing <meta name='i18n' ...>.",
-					);
-				} else if (!manifestMatches) {
-					Linter.#addViolation(
-						violations,
-						file,
-						{ line: 1, column: 1 },
-						"HTML-024",
-						"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
-					);
-				}
 			}
 		}
 	}
 
-	static #checkCssRules(ast, violations, file) {
-		csstree.walk(ast, (node) => {
-			if (node.type === "Declaration" && node.important) {
-				Linter.#addViolation(
-					violations,
-					file,
-					{ line: node.loc.start.line, column: node.loc.start.column },
-					"CSS-006",
-					"!important is forbidden.",
-				);
-			}
-			if (node.type === "ClassSelector") {
-				Linter.#addViolation(
-					violations,
-					file,
-					{ line: node.loc.start.line, column: node.loc.start.column },
-					"CSS-012",
-					`Class selector '.${node.name}' is forbidden.`,
-				);
-			}
-		});
-	}
-
-	static #isStyle(node) {
-		const isAssign =
-			node.type === "AssignmentExpression" &&
-			node.left?.object?.property?.name === "style";
-		const isDelete =
-			node.type === "UnaryExpression" &&
-			node.operator === "delete" &&
-			node.argument?.object?.property?.name === "style";
-		return isAssign || isDelete;
+	static #traverse(node, visitor) {
+		visitor(node);
+		const children = node.childNodes || node.content?.childNodes;
+		if (children) {
+			for (const child of children) Linter.#traverse(child, visitor);
+		}
 	}
 
 	static #addViolation(violations, file, loc, ruleId, message) {
@@ -368,32 +135,5 @@ export default class Linter {
 			column: loc.column || loc.startCol,
 			message,
 		});
-	}
-
-	static #traverseJs(node, callback) {
-		if (!node || typeof node !== "object") return;
-		callback(node);
-		for (const key of Object.keys(node)) {
-			const val = node[key];
-			if (val && typeof val === "object") {
-				if (Array.isArray(val)) {
-					for (const item of val) {
-						Linter.#traverseJs(item, callback);
-					}
-				} else {
-					Linter.#traverseJs(val, callback);
-				}
-			}
-		}
-	}
-
-	static #traverseHtml(node, callback) {
-		if (!node) return;
-		callback(node);
-		if (node.childNodes) {
-			for (const child of node.childNodes) {
-				Linter.#traverseHtml(child, callback);
-			}
-		}
 	}
 }

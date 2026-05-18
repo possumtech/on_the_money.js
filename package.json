@@ -1,6 +1,6 @@
 {
 	"name": "on_the_money",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "Opinionated, attribute-driven, standards-oriented modern framework. <2KB gzip. Native browser APIs only.",
 	"type": "module",
 	"main": "dist/on_the_money.min.js",
@@ -39,10 +39,8 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
-		"css-tree": "3.1.0",
 		"esbuild": "0.25.0",
 		"eslint": "10.4.0",
-		"espree": "10.3.0",
 		"linkedom": "0.18.6",
 		"parse5": "7.2.1",
 		"postcss-selector-parser": "7.1.1",
