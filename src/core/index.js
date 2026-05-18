@@ -11,7 +11,22 @@ export const route = The.route;
 the.t = _t;
 the.route = route;
 the.form = The.form;
+the.flat = The.flat;
 the.boot = The.boot;
+
+Object.defineProperty(the, "dictionary", {
+	get: () => The.dictionary,
+	set: (v) => {
+		The.dictionary = v;
+	},
+});
+
+Object.defineProperty(the, "locale", {
+	get: () => The.locale,
+	set: (v) => {
+		The.locale = v;
+	},
+});
 
 export const $ = Select.$;
 $.clone = Select.clone;

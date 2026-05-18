@@ -2,7 +2,7 @@ export default class The {
 	static dictionary = {};
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
-	static #prefix = "otm:";
+	static prefix = "otm:";
 
 	static the(...args) {
 		if (args.length === 0) {
@@ -28,13 +28,13 @@ export default class The {
 				);
 			}
 			The.#set(el, a, b);
-			if (isGlobal) localStorage.setItem(`${The.#prefix}${a}`, b);
+			if (isGlobal) localStorage.setItem(`${The.prefix}${a}`, b);
 			return el;
 		}
 		if (args.length === 1 && a?.constructor === Object) {
 			for (const [k, v] of Object.entries(a)) {
 				The.#set(el, k, v);
-				if (isGlobal) localStorage.setItem(`${The.#prefix}${k}`, v);
+				if (isGlobal) localStorage.setItem(`${The.prefix}${k}`, v);
 			}
 			return el;
 		}
@@ -42,6 +42,24 @@ export default class The {
 		throw new TypeError(
 			`the(): unrecognized call shape (${args.map((x) => typeof x).join(", ")})`,
 		);
+	}
+
+	static flat(obj, sep = "_") {
+		if (obj === null || typeof obj !== "object") {
+			throw new TypeError("the.flat: input must be an object");
+		}
+		const out = {};
+		const walk = (val, prefix) => {
+			if (val === null || typeof val !== "object") {
+				out[prefix] = val;
+				return;
+			}
+			for (const [k, v] of Object.entries(val)) {
+				walk(v, prefix ? `${prefix}${sep}${k}` : k);
+			}
+		};
+		walk(obj, "");
+		return out;
 	}
 
 	static form(formEl) {
@@ -216,16 +234,18 @@ export default class The {
 			disabled: "aria-disabled",
 		};
 		const attr = ariaMap[key] || `data-${key}`;
-		el.setAttribute(attr, val);
+		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
+		el.setAttribute(attr, out);
 
 		if (el.querySelectorAll) {
 			const items = el.querySelectorAll(`[data-text="${key}"]`);
-			for (const item of items) item.textContent = val;
+			for (const item of items) item.textContent = out;
 		}
-		if (el.getAttribute?.("data-text") === key) el.textContent = val;
+		if (el.getAttribute?.("data-text") === key) el.textContent = out;
 	}
 
-	static async boot({ signal, locales, dictionary } = {}) {
+	static async boot({ signal, locales, dictionary, namespace } = {}) {
+		if (namespace) The.prefix = `${namespace}:`;
 		const search =
 			typeof window !== "undefined" && window.location
 				? window.location.search
@@ -238,7 +258,7 @@ export default class The {
 
 		The.locale =
 			params.get("lang") ||
-			localStorage.getItem(`${The.#prefix}lang`) ||
+			localStorage.getItem(`${The.prefix}lang`) ||
 			browserLoc;
 
 		if (dictionary) {
@@ -271,8 +291,8 @@ export default class The {
 
 		for (let i = 0; i < localStorage.length; i++) {
 			const fullKey = localStorage.key(i);
-			if (fullKey.startsWith(The.#prefix)) {
-				const key = fullKey.slice(The.#prefix.length);
+			if (fullKey.startsWith(The.prefix)) {
+				const key = fullKey.slice(The.prefix.length);
 				if (key !== "lang") {
 					const val = localStorage.getItem(fullKey);
 					The.#set(document.body, key, val);

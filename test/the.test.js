@@ -2,6 +2,7 @@ import assert from "node:assert";
 import test from "node:test";
 import { parseHTML } from "linkedom";
 import The from "../src/core/The.js";
+import { the } from "../src/core/index.js";
 
 const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
@@ -189,6 +190,72 @@ test("the.boot({ locales }): overrides meta-tag path", async (_t) => {
 	await The.boot({ locales: "/i18n" });
 	assert.match(requestedUrl, /^\/i18n\//);
 	assert.strictEqual(The.dictionary.from, "override");
+});
+
+test("the.flat: flattens nested objects with default separator", (_t) => {
+	const out = The.flat({
+		user: { name: "Alice", email: "a@b" },
+		tags: ["x", "y"],
+	});
+	assert.deepStrictEqual(out, {
+		user_name: "Alice",
+		user_email: "a@b",
+		tags_0: "x",
+		tags_1: "y",
+	});
+});
+
+test("the.flat: respects a custom separator", (_t) => {
+	const out = The.flat({ a: { b: 1 } }, ".");
+	assert.deepStrictEqual(out, { "a.b": 1 });
+});
+
+test("the.flat: throws on non-object input", (_t) => {
+	assert.throws(() => The.flat("nope"), /must be an object/);
+	assert.throws(() => The.flat(null), /must be an object/);
+});
+
+test('the(el, k, boolean): coerces to "true"/"false"', (_t) => {
+	const { document } = setupDOM('<div id="el"></div>');
+	const el = document.querySelector("#el");
+	The.the(el, "checked", true);
+	assert.strictEqual(el.getAttribute("aria-checked"), "true");
+	The.the(el, "checked", false);
+	assert.strictEqual(el.getAttribute("aria-checked"), "false");
+});
+
+test("the(el, k, boolean): syncs [data-text] with coerced string", (_t) => {
+	const { document } = setupDOM(
+		'<div id="el"><span data-text="active"></span></div>',
+	);
+	const el = document.querySelector("#el");
+	The.the(el, "active", true);
+	assert.strictEqual(el.querySelector("span").textContent, "true");
+});
+
+test("the.dictionary: live accessor proxies to The.dictionary", (_t) => {
+	setupDOM();
+	the.dictionary = { greeting: "hi" };
+	assert.strictEqual(The.dictionary.greeting, "hi");
+	The.dictionary = { greeting: "bye" };
+	assert.strictEqual(the.dictionary.greeting, "bye");
+});
+
+test("the.locale: live accessor proxies to The.locale", (_t) => {
+	setupDOM();
+	the.locale = "fr-FR";
+	assert.strictEqual(The.locale, "fr-FR");
+	The.locale = "es-ES";
+	assert.strictEqual(the.locale, "es-ES");
+});
+
+test("the.boot({ namespace }): rewrites localStorage prefix", async (_t) => {
+	setupDOM();
+	await The.boot({ namespace: "myapp" });
+	The.the("theme", "dark");
+	assert.strictEqual(localStorage.getItem("myapp:theme"), "dark");
+	assert.strictEqual(localStorage.getItem("otm:theme"), null);
+	The.prefix = "otm:";
 });
 
 test("the.boot({ signal }): aborts the fetch", async (_t) => {
