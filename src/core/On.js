@@ -5,12 +5,14 @@ export default class On {
 				? document.querySelector(parent)
 				: parent || document.body;
 
-		container.addEventListener(event, (e) => {
+		const handler = (e) => {
 			const target = e.target.closest(selector);
 			if (target && container.contains(target)) {
 				fn.call(target, e, target);
 			}
-		});
+		};
+		container.addEventListener(event, handler);
+		return () => container.removeEventListener(event, handler);
 	}
 
 	static emit(el, event, detail) {

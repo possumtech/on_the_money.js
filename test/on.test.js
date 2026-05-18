@@ -69,6 +69,18 @@ test("On.on: should find parent if selector is string", (_t) => {
 	assert.ok(called);
 });
 
+test("On.on: returns an unsubscribe function", (_t) => {
+	const dom = setupDOM('<button class="x">go</button>');
+	const btn = dom.querySelector(".x");
+	let count = 0;
+	const off = On.on(dom.body, "click", ".x", () => count++);
+	btn.click();
+	assert.strictEqual(count, 1);
+	off();
+	btn.click();
+	assert.strictEqual(count, 1);
+});
+
 test("On.emit: should dispatch CustomEvent with detail", (_t) => {
 	const dom = setupDOM('<div id="target"></div>');
 	const el = dom.querySelector("#target");

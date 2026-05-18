@@ -18,13 +18,14 @@ npm install on_the_money
 ```javascript
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.boot(options?)`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`. Live accessors: `the.dictionary`, `the.locale`.
 
 ## API
 
 ### `on(parent, event, selector, fn)` — event delegation
 - `parent`: `Element` | selector string | falsy (→ `document.body`).
 - Listener attaches to `parent`; `fn(event, target)` fires when `event.target.closest(selector)` is inside `parent`.
+- Returns an `() => void` unsubscribe function. Call it to detach the listener.
 
 ### `on.emit(el, event, detail)` — `CustomEvent` dispatch
 - `el`: `Element` | selector string. Dispatches `{ bubbles: true, cancelable: true, detail }`.
@@ -44,22 +45,29 @@ Element-first-arg dispatch. Three disjoint shapes per scope: get, set, batch. Gl
 - **Dispatch:** if `args[0] instanceof Element`, scoped; else if string, global key; else if plain object, batch global; else throws.
 - **`the(key, undefined)` throws** (`val is required for set`). Two args means set; missing val is a contract violation.
 - **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. All other keys → `data-*`.
-- **Values MUST be flat primitives.** Nested objects rejected.
+- **Booleans coerce** to `"true"`/`"false"` strings inside the setter (covers `checkbox.checked` etc.).
+- **Values MUST be flat primitives.** Nested objects rejected. Use `the.flat(...)` to compose with `the.form(...)`.
 
 ### `the.form(formEl)` — form extraction
 - Walks `input, select, textarea` descendants of `formEl`. Skips unnamed, disabled, submit/button/reset controls, and unchecked checkboxes/radios.
 - Parses bracket-notation names: `user[name]` → nesting, `tags[]` → array append.
-- Returns a nested object.
+- Returns a **nested** object (matches browser submission shape). To feed it into `the(el, {...})`, compose with `the.flat`.
+
+### `the.flat(obj, sep = "_")` — nested-to-flat conversion
+- Recursively flattens an object/array into single-level keys joined by `sep`.
+- `the.flat({user: {name: "x"}, tags: ["a", "b"]})` → `{user_name: "x", tags_0: "a", tags_1: "b"}`.
+- Throws on non-object input.
 
 ### `the.boot(options?)` — explicit init
 Not auto-called. Run once from the consumer's entry point.
 
 ```javascript
-await the.boot({ signal, locales, dictionary });
+await the.boot({ signal, locales, dictionary, namespace });
 ```
 - `signal` — `AbortSignal` for the i18n fetch.
 - `locales` — override the `<meta name="i18n" content>` path.
 - `dictionary` — inline dictionary; skips the fetch entirely.
+- `namespace` — sets the `localStorage` prefix to `${namespace}:` (default `otm:`). Must be passed before any state ops.
 
 Steps:
 1. Resolve locale: `?lang=` query param → `localStorage["otm:lang"]` → `navigator.language`. Assigns `The.locale`.
