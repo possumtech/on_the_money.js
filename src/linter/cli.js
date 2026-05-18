@@ -80,7 +80,7 @@ export default class Cli {
 		);
 		return Array.prototype.concat
 			.apply([], files)
-			.filter((f) => [".js", ".html", ".css"].includes(path.extname(f)));
+			.filter((f) => path.extname(f) === ".html");
 	}
 
 	static report(file, violations) {
