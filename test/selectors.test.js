@@ -8,6 +8,7 @@ const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
 	globalThis.document = dom.document;
 	globalThis.Node = dom.Node;
+	globalThis.CustomEvent = dom.CustomEvent;
 	return dom.document;
 };
 
@@ -39,31 +40,43 @@ test("Select.$$: should return real Array", (_t) => {
 });
 
 test("Select.clone: should clone template and return first element", (_t) => {
-	setupDOM(`
+	const dom = setupDOM(`
+    <div id="mount"></div>
     <template id="tmp">
       <div class="cloned">Hello</div>
     </template>
   `);
-	const el = Select.clone("#tmp");
+	const el = Select.clone("#mount", "#tmp");
 	assert.ok(el);
 	assert.strictEqual(el.className, "cloned");
 	assert.strictEqual(el.textContent, "Hello");
+	assert.strictEqual(dom.querySelector("#mount").firstElementChild, el);
 });
 
 test("Select.clone: should hydrate i18n inside the clone", (_t) => {
 	setupDOM(`
+    <div id="mount"></div>
     <template id="tmp">
       <div data-i18n="greeting"></div>
     </template>
   `);
 	The.dictionary = { greeting: "Bonjour" };
-	const el = Select.clone("#tmp");
+	const el = Select.clone("#mount", "#tmp");
 	assert.strictEqual(el.textContent, "Bonjour");
 });
 
 test("Select.clone: should throw if template not found", (_t) => {
-	setupDOM("");
-	assert.throws(() => {
-		Select.clone("#missing");
-	});
+	setupDOM('<div id="mount"></div>');
+	assert.throws(
+		() => Select.clone("#mount", "#missing"),
+		/Template not found: #missing/,
+	);
+});
+
+test("Select.clone: should throw if parent not found", (_t) => {
+	setupDOM('<template id="tmp"><div></div></template>');
+	assert.throws(
+		() => Select.clone("#missing", "#tmp"),
+		/Parent not found: #missing/,
+	);
 });
