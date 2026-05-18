@@ -1,5 +1,5 @@
 const config = {
-	plugins: ["on_the_money/stylelint-plugin"],
+	plugins: ["@possumtech/on_the_money/stylelint-plugin"],
 	rules: {
 		"otm/prefer-attribute-selector": true,
 		"declaration-no-important": true,

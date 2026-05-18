@@ -14,10 +14,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- **`eslint-plugin-otm`** with five rules: `prefer-on`, `prefer-the-set`, `flat-state`, `prefer-submit`, `no-style-mutation`. Distributed via `on_the_money/eslint-plugin`.
-- **`eslint-config-otm`** shareable flat-config at `on_the_money/eslint-config`.
-- **`stylelint-plugin-otm`** with one rule: `prefer-attribute-selector`. Distributed via `on_the_money/stylelint-plugin`.
-- **`stylelint-config-otm`** at `on_the_money/stylelint-config` — enables our rule plus stylelint's built-in `declaration-no-important`.
+- **`eslint-plugin-otm`** with five rules: `prefer-on`, `prefer-the-set`, `flat-state`, `prefer-submit`, `no-style-mutation`. Distributed via `@possumtech/on_the_money/eslint-plugin`.
+- **`eslint-config-otm`** shareable flat-config at `@possumtech/on_the_money/eslint-config`.
+- **`stylelint-plugin-otm`** with one rule: `prefer-attribute-selector`. Distributed via `@possumtech/on_the_money/stylelint-plugin`.
+- **`stylelint-config-otm`** at `@possumtech/on_the_money/stylelint-config` — enables our rule plus stylelint's built-in `declaration-no-important`.
 
 ### Changed
 

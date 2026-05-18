@@ -36,7 +36,7 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 
 ```javascript
 // app.js
-import { the, on } from "on_the_money";
+import { the, on } from "@possumtech/on_the_money";
 
 await the.boot({
   dictionary: { app_title: "On The Money" },
@@ -62,7 +62,7 @@ Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, 
 ## Exports
 
 ```javascript
-import { on, the, _t, route, $, $$ } from "on_the_money";
+import { on, the, _t, route, $, $$ } from "@possumtech/on_the_money";
 ```
 
 Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`.
@@ -314,7 +314,7 @@ npm install -D eslint
 
 ```javascript
 // eslint.config.js
-import otm from "on_the_money/eslint-config";
+import otm from "@possumtech/on_the_money/eslint-config";
 import nounsanitized from "eslint-plugin-no-unsanitized";
 
 export default [
@@ -341,7 +341,7 @@ npm install -D stylelint stylelint-config-standard
 
 ```javascript
 // stylelint.config.js
-import otm from "on_the_money/stylelint-config";
+import otm from "@possumtech/on_the_money/stylelint-config";
 
 export default {
   extends: ["stylelint-config-standard"],
