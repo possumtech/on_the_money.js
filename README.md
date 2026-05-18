@@ -1,12 +1,13 @@
 # on_the_money.js
 
-DOM-first anti-framework. <2KB gzip. Native browser APIs only. ESNext.
+Opinionated, attribute-driven, standards-oriented modern framework. <2KB gzip. Native browser APIs only. ESNext.
 
 ## Mandates
 - **DOM is the database.** State lives in attributes. Reads/writes via `the()`.
 - **CSS is the UI engine.** No `.style` mutation. Drive transitions from attribute selectors.
 - **A11y by construction.** Interactive elements get roles + labels. ARIA states are first-class.
-- **Standards only.** No DSLs. No JSX. No virtual DOM. ES modules.
+- **Conventions live in HTML.** `data-text`, `data-i18n`, `data-action`, `data-external`, `data-item` — readable, inspectable, native.
+- **Standards-aligned.** No JSX, no virtual DOM, no transpilation. ES modules and the platform.
 
 ## Install
 ```bash
