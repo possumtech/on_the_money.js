@@ -2,50 +2,88 @@ export default class The {
 	static dictionary = {};
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
-	static ready = null;
 	static #prefix = "otm:";
 
 	static the(...args) {
-		if (args.length === 1 && typeof args[0] === "string") {
-			return The.#getScoped(document.body, args[0]);
+		if (args.length === 0) {
+			throw new TypeError("the(): missing args");
 		}
-
-		if (
-			args.length === 1 &&
-			typeof window !== "undefined" &&
-			args[0] instanceof HTMLFormElement
-		) {
-			return The.#fromForm(args[0]);
+		if (args[0] instanceof Element) {
+			return The.#on(args[0], args.slice(1));
 		}
+		return The.#on(document.body, args);
+	}
 
-		if (args.length === 1 && typeof args[0] === "object") {
-			for (const [k, v] of Object.entries(args[0])) {
-				The.#setGlobal(k, v);
+	static #on(el, args) {
+		const [a, b] = args;
+		const isGlobal = el === document.body;
+
+		if (args.length === 1 && typeof a === "string") {
+			return The.#get(el, a);
+		}
+		if (args.length === 2 && typeof a === "string") {
+			if (typeof b === "undefined") {
+				throw new TypeError(
+					`the(${JSON.stringify(a)}, undefined): val is required for set`,
+				);
 			}
-			return document.body;
+			The.#set(el, a, b);
+			if (isGlobal) localStorage.setItem(`${The.#prefix}${a}`, b);
+			return el;
 		}
-
-		if (args.length === 2 && typeof args[1] === "undefined") {
-			return The.#getScoped(args[0], args[1]);
-		}
-
-		if (args.length === 2 && typeof args[0] === "string") {
-			return The.#setGlobal(args[0], args[1]);
-		}
-
-		const [el, key, val] = args;
-		if (typeof val === "undefined" && typeof key === "string") {
-			return The.#getScoped(el, key);
-		}
-
-		if (typeof key === "object") {
-			for (const [k, v] of Object.entries(key)) {
-				The.#setScoped(el, k, v);
+		if (args.length === 1 && a?.constructor === Object) {
+			for (const [k, v] of Object.entries(a)) {
+				The.#set(el, k, v);
+				if (isGlobal) localStorage.setItem(`${The.#prefix}${k}`, v);
 			}
 			return el;
 		}
 
-		return The.#setScoped(el, key, val);
+		throw new TypeError(
+			`the(): unrecognized call shape (${args.map((x) => typeof x).join(", ")})`,
+		);
+	}
+
+	static form(formEl) {
+		const obj = {};
+		const controls = formEl.querySelectorAll("input, select, textarea");
+
+		for (const el of controls) {
+			const name = el.name;
+			if (!name || el.disabled) continue;
+
+			const type = (el.type || "text").toLowerCase();
+			if (type === "submit" || type === "button" || type === "reset") continue;
+
+			if (type === "checkbox" || type === "radio") {
+				const checked = el.checked ?? el.hasAttribute("checked");
+				if (!checked) continue;
+			}
+
+			const value = el.value ?? el.getAttribute("value") ?? "";
+			The.#assign(obj, name, value);
+		}
+		return obj;
+	}
+
+	static #assign(obj, key, value) {
+		const parts = key.split(/[\[\]]/).filter(Boolean);
+		let current = obj;
+		for (let i = 0; i < parts.length; i++) {
+			const part = parts[i];
+			const isLast = i === parts.length - 1;
+			if (isLast) {
+				if (current[part] !== undefined) {
+					if (!Array.isArray(current[part])) current[part] = [current[part]];
+					current[part].push(value);
+				} else {
+					current[part] = value;
+				}
+			} else {
+				current[part] = current[part] || {};
+				current = current[part];
+			}
+		}
 	}
 
 	static _t(key, options = {}) {
@@ -114,11 +152,6 @@ export default class The {
 		return result;
 	}
 
-	/**
-	 * Non-opinionated Surgical Router.
-	 * Intercepts internal link clicks and provides a callback for URL changes.
-	 * @param {Function} callback - Called whenever the URL changes
-	 */
 	static route(callback) {
 		if (typeof window === "undefined") return;
 
@@ -144,8 +177,6 @@ export default class The {
 				return;
 			}
 
-			// If it's just a hash on the current page, let the browser handle scrolling
-			// but we still listen for 'hashchange' to trigger the callback.
 			if (
 				link.pathname === window.location.pathname &&
 				link.search === window.location.search &&
@@ -159,49 +190,10 @@ export default class The {
 			navigate();
 		});
 
-		// Initial route
 		navigate();
 	}
 
-	static #fromForm(form) {
-		const data = new FormData(form);
-		const obj = {};
-
-		for (const [key, value] of data.entries()) {
-			// Handle nested keys like user[name] or hobbies[]
-			const parts = key.split(/[\[\]]/).filter(Boolean);
-			let current = obj;
-
-			for (let i = 0; i < parts.length; i++) {
-				const part = parts[i];
-				const isLast = i === parts.length - 1;
-
-				if (isLast) {
-					if (current[part] !== undefined) {
-						if (!Array.isArray(current[part])) current[part] = [current[part]];
-						current[part].push(value);
-					} else {
-						current[part] = value;
-					}
-				} else {
-					current[part] = current[part] || {};
-					current = current[part];
-				}
-			}
-		}
-		return obj;
-	}
-
-	static #setGlobal(key, val) {
-		The.#setScoped(document.body, key, val);
-		localStorage.setItem(`${The.#prefix}${key}`, val);
-		const elements = document.querySelectorAll(`[data-text="${key}"]`);
-		for (const el of elements) {
-			el.textContent = val;
-		}
-	}
-
-	static #getScoped(el, key) {
+	static #get(el, key) {
 		const ariaMap = {
 			expanded: "aria-expanded",
 			selected: "aria-selected",
@@ -209,12 +201,11 @@ export default class The {
 			checked: "aria-checked",
 			disabled: "aria-disabled",
 		};
-
 		const attr = ariaMap[key] || `data-${key}`;
 		return el.getAttribute(attr);
 	}
 
-	static #setScoped(el, key, val) {
+	static #set(el, key, val) {
 		const ariaMap = {
 			expanded: "aria-expanded",
 			selected: "aria-selected",
@@ -222,22 +213,17 @@ export default class The {
 			checked: "aria-checked",
 			disabled: "aria-disabled",
 		};
-
 		const attr = ariaMap[key] || `data-${key}`;
 		el.setAttribute(attr, val);
 
 		if (el.querySelectorAll) {
 			const items = el.querySelectorAll(`[data-text="${key}"]`);
-			for (const item of items) {
-				item.textContent = val;
-			}
+			for (const item of items) item.textContent = val;
 		}
 		if (el.getAttribute?.("data-text") === key) el.textContent = val;
-
-		return el;
 	}
 
-	static async handshake() {
+	static async boot({ signal, locales, dictionary } = {}) {
 		const search =
 			typeof window !== "undefined" && window.location
 				? window.location.search
@@ -253,28 +239,31 @@ export default class The {
 			localStorage.getItem(`${The.#prefix}lang`) ||
 			browserLoc;
 
-		const meta = document.querySelector('meta[name="i18n"]');
-		if (meta) {
-			const path = meta.getAttribute("content");
-			const fallback = meta.getAttribute("data-fallback") || "en";
-			const available = (meta.getAttribute("data-available") || "")
-				.split(",")
-				.map((s) => s.trim().toLowerCase());
+		if (dictionary) {
+			The.dictionary = dictionary;
+		} else {
+			const meta = document.querySelector('meta[name="i18n"]');
+			const path = locales || meta?.getAttribute("content");
+			if (path) {
+				const fallback = meta?.getAttribute("data-fallback") || "en";
+				const available = (meta?.getAttribute("data-available") || "")
+					.split(",")
+					.map((s) => s.trim().toLowerCase());
 
-			const full = The.locale.toLowerCase();
-			const base = full.split("-")[0];
+				const full = The.locale.toLowerCase();
+				const base = full.split("-")[0];
 
-			let target = fallback;
-			if (available.includes(full)) target = full;
-			else if (available.includes(base)) target = base;
+				let target = fallback;
+				if (available.includes(full)) target = full;
+				else if (available.includes(base)) target = base;
 
-			try {
-				const res = await fetch(`${path}/${target}.json`);
-				if (res.ok) {
-					The.dictionary = await res.json();
+				try {
+					const res = await fetch(`${path}/${target}.json`, { signal });
+					if (res.ok) The.dictionary = await res.json();
+				} catch (e) {
+					if (signal?.aborted) throw e;
+					console.warn("otm: i18n fetch failed", e);
 				}
-			} catch (e) {
-				console.warn("otm: i18n fetch failed", e);
 			}
 		}
 
@@ -284,11 +273,7 @@ export default class The {
 				const key = fullKey.slice(The.#prefix.length);
 				if (key !== "lang") {
 					const val = localStorage.getItem(fullKey);
-					The.#setScoped(document.body, key, val);
-					const elements = document.querySelectorAll(`[data-text="${key}"]`);
-					for (const el of elements) {
-						el.textContent = val;
-					}
+					The.#set(document.body, key, val);
 				}
 			}
 		}

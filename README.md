@@ -18,7 +18,7 @@ npm install on_the_money
 ```javascript
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
-Aliases: `the.t === _t`, `the.route === route`, `the.form(el)` extracts form data.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.boot(options?)`.
 
 ## API
 
@@ -30,21 +30,44 @@ Aliases: `the.t === _t`, `the.route === route`, `the.form(el)` extracts form dat
 - `el`: `Element` | selector string. Dispatches `{ bubbles: true, cancelable: true, detail }`.
 
 ### `the(...)` — state
-Polymorphic. Global state is body `data-*` + `localStorage["otm:KEY"]`.
+Element-first-arg dispatch. Three disjoint shapes per scope: get, set, batch. Global state is body `data-*` + `localStorage["otm:KEY"]`; scoped state is `data-*` on a specific element.
 
-| Call | Behavior |
-| --- | --- |
-| `the(key)` | Read global attribute on `document.body`. |
-| `the(key, val)` | Write global: body attr + `localStorage["otm:KEY"]` + all `[data-text="key"]`. |
-| `the({ k: v, ... })` | Batch global write. |
-| `the(el, key)` | Read scoped attribute on `el`. |
-| `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. |
-| `the(el, { k: v, ... })` | Batch scoped write. |
-| `the(formEl)` / `the.form(formEl)` | Extract `FormData` into nested object. Supports `user[name]`, `tags[]`. |
+| Call | Behavior | Returns |
+| --- | --- | --- |
+| `the(key)` | Read global attribute on `document.body`. | `string \| null` |
+| `the(key, val)` | Write global: body attr + `localStorage["otm:KEY"]` + descendant `[data-text="key"]`. | `document.body` |
+| `the({ k: v, ... })` | Batch global write. | `document.body` |
+| `the(el, key)` | Read scoped attribute on `el`. | `string \| null` |
+| `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. | `el` |
+| `the(el, { k: v, ... })` | Batch scoped write. | `el` |
 
-- `the.ready` — `Promise` that resolves when the Handshake (rehydration + i18n fetch) completes.
+- **Dispatch:** if `args[0] instanceof Element`, scoped; else if string, global key; else if plain object, batch global; else throws.
+- **`the(key, undefined)` throws** (`val is required for set`). Two args means set; missing val is a contract violation.
 - **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. All other keys → `data-*`.
-- **Values MUST be flat primitives.** Nested objects are illegal.
+- **Values MUST be flat primitives.** Nested objects rejected.
+
+### `the.form(formEl)` — form extraction
+- Walks `input, select, textarea` descendants of `formEl`. Skips unnamed, disabled, submit/button/reset controls, and unchecked checkboxes/radios.
+- Parses bracket-notation names: `user[name]` → nesting, `tags[]` → array append.
+- Returns a nested object.
+
+### `the.boot(options?)` — explicit init
+Not auto-called. Run once from the consumer's entry point.
+
+```javascript
+await the.boot({ signal, locales, dictionary });
+```
+- `signal` — `AbortSignal` for the i18n fetch.
+- `locales` — override the `<meta name="i18n" content>` path.
+- `dictionary` — inline dictionary; skips the fetch entirely.
+
+Steps:
+1. Resolve locale: `?lang=` query param → `localStorage["otm:lang"]` → `navigator.language`. Assigns `The.locale`.
+2. Resolve dictionary: inline `dictionary` option → `fetch(${path}/${target}.json)` if `<meta name="i18n">` (or `locales` option) is present. Falls back through full → base → `data-fallback`.
+3. Replay `localStorage` `otm:KEY` entries (except `otm:lang`) onto body `data-*` and `[data-text="KEY"]`.
+4. Run `_t()` to hydrate `[data-i18n]`.
+
+Importing the module does nothing observable. No fetch, no localStorage read, no DOM mutation.
 
 ### `_t(key, options)` — `Intl` localization
 - `_t(key, options)` → string from `The.dictionary[key]` with `{var}` interpolation.
@@ -66,15 +89,13 @@ Polymorphic. Global state is body `data-*` + `localStorage["otm:KEY"]`.
 - Clones first element from `<template>` matched by `selector`, runs `_t(el)` for i18n hydration, appends to `parent`, dispatches `mounted` `CustomEvent` (`bubbles: true`, `detail: { parent }`) on the new element. Returns the mounted element.
 - `parent`: `Element` | selector string. Throws if `parent` or template is missing.
 
-## Handshake (auto-runs on import in a browser)
-1. Resolve locale: `?lang=` query param → `localStorage["otm:lang"]` → `navigator.language`. Assigns `The.locale`.
-2. If `<meta name="i18n" content="/locales" data-available="en,fr" data-fallback="en">` is present, `fetch("/locales/{lang}.json")` and assign JSON to `The.dictionary`. Falls back through full → base → `data-fallback`.
-3. Iterate `localStorage` and replay every `otm:KEY` (except `otm:lang`) back onto `document.body` `data-*` and `[data-text="KEY"]` elements.
-4. Run `_t()` to hydrate `[data-i18n]`.
-
-`await the.ready` to gate code on completion.
-
 ## Patterns
+
+### Boot
+```javascript
+import { the } from "on_the_money";
+await the.boot();   // rehydrate state, fetch i18n, hydrate [data-i18n]
+```
 
 ### Reactive text
 ```html
