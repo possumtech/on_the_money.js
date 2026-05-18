@@ -22,8 +22,8 @@
 	],
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
-		"test": "node --test src/core/*.test.js src/linter/*.test.js test/integration.test.js",
-		"test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/linter/*.test.js test/integration.test.js",
+		"test": "node --test --test-concurrency=1 src/core/*.test.js src/linter/*.test.js test/integration.test.js",
+		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/linter/*.test.js test/integration.test.js",
 		"check": "npm run lint && npm run build && npm run test && npm run test:coverage",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:fix": "biome check --write ./src ./test ./examples",
