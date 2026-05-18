@@ -13,7 +13,8 @@
 		"./src": "./src/core/index.js"
 	},
 	"files": [
-		"src",
+		"src/**/*.js",
+		"!src/**/*.test.js",
 		"dist",
 		"README.md",
 		"LICENSE",
