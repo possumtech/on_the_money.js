@@ -32,11 +32,24 @@ test("Cli.getFiles: skips node_modules, dist, .git, and dotdirs", async (_t) => 
 	await fs.mkdir(path.join(tmp, "dist"));
 	await fs.mkdir(path.join(tmp, ".cache"));
 	await fs.writeFile(path.join(tmp, "src", "ok.js"), "const x = 1;");
-	await fs.writeFile(path.join(tmp, "node_modules", "leak.js"), "el.innerHTML = 'x';");
-	await fs.writeFile(path.join(tmp, "dist", "bundle.js"), "el.innerHTML = 'x';");
-	await fs.writeFile(path.join(tmp, ".cache", "junk.js"), "el.innerHTML = 'x';");
+	await fs.writeFile(
+		path.join(tmp, "node_modules", "leak.js"),
+		"el.innerHTML = 'x';",
+	);
+	await fs.writeFile(
+		path.join(tmp, "dist", "bundle.js"),
+		"el.innerHTML = 'x';",
+	);
+	await fs.writeFile(
+		path.join(tmp, ".cache", "junk.js"),
+		"el.innerHTML = 'x';",
+	);
 	const found = await Cli.getFiles(tmp);
-	assert.strictEqual(found.length, 1, `expected only src/ok.js, got ${JSON.stringify(found)}`);
+	assert.strictEqual(
+		found.length,
+		1,
+		`expected only src/ok.js, got ${JSON.stringify(found)}`,
+	);
 	assert.ok(found[0].endsWith("ok.js"));
 	await fs.rm(tmp, { recursive: true, force: true });
 });
