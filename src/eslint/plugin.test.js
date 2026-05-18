@@ -1,0 +1,128 @@
+import test from "node:test";
+import { RuleTester } from "eslint";
+import plugin from "./plugin.js";
+
+const tester = new RuleTester({
+	languageOptions: { ecmaVersion: "latest", sourceType: "module" },
+});
+
+test("prefer-on", () => {
+	tester.run("prefer-on", plugin.rules["prefer-on"], {
+		valid: [
+			{ code: 'on(document.body, "click", ".btn", fn);' },
+			{ code: 'on.emit(el, "x", {});' },
+		],
+		invalid: [
+			{
+				code: 'el.addEventListener("click", fn);',
+				errors: [{ messageId: "useOn" }],
+			},
+			{
+				code: 'window.addEventListener("popstate", fn);',
+				errors: [{ messageId: "useOn" }],
+			},
+		],
+	});
+});
+
+test("prefer-the-set", () => {
+	tester.run("prefer-the-set", plugin.rules["prefer-the-set"], {
+		valid: [
+			{ code: 'the(el, "title", "x");' },
+			{ code: "const x = el.textContent;" },
+		],
+		invalid: [
+			{
+				code: 'el.textContent = "x";',
+				errors: [{ messageId: "useThe" }],
+			},
+			{
+				code: 'el.innerText = "x";',
+				errors: [{ messageId: "useThe" }],
+			},
+			{
+				code: 'node.nodeValue = "x";',
+				errors: [{ messageId: "useThe" }],
+			},
+		],
+	});
+});
+
+test("flat-state", () => {
+	tester.run("flat-state", plugin.rules["flat-state"], {
+		valid: [
+			{ code: 'the("theme", "dark");' },
+			{ code: 'the(el, "active", "true");' },
+			{ code: 'the({ a: "1", b: "2" });' },
+			{ code: 'the(el, { a: "1", b: "2" });' },
+		],
+		invalid: [
+			{
+				code: 'the("user", { name: "x" });',
+				errors: [{ messageId: "notFlat" }],
+			},
+			{
+				code: 'the("tags", ["a", "b"]);',
+				errors: [{ messageId: "notFlat" }],
+			},
+			{
+				code: 'the(el, "data", { x: 1 });',
+				errors: [{ messageId: "notFlat" }],
+			},
+			{
+				code: 'the({ user: { name: "x" } });',
+				errors: [{ messageId: "notFlat" }],
+			},
+		],
+	});
+});
+
+test("prefer-submit", () => {
+	tester.run("prefer-submit", plugin.rules["prefer-submit"], {
+		valid: [
+			{ code: 'on("#form", "submit", (e) => {});' },
+			{ code: 'on("#nav", "click", "a", fn);' },
+		],
+		invalid: [
+			{
+				code: 'on("#parent", "click", "button.go", fn);',
+				errors: [{ messageId: "useSubmit" }],
+			},
+			{
+				code: 'on(form, "click", "button", fn);',
+				errors: [{ messageId: "useSubmit" }],
+			},
+		],
+	});
+});
+
+test("no-style-mutation", () => {
+	tester.run("no-style-mutation", plugin.rules["no-style-mutation"], {
+		valid: [
+			{ code: 'the(el, "theme", "dark");' },
+			{ code: 'el.setAttribute("data-x", "y");' },
+			{ code: "const c = el.style.color;" },
+		],
+		invalid: [
+			{
+				code: 'el.style.color = "red";',
+				errors: [{ messageId: "noStyle" }],
+			},
+			{
+				code: 'el.style.setProperty("color", "red");',
+				errors: [{ messageId: "noStyle" }],
+			},
+		],
+	});
+});
+
+test("plugin: exports meta and configs.recommended", () => {
+	import("node:assert").then(({ default: assert }) => {
+		assert.strictEqual(plugin.meta.name, "eslint-plugin-otm");
+		assert.ok(plugin.configs.recommended.rules);
+		assert.strictEqual(
+			plugin.configs.recommended.rules["otm/prefer-on"],
+			"error",
+		);
+	});
+});

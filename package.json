@@ -10,7 +10,9 @@
 	},
 	"exports": {
 		".": "./dist/on_the_money.min.js",
-		"./src": "./src/core/index.js"
+		"./src": "./src/core/index.js",
+		"./eslint-plugin": "./src/eslint/plugin.js",
+		"./eslint-config": "./src/eslint/config.js"
 	},
 	"files": [
 		"src/**/*.js",
@@ -22,8 +24,8 @@
 	],
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
-		"test": "node --test --test-concurrency=1 src/core/*.test.js src/linter/*.test.js test/integration.test.js",
-		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/linter/*.test.js test/integration.test.js",
+		"test": "node --test --test-concurrency=1 src/core/*.test.js src/linter/*.test.js src/eslint/*.test.js test/integration.test.js",
+		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/linter/*.test.js src/eslint/*.test.js test/integration.test.js",
 		"check": "npm run lint && npm run build && npm run test && npm run test:coverage",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:fix": "biome check --write ./src ./test ./examples",
@@ -37,6 +39,7 @@
 		"@biomejs/biome": "1.9.4",
 		"css-tree": "3.1.0",
 		"esbuild": "0.25.0",
+		"eslint": "10.4.0",
 		"espree": "10.3.0",
 		"linkedom": "0.18.6",
 		"parse5": "7.2.1"
