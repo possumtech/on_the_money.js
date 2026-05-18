@@ -8,6 +8,7 @@ const setupDOM = (html = "") => {
 	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
 	globalThis.document = dom.document;
 	globalThis.Node = dom.Node;
+	globalThis.Element = dom.Element;
 	globalThis.CustomEvent = dom.CustomEvent;
 	globalThis.HTMLElement = dom.HTMLElement;
 	globalThis.HTMLFormElement = dom.HTMLFormElement;
