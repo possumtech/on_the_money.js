@@ -59,16 +59,16 @@ test("The.the: should set global state on body and localStorage", (_t) => {
 	const dom = setupDOM();
 	The.the("theme", "dark");
 	assert.strictEqual(dom.body.getAttribute("data-theme"), "dark");
-	assert.strictEqual(localStorage.getItem("theme"), "dark");
+	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
 });
 
 test("The.the: should set multiple global states when passing an object", (_t) => {
 	const dom = setupDOM();
 	The.the({ theme: "light", layout: "grid" });
 	assert.strictEqual(dom.body.getAttribute("data-theme"), "light");
-	assert.strictEqual(localStorage.getItem("theme"), "light");
+	assert.strictEqual(localStorage.getItem("otm:theme"), "light");
 	assert.strictEqual(dom.body.getAttribute("data-layout"), "grid");
-	assert.strictEqual(localStorage.getItem("layout"), "grid");
+	assert.strictEqual(localStorage.getItem("otm:layout"), "grid");
 });
 
 test("The.the: should sync data-text elements", (_t) => {
@@ -79,7 +79,7 @@ test("The.the: should sync data-text elements", (_t) => {
 
 test("The.handshake: should rehydrate state from localStorage", async (_t) => {
 	const dom = setupDOM('<h1 data-text="theme"></h1>');
-	localStorage.setItem("theme", "blue");
+	localStorage.setItem("otm:theme", "blue");
 	await The.handshake();
 	assert.strictEqual(dom.body.getAttribute("data-theme"), "blue");
 });
