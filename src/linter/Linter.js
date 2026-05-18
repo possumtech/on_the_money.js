@@ -251,10 +251,16 @@ export default class Linter {
 				const parent = node.parentNode;
 				const parentName = parent?.nodeName;
 				const hasI18n = parent?.attrs?.some((a) => a.name === "data-i18n");
+				const leafTextParents = new Set([
+					"script",
+					"style",
+					"option",
+					"textarea",
+					"title",
+				]);
 
 				if (
-					parentName !== "script" &&
-					parentName !== "style" &&
+					!leafTextParents.has(parentName) &&
 					node.value.trim() !== "" &&
 					!hasI18n
 				) {
