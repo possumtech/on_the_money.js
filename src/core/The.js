@@ -169,24 +169,26 @@ export default class The {
 			const link = e.target.closest("a");
 			if (
 				!link ||
-				!link.href ||
-				link.origin !== window.location.origin ||
+				!link.getAttribute("href") ||
 				link.hasAttribute("data-external") ||
 				link.target === "_blank"
 			) {
 				return;
 			}
 
+			const url = new URL(link.getAttribute("href"), window.location.href);
+			if (url.origin !== window.location.origin) return;
+
 			if (
-				link.pathname === window.location.pathname &&
-				link.search === window.location.search &&
-				link.hash
+				url.pathname === window.location.pathname &&
+				url.search === window.location.search &&
+				url.hash
 			) {
 				return;
 			}
 
 			e.preventDefault();
-			window.history.pushState({}, "", link.href);
+			window.history.pushState({}, "", url.href);
 			navigate();
 		});
 
