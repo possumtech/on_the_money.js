@@ -67,12 +67,19 @@ export default class Cli {
 		return totalViolations;
 	}
 
+	static #excludeDirs = new Set(["node_modules", "dist", ".git"]);
+
 	static async getFiles(dir) {
 		const entries = await fs.readdir(dir, { withFileTypes: true });
 		const files = await Promise.all(
 			entries.map((res) => {
 				const resPath = path.resolve(dir, res.name);
-				return res.isDirectory() ? Cli.getFiles(resPath) : resPath;
+				if (res.isDirectory()) {
+					if (Cli.#excludeDirs.has(res.name) || res.name.startsWith("."))
+						return [];
+					return Cli.getFiles(resPath);
+				}
+				return resPath;
 			}),
 		);
 		return Array.prototype.concat
