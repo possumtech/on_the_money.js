@@ -1,5 +1,5 @@
 {
-	"name": "@possumtech/on_the_money",
+	"name": "on_the_money",
 	"version": "0.3.0",
 	"description": "Opinionated, attribute-driven, standards-oriented modern framework. <2KB gzip. Native browser APIs only.",
 	"type": "module",
@@ -48,9 +48,6 @@
 		"stylelint": {
 			"optional": true
 		}
-	},
-	"publishConfig": {
-		"access": "public"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
