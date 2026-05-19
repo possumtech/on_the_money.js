@@ -306,10 +306,12 @@ The framework reads existing attributes via `the(key)` without modification, so 
 
 on_the_money ships a three-tool stack. Each layer covers what the others can't.
 
-### 1. JavaScript — ESLint + `eslint-plugin-otm`
+### 1. JavaScript — ESLint + bundled plugin
+
+The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath.
 
 ```bash
-npm install -D eslint
+npm install -D eslint eslint-plugin-no-unsanitized
 ```
 
 ```javascript
@@ -325,15 +327,17 @@ export default [
 
 | Rule | Source | Behavior |
 | --- | --- | --- |
-| `otm/prefer-on` | eslint-plugin-otm | Ban `addEventListener`; use `on()`. |
-| `otm/prefer-the-set` | eslint-plugin-otm | Ban `textContent`/`innerText`/`nodeValue` assignment. |
-| `otm/flat-state` | eslint-plugin-otm | Ban nested objects/arrays in `the()` calls. |
-| `otm/prefer-submit` | eslint-plugin-otm | Warn on `on(btn, "click", ...)` for form data. |
-| `otm/no-style-mutation` | eslint-plugin-otm | Ban `el.style.* = ...`. |
-| `no-unsanitized/no-inner-html` | external | Ban `innerHTML`/`outerHTML`. |
-| `no-unsanitized/method` | external | Ban `document.write`, `insertAdjacentHTML`. |
+| `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; use `on()`. |
+| `otm/prefer-the-set` | bundled in `on_the_money` | Ban `textContent`/`innerText`/`nodeValue` assignment. |
+| `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
+| `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
+| `otm/no-style-mutation` | bundled in `on_the_money` | Ban `el.style.* = ...`. |
+| `no-unsanitized/no-inner-html` | `eslint-plugin-no-unsanitized` | Ban `innerHTML`/`outerHTML`. |
+| `no-unsanitized/method` | `eslint-plugin-no-unsanitized` | Ban `document.write`, `insertAdjacentHTML`. |
 
-### 2. CSS — Stylelint + `stylelint-plugin-otm`
+### 2. CSS — Stylelint + bundled plugin
+
+Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package.
 
 ```bash
 npm install -D stylelint stylelint-config-standard
@@ -351,7 +355,7 @@ export default {
 
 | Rule | Source | Behavior |
 | --- | --- | --- |
-| `otm/prefer-attribute-selector` | stylelint-plugin-otm | Ban `.class` selectors; use `[data-state="..."]`. |
+| `otm/prefer-attribute-selector` | bundled in `on_the_money` | Ban `.class` selectors; use `[data-state="..."]`. |
 | `declaration-no-important` | stylelint built-in | Ban `!important`. |
 
 ### 3. HTML / cross-file — `otm-lint`

@@ -92,7 +92,7 @@ export default class Linter {
 						file,
 						{ line: loc.startLine, column: loc.startCol },
 						"HTML-004",
-						"Naked strings in HTML are forbidden. Use data-i18n or wrap in a semantic tag.",
+						"Naked strings in HTML are forbidden. Use data-i18n or wrap in a semantic tag (for label/value pairs, prefer <dl>/<dt>/<dd>).",
 					);
 				}
 			}

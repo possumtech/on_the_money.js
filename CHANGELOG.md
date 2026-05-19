@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] — 2026-05-19
+
+### Fixed
+
+- **README lint-stack tables** no longer refer to `eslint-plugin-otm` and `stylelint-plugin-otm` as if they were standalone packages. They ship bundled inside `on_the_money` via subpath exports; the rule-source columns now read "bundled in `on_the_money`". Anyone following the README literally was tempted to `npm install -D eslint-plugin-otm`, which 404s. (#49)
+
+### Changed
+
+- **HTML-004 diagnostic** now hints toward `<dl>/<dt>/<dd>` for label/value patterns. The full message reads: "Naked strings in HTML are forbidden. Use data-i18n or wrap in a semantic tag (for label/value pairs, prefer `<dl>`/`<dt>`/`<dd>`)." Pushes consumers toward the semantically meaningful restructure rather than a cosmetic `<span>` wrap. (#50)
+
 ## [0.3.0] — 2026-05-18
 
 ### Breaking
