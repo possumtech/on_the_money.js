@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.2] — 2026-05-20
+
+### Added
+
+- **`the.boot({ defaultLocale })`** — when the resolved locale base matches this value, the dictionary fetch and the boot-time `_t()` hydration pass are skipped entirely. No network, no FOUC for default-locale visitors. Auto-detected from `<html lang>` if the option is omitted, so the no-config case Just Works for any page that correctly declares its language. (#52)
+- **localStorage state replay** still runs in the short-circuit path; only the i18n machinery is skipped.
+
+### Changed
+
+- **README** now recommends including source-language fallback text inside every `data-i18n` element (e.g. `<h1 data-i18n="title">Welcome</h1>`). Combined with the `defaultLocale` short-circuit, default-locale visitors see correct text immediately with zero hydration pass.
+
 ## [0.3.1] — 2026-05-19
 
 ### Fixed

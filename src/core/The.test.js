@@ -269,6 +269,68 @@ test("the.boot({ signal }): aborts the fetch", async (_t) => {
 	await assert.rejects(The.boot({ signal: controller.signal }));
 });
 
+test("the.boot({ defaultLocale }): skips fetch when resolved locale matches", async (_t) => {
+	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({}) };
+	};
+	The.dictionary = {};
+	The.locale = "en-US";
+	await The.boot({ defaultLocale: "en" });
+	assert.strictEqual(fetched, false);
+});
+
+test("the.boot({ defaultLocale }): fetches when resolved locale differs", async (_t) => {
+	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
+	localStorage.setItem("otm:lang", "es-ES");
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({ ok: 1 }) };
+	};
+	The.dictionary = {};
+	await The.boot({ defaultLocale: "en" });
+	assert.strictEqual(fetched, true);
+});
+
+test("the.boot(): auto-detects <html lang> as default locale", async (_t) => {
+	const { document } = setupDOM(
+		'<meta name="i18n" content="/locales" data-available="en">',
+	);
+	document.documentElement.setAttribute("lang", "en");
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({}) };
+	};
+	The.locale = "en-US";
+	await The.boot();
+	assert.strictEqual(fetched, false);
+});
+
+test("the.boot(): no skip when <html lang> is missing and defaultLocale not passed", async (_t) => {
+	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({}) };
+	};
+	The.locale = "en-US";
+	await The.boot();
+	assert.strictEqual(fetched, true);
+});
+
+test("the.boot({ defaultLocale }): still replays localStorage state on skip", async (_t) => {
+	const { document } = setupDOM('<h1 data-text="theme"></h1>');
+	document.documentElement.setAttribute("lang", "en");
+	localStorage.setItem("otm:theme", "blue");
+	The.locale = "en-US";
+	await The.boot({ defaultLocale: "en" });
+	assert.strictEqual(document.body.getAttribute("data-theme"), "blue");
+});
+
 test("import: index.js has no top-level boot or ready assignment", async (_t) => {
 	const { readFile } = await import("node:fs/promises");
 	const src = await readFile(new URL("./index.js", import.meta.url), "utf8");

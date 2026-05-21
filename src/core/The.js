@@ -244,7 +244,13 @@ export default class The {
 		if (el.getAttribute?.("data-text") === key) el.textContent = out;
 	}
 
-	static async boot({ signal, locales, dictionary, namespace } = {}) {
+	static async boot({
+		signal,
+		locales,
+		dictionary,
+		namespace,
+		defaultLocale,
+	} = {}) {
 		if (namespace) The.prefix = `${namespace}:`;
 		const search =
 			typeof window !== "undefined" && window.location
@@ -261,30 +267,37 @@ export default class The {
 			localStorage.getItem(`${The.prefix}lang`) ||
 			browserLoc;
 
-		if (dictionary) {
-			The.dictionary = dictionary;
-		} else {
-			const meta = document.querySelector('meta[name="i18n"]');
-			const path = locales || meta?.getAttribute("content");
-			if (path) {
-				const fallback = meta?.getAttribute("data-fallback") || "en";
-				const available = (meta?.getAttribute("data-available") || "")
-					.split(",")
-					.map((s) => s.trim().toLowerCase());
+		const sourceLang = defaultLocale || document.documentElement.lang;
+		const localeBase = The.locale.toLowerCase().split("-")[0];
+		const sourceBase = sourceLang?.toLowerCase().split("-")[0];
+		const skipI18n = Boolean(sourceBase) && localeBase === sourceBase;
 
-				const full = The.locale.toLowerCase();
-				const base = full.split("-")[0];
+		if (!skipI18n) {
+			if (dictionary) {
+				The.dictionary = dictionary;
+			} else {
+				const meta = document.querySelector('meta[name="i18n"]');
+				const path = locales || meta?.getAttribute("content");
+				if (path) {
+					const fallback = meta?.getAttribute("data-fallback") || "en";
+					const available = (meta?.getAttribute("data-available") || "")
+						.split(",")
+						.map((s) => s.trim().toLowerCase());
 
-				let target = fallback;
-				if (available.includes(full)) target = full;
-				else if (available.includes(base)) target = base;
+					const full = The.locale.toLowerCase();
+					const base = full.split("-")[0];
 
-				try {
-					const res = await fetch(`${path}/${target}.json`, { signal });
-					if (res.ok) The.dictionary = await res.json();
-				} catch (e) {
-					if (signal?.aborted) throw e;
-					console.warn("otm: i18n fetch failed", e);
+					let target = fallback;
+					if (available.includes(full)) target = full;
+					else if (available.includes(base)) target = base;
+
+					try {
+						const res = await fetch(`${path}/${target}.json`, { signal });
+						if (res.ok) The.dictionary = await res.json();
+					} catch (e) {
+						if (signal?.aborted) throw e;
+						console.warn("otm: i18n fetch failed", e);
+					}
 				}
 			}
 		}
@@ -300,6 +313,6 @@ export default class The {
 			}
 		}
 
-		The._t();
+		if (!skipI18n) The._t();
 	}
 }
