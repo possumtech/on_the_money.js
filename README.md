@@ -20,13 +20,13 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title data-i18n="app_title"></title>
+  <title data-i18n="app_title">My App</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.classless.min.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
   <main>
-    <h1 data-i18n="app_title"></h1>
+    <h1 data-i18n="app_title">My App</h1>
     <p>Hello, <strong data-text="user">friend</strong>.</p>
     <button data-action="greet">Greet</button>
   </main>
@@ -144,7 +144,7 @@ Throws on non-object input.
 Importing the module does **nothing**. Call `the.boot()` at the consumer's entry point.
 
 ```javascript
-await the.boot({ signal, locales, dictionary, namespace });
+await the.boot({ signal, locales, dictionary, namespace, defaultLocale });
 ```
 
 | Option | Type | Behavior |
@@ -153,12 +153,26 @@ await the.boot({ signal, locales, dictionary, namespace });
 | `locales` | `string` | Override the `<meta name="i18n" content>` path. |
 | `dictionary` | `object` | Inline dictionary; skips the fetch entirely. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
+| `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
 
 Boot sequence:
 1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `navigator.language`. Writes `the.locale`.
-2. Resolve dictionary: inline `dictionary` → `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Falls back through full → base → `data-fallback`.
-3. Replay `localStorage` entries matching the prefix (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
-4. Run `_t()` to hydrate `[data-i18n]`.
+2. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 3 and 5. Static HTML already serves the right text.
+3. Resolve dictionary: inline `dictionary` → `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Falls back through full → base → `data-fallback`.
+4. Replay `localStorage` entries matching the prefix (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
+5. Run `_t()` to hydrate `[data-i18n]`.
+
+**Writing `data-i18n` elements:** always include the source-language text inside as a fallback:
+
+```html
+<!-- good — SEO fallback, no-JS fallback, no-flash default -->
+<h1 data-i18n="title">Welcome to the app</h1>
+
+<!-- avoid — page is blank until hydration -->
+<h1 data-i18n="title"></h1>
+```
+
+The framework preserves existing `textContent` when a dictionary key is missing, so source-language text inside `data-i18n` elements stays visible if `_t()` runs against an empty dictionary (the short-circuit case above, or any environment without the i18n fetch).
 
 ### `_t(key, options)` — `Intl` localization
 
@@ -175,11 +189,11 @@ _t();                                              // hydrate document.body
 
 Missing dictionary keys preserve existing `textContent` (SEO fallback).
 
-`[data-i18n]` element binding:
+`[data-i18n]` element binding (always include source-language fallback text inside):
 
 ```html
-<span data-i18n="cart_items" data-i18n-qty="3"></span>
-<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency"></span>
+<span data-i18n="cart_items" data-i18n-qty="3">3 items</span>
+<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency">$9.99</span>
 ```
 
 ### `route(callback)` — pushState router
