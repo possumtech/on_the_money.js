@@ -140,7 +140,24 @@ export default class The {
 		}
 
 		let entry = The.dictionary[key];
-		if (!entry) return key;
+		if (!entry) {
+			if (
+				options.val !== undefined &&
+				(options.type === "currency" || options.type === "date")
+			) {
+				const fmt =
+					options.type === "currency"
+						? new Intl.NumberFormat(The.locale, {
+								style: "currency",
+								currency: "USD",
+							})
+						: new Intl.DateTimeFormat(The.locale);
+				return options.type === "date"
+					? fmt.format(new Date(options.val))
+					: fmt.format(Number(options.val));
+			}
+			return key;
+		}
 
 		if (typeof entry === "object") {
 			const qty = options.qty !== undefined ? Number(options.qty) : 0;

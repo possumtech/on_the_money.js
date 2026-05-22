@@ -188,7 +188,7 @@ _t(node);                                          // hydrate every [data-i18n] 
 _t();                                              // hydrate document.body
 ```
 
-Missing dictionary keys preserve existing `textContent` (SEO fallback).
+Missing dictionary keys preserve existing `textContent` (SEO fallback). When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
 
 `[data-i18n]` element binding (always include source-language fallback text inside):
 
