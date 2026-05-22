@@ -3,6 +3,7 @@ export default class The {
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
 	static prefix = "otm:";
+	static ephemeralKeys = new Set();
 
 	static the(...args) {
 		if (args.length === 0) {
@@ -28,13 +29,15 @@ export default class The {
 				);
 			}
 			The.#set(el, a, b);
-			if (isGlobal) localStorage.setItem(`${The.prefix}${a}`, b);
+			if (isGlobal && !The.ephemeralKeys.has(a))
+				localStorage.setItem(`${The.prefix}${a}`, b);
 			return el;
 		}
 		if (args.length === 1 && a?.constructor === Object) {
 			for (const [k, v] of Object.entries(a)) {
 				The.#set(el, k, v);
-				if (isGlobal) localStorage.setItem(`${The.prefix}${k}`, v);
+				if (isGlobal && !The.ephemeralKeys.has(k))
+					localStorage.setItem(`${The.prefix}${k}`, v);
 			}
 			return el;
 		}
@@ -250,8 +253,10 @@ export default class The {
 		dictionary,
 		namespace,
 		defaultLocale,
+		ephemeralKeys,
 	} = {}) {
 		if (namespace) The.prefix = `${namespace}:`;
+		if (ephemeralKeys) The.ephemeralKeys = new Set(ephemeralKeys);
 		const search =
 			typeof window !== "undefined" && window.location
 				? window.location.search
@@ -306,7 +311,7 @@ export default class The {
 			const fullKey = localStorage.key(i);
 			if (fullKey.startsWith(The.prefix)) {
 				const key = fullKey.slice(The.prefix.length);
-				if (key !== "lang") {
+				if (key !== "lang" && !The.ephemeralKeys.has(key)) {
 					const val = localStorage.getItem(fullKey);
 					The.#set(document.body, key, val);
 				}
