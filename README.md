@@ -154,6 +154,7 @@ await the.boot({ signal, locales, dictionary, namespace, defaultLocale });
 | `dictionary` | `object` | Inline dictionary; skips the fetch entirely. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
 | `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
+| `ephemeralKeys` | `string[]` | Global state keys that **should not** persist to `localStorage`. Writes to these keys still update the body attribute and any `[data-text]` mirrors, but skip the storage write; the boot replay also skips them. Use for transient signals like `modal`, `loading`, `toast`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
 1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `navigator.language`. Writes `the.locale`.
@@ -187,7 +188,7 @@ _t(node);                                          // hydrate every [data-i18n] 
 _t();                                              // hydrate document.body
 ```
 
-Missing dictionary keys preserve existing `textContent` (SEO fallback).
+Missing dictionary keys preserve existing `textContent` (SEO fallback). When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
 
 `[data-i18n]` element binding (always include source-language fallback text inside):
 

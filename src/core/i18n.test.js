@@ -19,3 +19,31 @@ test("The._t: should return value from dictionary", (_t) => {
 	The.dictionary = { hello: "world" };
 	assert.strictEqual(The._t("hello"), "world");
 });
+
+test("The._t: missing entry with type=currency still Intl-formats val", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	The.locale = "en-US";
+	assert.strictEqual(The._t("price", { val: 9.99, type: "currency" }), "$9.99");
+});
+
+test("The._t: missing entry with type=date still Intl-formats val", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	The.locale = "en-US";
+	const out = The._t("when", { val: "2026-05-22", type: "date" });
+	assert.match(out, /\d/);
+	assert.notStrictEqual(out, "when");
+});
+
+test("The._t: missing entry with no type/val returns key", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	assert.strictEqual(The._t("unknown"), "unknown");
+});
+
+test("The._t: missing entry with val but no type returns key", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	assert.strictEqual(The._t("plain", { val: 42 }), "plain");
+});

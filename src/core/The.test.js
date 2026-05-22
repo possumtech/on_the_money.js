@@ -331,6 +331,37 @@ test("the.boot({ defaultLocale }): still replays localStorage state on skip", as
 	assert.strictEqual(document.body.getAttribute("data-theme"), "blue");
 });
 
+test("the.boot({ ephemeralKeys }): keys in the set don't write to localStorage", async (_t) => {
+	const { document } = setupDOM();
+	await The.boot({ ephemeralKeys: ["modal", "toast"] });
+	The.the("modal", "open");
+	The.the("theme", "dark");
+	assert.strictEqual(document.body.getAttribute("data-modal"), "open");
+	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
+	assert.strictEqual(localStorage.getItem("otm:modal"), null);
+	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
+	The.ephemeralKeys = new Set();
+});
+
+test("the.boot({ ephemeralKeys }): batch form also skips ephemeral", async (_t) => {
+	setupDOM();
+	await The.boot({ ephemeralKeys: ["modal"] });
+	The.the({ modal: "open", theme: "light" });
+	assert.strictEqual(localStorage.getItem("otm:modal"), null);
+	assert.strictEqual(localStorage.getItem("otm:theme"), "light");
+	The.ephemeralKeys = new Set();
+});
+
+test("the.boot({ ephemeralKeys }): replay skips persisted ephemeral keys", async (_t) => {
+	const { document } = setupDOM();
+	localStorage.setItem("otm:modal", "stale");
+	localStorage.setItem("otm:theme", "dark");
+	await The.boot({ ephemeralKeys: ["modal"] });
+	assert.strictEqual(document.body.getAttribute("data-modal"), null);
+	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
+	The.ephemeralKeys = new Set();
+});
+
 test("import: index.js has no top-level boot or ready assignment", async (_t) => {
 	const { readFile } = await import("node:fs/promises");
 	const src = await readFile(new URL("./index.js", import.meta.url), "utf8");
