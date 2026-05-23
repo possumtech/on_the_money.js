@@ -28,7 +28,7 @@ export default class Select {
 	 * @param {string} selector - The template ID/selector
 	 * @returns {HTMLElement} The mounted element
 	 */
-	static clone(parent, selector) {
+	static clone(parent, selector, { position = "beforeend" } = {}) {
 		const container =
 			typeof parent === "string" ? document.querySelector(parent) : parent;
 		const template = document.querySelector(selector);
@@ -38,12 +38,10 @@ export default class Select {
 
 		const el = template.content.cloneNode(true).firstElementChild;
 
-		// Surgical hydration of the new fragment before mounting
 		The._t(el);
 
-		container.appendChild(el);
+		container.insertAdjacentElement(position, el);
 
-		// Trigger a 'mounted' custom event for lifecycle hooks
 		const event = new CustomEvent("mounted", {
 			bubbles: true,
 			detail: { parent: container },

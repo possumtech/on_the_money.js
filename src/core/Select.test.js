@@ -80,3 +80,34 @@ test("Select.clone: should throw if parent not found", (_t) => {
 		/Parent not found: #missing/,
 	);
 });
+
+test("Select.clone: { position: 'afterbegin' } prepends instead of appending", (_t) => {
+	const dom = setupDOM(`
+		<ul id="list"><li id="existing"></li></ul>
+		<template id="tmp"><li class="new"></li></template>
+	`);
+	const el = Select.clone("#list", "#tmp", { position: "afterbegin" });
+	const list = dom.querySelector("#list");
+	assert.strictEqual(list.firstElementChild, el);
+	assert.strictEqual(list.children.length, 2);
+});
+
+test("Select.clone: { position: 'beforeend' } default appends", (_t) => {
+	const dom = setupDOM(`
+		<ul id="list"><li id="existing"></li></ul>
+		<template id="tmp"><li class="new"></li></template>
+	`);
+	const el = Select.clone("#list", "#tmp");
+	const list = dom.querySelector("#list");
+	assert.strictEqual(list.lastElementChild, el);
+});
+
+test("Select.clone: { position: 'beforebegin' } inserts as sibling before reference", (_t) => {
+	const dom = setupDOM(`
+		<ul id="parent"><li id="anchor"></li></ul>
+		<template id="tmp"><div class="sibling"></div></template>
+	`);
+	const anchor = dom.querySelector("#anchor");
+	const el = Select.clone(anchor, "#tmp", { position: "beforebegin" });
+	assert.strictEqual(anchor.previousElementSibling, el);
+});

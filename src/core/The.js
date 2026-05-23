@@ -3,7 +3,18 @@ export default class The {
 	static locale =
 		typeof navigator !== "undefined" ? navigator.language : "en-US";
 	static prefix = "otm:";
-	static ephemeralKeys = new Set();
+	// Default: nothing persists. Opt in per key via the.boot({ persistKeys }).
+	static persistKeys = new Set();
+
+	// Normalize keys to kebab-case for DOM attributes and [data-text] lookups.
+	// chapterHasNav → chapter-has-nav. chapter_has_nav → chapter-has-nav.
+	// expanded / mounted / theme → unchanged.
+	static #kebab(key) {
+		return key
+			.replace(/_/g, "-")
+			.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+			.toLowerCase();
+	}
 
 	static the(...args) {
 		if (args.length === 0) {
@@ -20,7 +31,7 @@ export default class The {
 		const isGlobal = el === document.body;
 
 		if (args.length === 1 && typeof a === "string") {
-			return The.#get(el, a);
+			return The.#get(el, The.#kebab(a));
 		}
 		if (args.length === 2 && typeof a === "string") {
 			if (typeof b === "undefined") {
@@ -28,15 +39,17 @@ export default class The {
 					`the(${JSON.stringify(a)}, undefined): val is required for set`,
 				);
 			}
-			The.#set(el, a, b);
-			if (isGlobal && !The.ephemeralKeys.has(a))
-				localStorage.setItem(`${The.prefix}${a}`, b);
+			const k = The.#kebab(a);
+			The.#set(el, k, b);
+			if (isGlobal && The.persistKeys.has(k))
+				localStorage.setItem(`${The.prefix}${k}`, b);
 			return el;
 		}
 		if (args.length === 1 && a?.constructor === Object) {
-			for (const [k, v] of Object.entries(a)) {
+			for (const [rawKey, v] of Object.entries(a)) {
+				const k = The.#kebab(rawKey);
 				The.#set(el, k, v);
-				if (isGlobal && !The.ephemeralKeys.has(k))
+				if (isGlobal && The.persistKeys.has(k))
 					localStorage.setItem(`${The.prefix}${k}`, v);
 			}
 			return el;
@@ -45,6 +58,30 @@ export default class The {
 		throw new TypeError(
 			`the(): unrecognized call shape (${args.map((x) => typeof x).join(", ")})`,
 		);
+	}
+
+	static match(pattern, path) {
+		const subject =
+			path ??
+			(typeof window !== "undefined" && window.location
+				? window.location.pathname
+				: "");
+		const paramNames = [];
+		const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+		const regexSource = escaped.replace(
+			/:([a-zA-Z_][a-zA-Z0-9_]*)/g,
+			(_, name) => {
+				paramNames.push(name);
+				return "([^/]+)";
+			},
+		);
+		const m = subject.match(new RegExp(`^${regexSource}$`));
+		if (!m) return null;
+		const out = {};
+		paramNames.forEach((name, i) => {
+			out[name] = decodeURIComponent(m[i + 1]);
+		});
+		return out;
 	}
 
 	static flat(obj, sep = "_") {
@@ -274,10 +311,11 @@ export default class The {
 		dictionary,
 		namespace,
 		defaultLocale,
-		ephemeralKeys,
+		persistKeys,
 	} = {}) {
 		if (namespace) The.prefix = `${namespace}:`;
-		if (ephemeralKeys) The.ephemeralKeys = new Set(ephemeralKeys);
+		if (persistKeys)
+			The.persistKeys = new Set(persistKeys.map((k) => The.#kebab(k)));
 		const search =
 			typeof window !== "undefined" && window.location
 				? window.location.search
@@ -332,7 +370,7 @@ export default class The {
 			const fullKey = localStorage.key(i);
 			if (fullKey.startsWith(The.prefix)) {
 				const key = fullKey.slice(The.prefix.length);
-				if (key !== "lang" && !The.ephemeralKeys.has(key)) {
+				if (key !== "lang" && The.persistKeys.has(key)) {
 					const val = localStorage.getItem(fullKey);
 					The.#set(document.body, key, val);
 				}

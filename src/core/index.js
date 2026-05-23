@@ -12,6 +12,7 @@ the.t = _t;
 the.route = route;
 the.form = The.form;
 the.flat = The.flat;
+the.match = The.match;
 the.boot = The.boot;
 
 Object.defineProperty(the, "dictionary", {

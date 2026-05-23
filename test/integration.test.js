@@ -144,6 +144,7 @@ test("Integration: Namespace Storage", async (_t_context) => {
 	`);
 
 	localStorage.clear();
+	await the.boot({ persistKeys: ["theme"] });
 	the("theme", "dark");
 
 	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
