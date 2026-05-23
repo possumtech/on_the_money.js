@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-23
+
+### Breaking
+
+- **Persistence is now opt-in.** Default behavior writes attributes only — nothing persists to `localStorage`. Declare `the.boot({ persistKeys: [...] })` to opt specific keys in. Replaces `ephemeralKeys` (the deny-list polarity). Consumers writing theme/locale-flavored apps pass `persistKeys: ["theme", "lang"]`; consumers writing page-render apps pass nothing or just `["lang"]`. The deny-list polarity was wrong for modern apps — the default punished state-as-signal patterns. (#69)
+- **Keys auto-convert to kebab-case** for attribute writes and `[data-text]` lookups. `the("chapterHasNav", x)` writes `data-chapter-has-nav`; `the("chapter_has_nav", x)` also normalizes to kebab. Round-trips via the platform's `dataset.chapterHasNav` accessor. CSS selectors and `[data-text="..."]` slot values must use kebab-case to match what JS writes. Single-word and already-kebab keys are unchanged. Single-word ARIA shortcut keys (`expanded`, etc.) still map correctly. (#70)
+
+### Added
+
+- **`the.match(pattern, path?)`** — Express-style `:name` segment extraction. Returns `{name: value}` (URI-decoded) or `null`. Scope: `:name` only — no optional, no regex constraints, no wildcards. (#71)
+- **`$.clone(parent, selector, { position })`** — pass `afterbegin` / `beforeend` (default) / `beforebegin` / `afterend` to insert at any position via `insertAdjacentElement`. The `mounted` event fires *after* insertion at the final position. (#72)
+
+### Documentation
+
+- **Production CSS purging** — README adds a "Production CSS purging" section with a PurgeCSS safelist pattern. No preset shipped; documenting the pattern keeps the framework agnostic about which purger consumers use. (#67)
+- **Reacting to state changes** — README documents `MutationObserver` against `document.body` as the canonical pattern for state-driven side effects (modal orchestration, focus management). The framework deliberately doesn't broadcast events on every write — the platform's primitive is the right tool. (#68)
+- **`_t()` with empty dictionary** — README documents the template-literal workaround for default-locale apps that want interpolation. No `options.template` API added; template literals are the platform's interpolation primitive. (#63)
+- **Key naming convention** documented under `the(...)` — kebab-case is the canonical surface.
+
 ## [0.4.0] — 2026-05-23
 
 ### Breaking

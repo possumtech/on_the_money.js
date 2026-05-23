@@ -44,6 +44,75 @@ test("the(key): reads global state from body", (_t) => {
 	assert.strictEqual(The.the("theme"), "dark");
 });
 
+test("the(key): camelCase keys convert to kebab-case attributes", (_t) => {
+	const { document } = setupDOM();
+	The.the("chapterHasNav", "true");
+	assert.strictEqual(
+		document.body.getAttribute("data-chapter-has-nav"),
+		"true",
+	);
+	assert.strictEqual(The.the("chapterHasNav"), "true");
+});
+
+test("the(key): snake_case keys convert to kebab-case attributes", (_t) => {
+	const { document } = setupDOM();
+	The.the("chapter_has_nav", "true");
+	assert.strictEqual(
+		document.body.getAttribute("data-chapter-has-nav"),
+		"true",
+	);
+	assert.strictEqual(The.the("chapter_has_nav"), "true");
+});
+
+test("the(key): single-word and already-kebab keys pass through", (_t) => {
+	const { document } = setupDOM();
+	The.the("theme", "dark");
+	The.the("data-foo", "bar");
+	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
+});
+
+test("the(key): ARIA shortcut keys still map correctly under kebab conversion", (_t) => {
+	const { document } = setupDOM('<button id="b"></button>');
+	const el = document.querySelector("#b");
+	The.the(el, "expanded", true);
+	assert.strictEqual(el.getAttribute("aria-expanded"), "true");
+});
+
+test("the.match: extracts named segments", (_t) => {
+	setupDOM();
+	const out = The.match(
+		"/@:user/:work/:chapter",
+		"/@alice/great-work/chapter-1",
+	);
+	assert.deepStrictEqual(out, {
+		user: "alice",
+		work: "great-work",
+		chapter: "chapter-1",
+	});
+});
+
+test("the.match: returns null when pattern doesn't match", (_t) => {
+	setupDOM();
+	assert.strictEqual(The.match("/@:user/:work", "/no-at-sign/here"), null);
+});
+
+test("the.match: decodes URI-encoded segments", (_t) => {
+	setupDOM();
+	const out = The.match("/@:user", "/@alice%20bob");
+	assert.strictEqual(out.user, "alice bob");
+});
+
+test("the.match: single segment", (_t) => {
+	setupDOM();
+	const out = The.match("/:slug", "/about");
+	assert.deepStrictEqual(out, { slug: "about" });
+});
+
+test("the.match: trailing slash mismatch returns null", (_t) => {
+	setupDOM();
+	assert.strictEqual(The.match("/:slug", "/about/"), null);
+});
+
 test("the(el, key): reads scoped state from element", (_t) => {
 	const { document } = setupDOM('<div id="el" aria-selected="true"></div>');
 	const el = document.querySelector("#el");
@@ -56,20 +125,27 @@ test("the(key): maps aria keys for getters", (_t) => {
 	assert.strictEqual(The.the("expanded"), "true");
 });
 
-test("the(key, val): writes body attr + otm: localStorage", (_t) => {
+test("the(key, val): writes body attr; persists only if key in persistKeys", (_t) => {
 	const { document } = setupDOM();
+	The.persistKeys = new Set(["theme"]);
 	The.the("theme", "dark");
+	The.the("modal", "open");
 	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
+	assert.strictEqual(document.body.getAttribute("data-modal"), "open");
 	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
+	assert.strictEqual(localStorage.getItem("otm:modal"), null);
+	The.persistKeys = new Set();
 });
 
-test("the({k:v}): batch-sets global state", (_t) => {
+test("the({k:v}): batch global write; persistence follows persistKeys", (_t) => {
 	const { document } = setupDOM();
+	The.persistKeys = new Set(["theme"]);
 	The.the({ theme: "light", layout: "grid" });
 	assert.strictEqual(document.body.getAttribute("data-theme"), "light");
 	assert.strictEqual(localStorage.getItem("otm:theme"), "light");
 	assert.strictEqual(document.body.getAttribute("data-layout"), "grid");
-	assert.strictEqual(localStorage.getItem("otm:layout"), "grid");
+	assert.strictEqual(localStorage.getItem("otm:layout"), null);
+	The.persistKeys = new Set();
 });
 
 test("the(key, val): syncs [data-text] descendants of body", (_t) => {
@@ -177,12 +253,21 @@ test("the.form(formEl): skips disabled, unchecked, and submit controls", (_t) =>
 	assert.deepStrictEqual(out, { active: "yes", agreed: "1" });
 });
 
-test("the.boot(): rehydrates otm: localStorage state to body", async (_t) => {
+test("the.boot(): rehydrates persisted localStorage state to body", async (_t) => {
 	const { document } = setupDOM('<h1 data-text="theme"></h1>');
 	localStorage.setItem("otm:theme", "blue");
-	await The.boot();
+	await The.boot({ persistKeys: ["theme"] });
 	assert.strictEqual(document.body.getAttribute("data-theme"), "blue");
 	assert.strictEqual(document.querySelector("h1").textContent, "blue");
+	The.persistKeys = new Set();
+});
+
+test("the.boot(): does NOT rehydrate keys absent from persistKeys", async (_t) => {
+	const { document } = setupDOM();
+	localStorage.setItem("otm:modal", "stale");
+	await The.boot({ persistKeys: ["theme"] });
+	assert.strictEqual(document.body.getAttribute("data-modal"), null);
+	The.persistKeys = new Set();
 });
 
 test("the.boot(): fetches dictionary when <meta name=i18n> is present", async (_t) => {
@@ -276,11 +361,12 @@ test("the.locale: live accessor proxies to The.locale", (_t) => {
 
 test("the.boot({ namespace }): rewrites localStorage prefix", async (_t) => {
 	setupDOM();
-	await The.boot({ namespace: "myapp" });
+	await The.boot({ namespace: "myapp", persistKeys: ["theme"] });
 	The.the("theme", "dark");
 	assert.strictEqual(localStorage.getItem("myapp:theme"), "dark");
 	assert.strictEqual(localStorage.getItem("otm:theme"), null);
 	The.prefix = "otm:";
+	The.persistKeys = new Set();
 });
 
 test("the.boot({ signal }): aborts the fetch", async (_t) => {
@@ -316,8 +402,10 @@ test("the.boot({ defaultLocale }): fetches when resolved locale differs", async 
 		return { ok: true, json: async () => ({ ok: 1 }) };
 	};
 	The.dictionary = {};
-	await The.boot({ defaultLocale: "en" });
+	// "lang" needs to persist for boot to read it back from localStorage
+	await The.boot({ defaultLocale: "en", persistKeys: ["lang"] });
 	assert.strictEqual(fetched, true);
+	The.persistKeys = new Set();
 });
 
 test("the.boot(): auto-detects <html lang> as default locale", async (_t) => {
@@ -347,44 +435,45 @@ test("the.boot(): no skip when <html lang> is missing and defaultLocale not pass
 	assert.strictEqual(fetched, true);
 });
 
-test("the.boot({ defaultLocale }): still replays localStorage state on skip", async (_t) => {
+test("the.boot({ defaultLocale }): still replays persisted state on i18n skip", async (_t) => {
 	const { document } = setupDOM('<h1 data-text="theme"></h1>');
 	document.documentElement.setAttribute("lang", "en");
 	localStorage.setItem("otm:theme", "blue");
 	The.locale = "en-US";
-	await The.boot({ defaultLocale: "en" });
+	await The.boot({ defaultLocale: "en", persistKeys: ["theme"] });
 	assert.strictEqual(document.body.getAttribute("data-theme"), "blue");
+	The.persistKeys = new Set();
 });
 
-test("the.boot({ ephemeralKeys }): keys in the set don't write to localStorage", async (_t) => {
+test("the.boot({ persistKeys }): only listed keys persist", async (_t) => {
 	const { document } = setupDOM();
-	await The.boot({ ephemeralKeys: ["modal", "toast"] });
-	The.the("modal", "open");
+	await The.boot({ persistKeys: ["theme"] });
 	The.the("theme", "dark");
-	assert.strictEqual(document.body.getAttribute("data-modal"), "open");
+	The.the("modal", "open");
 	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
-	assert.strictEqual(localStorage.getItem("otm:modal"), null);
+	assert.strictEqual(document.body.getAttribute("data-modal"), "open");
 	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
-	The.ephemeralKeys = new Set();
+	assert.strictEqual(localStorage.getItem("otm:modal"), null);
+	The.persistKeys = new Set();
 });
 
-test("the.boot({ ephemeralKeys }): batch form also skips ephemeral", async (_t) => {
+test("the.boot({ persistKeys }): batch form respects allow-list", async (_t) => {
 	setupDOM();
-	await The.boot({ ephemeralKeys: ["modal"] });
+	await The.boot({ persistKeys: ["theme"] });
 	The.the({ modal: "open", theme: "light" });
 	assert.strictEqual(localStorage.getItem("otm:modal"), null);
 	assert.strictEqual(localStorage.getItem("otm:theme"), "light");
-	The.ephemeralKeys = new Set();
+	The.persistKeys = new Set();
 });
 
-test("the.boot({ ephemeralKeys }): replay skips persisted ephemeral keys", async (_t) => {
+test("the.boot({ persistKeys }): replay skips keys absent from allow-list", async (_t) => {
 	const { document } = setupDOM();
 	localStorage.setItem("otm:modal", "stale");
 	localStorage.setItem("otm:theme", "dark");
-	await The.boot({ ephemeralKeys: ["modal"] });
+	await The.boot({ persistKeys: ["theme"] });
 	assert.strictEqual(document.body.getAttribute("data-modal"), null);
 	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
-	The.ephemeralKeys = new Set();
+	The.persistKeys = new Set();
 });
 
 test("import: index.js has no top-level boot or ready assignment", async (_t) => {

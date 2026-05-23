@@ -67,7 +67,7 @@ Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, 
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`. Live accessors: `the.dictionary`, `the.locale`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. Live accessors: `the.dictionary`, `the.locale`.
 Live accessors on `the`: `the.dictionary`, `the.locale`.
 
 ## API
@@ -105,13 +105,15 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 | Call | Behavior | Returns |
 | --- | --- | --- |
 | `the(key)` | Read body `data-KEY` (or aria-mapped equivalent). | `string \| null` |
-| `the(key, val)` | Write body attribute + `localStorage["otm:KEY"]` + descendant `[data-text="key"]`. | `document.body` |
+| `the(key, val)` | Write body attribute + descendant `[data-text="key"]`. Persists to `localStorage` only if `key` is in `persistKeys`. | `document.body` |
 | `the({ k: v, ... })` | Batch global write. | `document.body` |
 | `the(el, key)` | Read scoped attribute on `el`. | `string \| null` |
 | `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. | `el` |
 | `the(el, { k: v, ... })` | Batch scoped write. | `el` |
 
-- **ARIA mapping** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Other ARIA attributes (`aria-invalid`, `aria-controls`, `aria-describedby`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute. Non-ARIA keys → `data-*`.
+- **Key naming.** Keys auto-convert to kebab-case for attribute writes and `[data-text]` lookups. `the("chapterHasNav", x)` writes `data-chapter-has-nav`. snake_case (`chapter_has_nav`) normalizes to kebab too. Single-word keys (`theme`, `user`) pass through unchanged. Round-trips via the platform's `dataset` API: `el.dataset.chapterHasNav` reads the same attribute. CSS selectors and `[data-text="..."]` slot values must use kebab-case to match what JS writes.
+- **Persistence is opt-in.** Default behavior writes attributes only — nothing persists to `localStorage`. Declare `the.boot({ persistKeys: ["theme", "lang"] })` to opt specific keys in. The boot replay loads only those keys back. Common persistKeys for an i18n + theme app: `["theme", "lang"]`.
+- **ARIA mapping** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Other ARIA attributes (`aria-invalid`, `aria-controls`, `aria-describedby`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute. Non-ARIA keys → `data-*` (after kebab conversion).
 - **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="title">Default</title>` in `<head>` and `the("title", "X")` updates it.
 - **Plain HTML attributes (href, value, rel, etc.)** use `el.setAttribute(name, val)` directly. The framework deliberately doesn't wrap these — `the()` is for state; `setAttribute()` is for structure. Two distinct concerns, two distinct primitives.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
@@ -148,7 +150,7 @@ Throws on non-object input.
 Importing the module does **nothing**. Call `the.boot()` at the consumer's entry point.
 
 ```javascript
-await the.boot({ signal, locales, dictionary, namespace, defaultLocale });
+await the.boot({ signal, locales, dictionary, namespace, defaultLocale, persistKeys });
 ```
 
 | Option | Type | Behavior |
@@ -158,7 +160,7 @@ await the.boot({ signal, locales, dictionary, namespace, defaultLocale });
 | `dictionary` | `object` | Inline dictionary; skips the fetch entirely. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
 | `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
-| `ephemeralKeys` | `string[]` | Global state keys that **should not** persist to `localStorage`. Writes to these keys still update the body attribute and any `[data-text]` mirrors, but skip the storage write; the boot replay also skips them. Use for transient signals like `modal`, `loading`, `toast`. Scoped state (`the(el, ...)`) never persists regardless. |
+| `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
 1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `navigator.language`. Writes `the.locale`.
@@ -211,6 +213,23 @@ route((pathname, search, hash) => {
 
 Fires the callback on initial mount, on `popstate`, on `hashchange`, and on intercepted internal `<a>` clicks. Skips interception for `data-external`, `target="_blank"`, and cross-origin hrefs. Hash-only same-page links are left to the browser; `hashchange` still triggers the callback.
 
+### `the.match(pattern, path?)` — pattern matching with named segments
+
+Express-style colon syntax. Extracts named segments from `path` (defaults to `window.location.pathname`). Decodes URI-encoded segments. Returns `{name: value}` on match, `null` on no match.
+
+```javascript
+the.match("/@:user/:work/:chapter", "/@alice/great-work/chapter-1");
+// → { user: "alice", work: "great-work", chapter: "chapter-1" }
+
+the.match("/about", "/about");
+// → {} (matched, no params)
+
+the.match("/:slug", "/about/extra");
+// → null (segment count doesn't match)
+```
+
+Scope: `:name` segments only. No optional segments, regex constraints, wildcards, or nested patterns. If your routing needs those, bring `path-to-regexp` or similar — `the.match` is the 80%-case helper, not a router framework.
+
 ### `$(context, selector)` / `$$(context, selector)` — context-aware DOM query
 
 ```javascript
@@ -220,13 +239,26 @@ $(".child");            // shorthand: context = document
 $$(".child");
 ```
 
-### `$.clone(parent, selector)` — template instantiation
+### `$.clone(parent, selector, options?)` — template instantiation
 
 ```javascript
 const el = $.clone("#list", "#tmp");
+const head = $.clone("#list", "#tmp", { position: "afterbegin" });   // prepend
+const sib  = $.clone(anchorEl, "#tmp", { position: "beforebegin" }); // insert before anchor
 ```
 
-Clones the first element of `<template selector>`, runs `_t(el)` for i18n hydration, appends to `parent`, dispatches a bubbling `mounted` CustomEvent (`detail: { parent }`), and returns the mounted element. Throws if `parent` or template is missing.
+Clones the first element of `<template selector>`, runs `_t(el)` for i18n hydration, inserts at `position` (default `beforeend` — append inside `parent`), dispatches a bubbling `mounted` CustomEvent (`detail: { parent }`) **after** insertion so the element is at its final position when the event fires. Returns the mounted element. Throws if `parent`/template is missing.
+
+`position` values mirror [`insertAdjacentElement`](https://developer.mozilla.org/en-US/docs/Web/API/Element/insertAdjacentElement):
+
+| Position | Where |
+| --- | --- |
+| `beforeend` (default) | Inside `parent`, after its last child. |
+| `afterbegin` | Inside `parent`, before its first child. |
+| `beforebegin` | As `parent`'s previous sibling. |
+| `afterend` | As `parent`'s next sibling. |
+
+For `beforebegin` and `afterend`, the first argument is a sibling reference, not a true parent.
 
 ## Patterns
 
@@ -300,6 +332,52 @@ await the.boot({ namespace: "dashboard" }); // localStorage keys: dashboard:them
 const off = on("#modal", "click", "[data-action='close']", closeModal);
 on.emit(document.body, "modal-closed");
 off(); // detach when modal is destroyed
+```
+
+### Routing with `the.match`
+
+```javascript
+route(() => {
+  const post = the.match("/posts/:slug");
+  if (post) return renderPost(post.slug);
+
+  const profile = the.match("/@:user");
+  if (profile) return renderProfile(profile.user);
+
+  if (location.pathname === "/") return renderHome();
+});
+```
+
+### Reacting to state changes (MutationObserver)
+
+The framework deliberately doesn't broadcast events on every `the()` write. To react to attribute changes, use the platform's primitive directly. This is the canonical pattern for state-driven UI hooks the framework can't express declaratively (modal orchestration, focus management, etc.):
+
+```javascript
+new MutationObserver(() => {
+  const wantModal = the("modal");
+  for (const dialog of $$("dialog[open]")) {
+    if (dialog.id !== `${wantModal}-modal`) dialog.close();
+  }
+  if (wantModal) $(`#${wantModal}-modal`)?.showModal();
+}).observe(document.body, { attributes: true, attributeFilter: ["data-modal"] });
+```
+
+`document.body` is the allowed identifier under `otm/no-document-query`. Filter by `attributeFilter` to scope the observer narrowly.
+
+### Working around `_t()` with an empty dictionary
+
+When `the.boot({ defaultLocale })` skips the dictionary fetch, programmatic `_t(key, options)` calls return the key (no template to interpolate against). For default-locale interpolation, use template literals or a small wrapper:
+
+```javascript
+// Template literal — the platform's interpolation primitive
+const greeting = `Hello, ${name}!`;
+
+// Or wrap once for callers that need a uniform API across locales
+function greet(name) {
+  return the.dictionary.greeting
+    ? _t("greeting", { name })
+    : `Hello, ${name}!`;
+}
 ```
 
 ### Server-side rendering (no extra API)
@@ -417,6 +495,30 @@ The rules' job is to catch the *first* mistake and surface a teaching message ("
 | Static a11y | `eslint-plugin-jsx-a11y` (works on plain HTML via parsers) |
 | Runtime a11y | `axe-core` via Playwright/Cypress against the rendered page |
 | Supply-chain | `npm audit`, `osv-scanner` |
+
+## Production CSS purging
+
+OTM's CSS depends on attribute selectors written at runtime (`body[data-page="home"]`, `[data-state="active"]`, etc.). Default tree-shakers like PurgeCSS scan HTML for tokens and can't see attribute values that don't exist at build time — they'll strip your state-driven rules. Configure the safelist to preserve them:
+
+```javascript
+// postcss.config.js
+import purgecss from "@fullhuman/postcss-purgecss";
+
+export default {
+  plugins: [
+    purgecss({
+      content: ["src/**/*.html", "src/**/*.js"],
+      defaultExtractor: (s) => s.match(/[A-Za-z0-9_-]+/g) || [],
+      safelist: {
+        standard: [/^aria-/, "hidden"],
+        deep: [/^\[data-/, /^aria-/, /role-/],
+      },
+    }),
+  ],
+};
+```
+
+The `defaultExtractor` tweak ensures attribute names tokenize correctly (the default extractor treats `id="foo"` as one opaque token). The `deep` safelist preserves any selector containing `[data-*]` or `aria-*` from being purged. Without these, every `[data-page="home"] main > section` style gets stripped in production.
 
 ## Suggested project layout
 
