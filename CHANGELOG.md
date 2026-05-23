@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] — 2026-05-23
+
+### Documentation
+
+- **Added the "Discipline" section to the README.** Names the framework's three state-response mechanisms explicitly: (1) CSS attribute selectors for state→visual, (2) imperative API calls colocated with state writes for one-off platform side effects, (3) `MutationObserver` for DRY of imperative responses across many call sites. Lists the right-vs-wrong matrix for `MutationObserver` (imperative-only responses: yes; CSS's job: no). Ships the "deletion test" self-check. Documents the element-as-state-carrier pattern (`<dialog open>`, `<details open>`, etc.) where state lives on the element with native CSS hooks. (#80)
+- **Reframed the existing "Reacting to state changes" pattern** as "Imperative dispatch from many sites (mechanism #3)" — same example, sharper framing as a case of the three-mechanism vocabulary, with an explicit "before reaching for this pattern, check whether CSS can do the job" warning.
+- **ESLint rule messages now reference §The Discipline** so consumers hitting a lint failure can read the architectural why in one place, not just the local rule hint.
+
+### Why
+
+The framework rejects subscriber/signal/effect patterns but the discipline was implicit. LLM pretraining is heavily biased toward those patterns; naming the trap explicitly (with the three-mechanism vocabulary as the alternative) gives consumers and LLM authors a concrete framework to reach for instead. The element-as-state-carrier section is the highest-leverage addition — most consumers don't realize `<dialog open>` is already a state attribute with CSS hooks.
+
 ## [0.5.1] — 2026-05-23
 
 ### Documentation

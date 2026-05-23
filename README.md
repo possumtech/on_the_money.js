@@ -260,6 +260,97 @@ Clones the first element of `<template selector>`, runs `_t(el)` for i18n hydrat
 
 For `beforebegin` and `afterend`, the first argument is a sibling reference, not a true parent.
 
+## The Discipline
+
+on_the_money has no reactivity primitives. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. If you find yourself reaching for any of these — including importing them from another library — you're solving a problem the framework rejects.
+
+Instead, the framework has **three state-response mechanisms**, each with one job:
+
+### 1. CSS attribute selectors handle state → visual
+
+Default. Anything visual goes through `[data-key="value"]` selectors in your stylesheet.
+
+```css
+body[data-modal="session-expired"] #session-expired-modal { display: block }
+body[data-page="home"] main > section[data-route="home"] { display: block }
+[data-state="loading"] .spinner { display: inline }
+```
+
+```javascript
+the("modal", "session-expired");   // CSS rule above runs the visual change
+```
+
+No JS step between the `the()` write and the visual update. The CSS rule **is** the correspondence. This is the framework's reason for existing — DOM-as-state-database is valuable specifically because CSS can read that database without JS.
+
+### 2. Imperative API calls colocated with state writes
+
+For one-off platform side effects (`dialog.showModal()`, `el.focus()`, `el.scrollIntoView()`, media `.play()`, animation triggers), the imperative call lives in the same `on()` handler that wrote the state.
+
+```javascript
+on("button.open", "click", () => {
+  the("modal", "session-expired");
+  $("#session-expired-modal").showModal();
+});
+```
+
+Cause (user click) and imperative effect (`showModal()`) are colocated. The `the()` write records the state; the platform call performs the imperative action. No subscriber between them.
+
+### 3. `MutationObserver` for DRY of imperative responses across many call sites
+
+When the same state can be written from multiple places (user click, fetch handler, boot replay, postMessage) and they all need the same imperative response, observe the attribute once:
+
+```javascript
+new MutationObserver(() => {
+  const want = the("modal") ?? "";
+  for (const open of $$("dialog[open]")) {
+    if (open.id !== `${want}-modal`) open.close();
+  }
+  if (want) $(`#${want}-modal`)?.showModal();
+}).observe(document.body, { attributes: true, attributeFilter: ["data-modal"] });
+```
+
+The observer doesn't enable reactivity — it deduplicates the imperative response. Any place in the codebase that writes `data-modal` gets the same dispatch logic without copy-pasting.
+
+### When `MutationObserver` is right vs wrong
+
+| Right (the platform call does work CSS can't reach) | Wrong (CSS's job) |
+| --- | --- |
+| `el.focus()`, `el.blur()` — moving keyboard focus | Showing/hiding via `display: none` |
+| `el.scrollIntoView()`, `window.scrollTo(...)` — viewport movement | Changing color, layout, transform |
+| `media.play()`, `media.pause()` — playback state | Adding/removing a class |
+| `el.animate(...)` — Web Animations timing | Conditional opacity / visibility |
+| `el.requestFullscreen()` — browser mode | Animation triggers expressible as CSS transitions |
+| `navigator.clipboard.writeText(...)` — out-of-DOM side effects | Toggling text content (use `[data-text]`) |
+
+`dialog.showModal()` is a borderline case: it shows the dialog (visual) AND traps focus, paints the backdrop, registers an Escape handler, and announces modal semantics to assistive tech (behavioral + a11y). If you want only the visual, `dialog[open]` + CSS suffices. If you want the bundled behavior, call `showModal()` — and reach for `MutationObserver` only if `data-modal` can be set from multiple call sites that all need the same dispatch.
+
+If your `MutationObserver` callback is setting styles, toggling classes, or changing `textContent`, you've smuggled a JS reactivity layer into a project that explicitly rejected one. The CSS attribute selector was already doing that job — declaratively, with zero JS, with the right perf shape.
+
+### The deletion test
+
+The single best self-check: strip every JS function except `on()` handlers, the imperative calls inside them, and any `MutationObserver` that handles a many-sites imperative response. Open the page; mutate `body` `data-*` attributes in DevTools.
+
+- Does the page respond correctly? You're idiomatic.
+- Does it not? You're missing either a CSS rule (most likely) or an imperative call at a state-write site (occasionally).
+
+### Element-as-state-carrier
+
+Many platform elements already carry state in their own attributes, with native CSS hooks. When the state genuinely lives on a specific element, use that — don't add a `body[data-x]` indirection:
+
+| Element | Native state attribute | What you do |
+| --- | --- | --- |
+| `<dialog>` | `[open]` | `el.setAttribute("open", "")` + Pico's `dialog[open]` CSS, or `el.showModal()` if you need the backdrop and focus trap |
+| `<details>` | `[open]` | Same shape; browser handles the disclosure UX |
+| `<input>`, `<textarea>` | `[aria-invalid]`, `[aria-required]`, `[disabled]` | Direct `setAttribute`; CSS targets `:invalid`, `[disabled]` |
+| `<button>` | `[aria-pressed]` (toggle state), `[disabled]` | Native focus/style for free |
+| `<select>` | The current `value` | Read via `el.value`; no body indirection needed |
+
+The `body[data-modal]` indirection is correct when the state is a named enum the consumer controls (which modal is open, current page, theme). When the state genuinely lives on an element (is THIS dialog open?), let it live there.
+
+### Banned vocabulary, in spirit
+
+If you're searching online for "how to subscribe to OTM state changes" or "OTM reactive system" — you're looking for something the framework doesn't have and won't add. The three mechanisms above are the whole story. Reactivity-by-CSS, imperative-by-handler, DRY-by-observer.
+
 ## Patterns
 
 ### Form intake
@@ -348,9 +439,9 @@ route(() => {
 });
 ```
 
-### Reacting to state changes (MutationObserver)
+### Imperative dispatch from many sites (mechanism #3)
 
-The framework deliberately doesn't broadcast events on every `the()` write. To react to attribute changes, use the platform's primitive directly. This is the canonical pattern for state-driven UI hooks the framework can't express declaratively (modal orchestration, focus management, etc.):
+This is the case-3 pattern from [The Discipline](#the-discipline): the same state can be written from several places (user click, fetch error handler, boot replay, etc.) and all of them need the same imperative response. Observe the attribute once, dispatch from there:
 
 ```javascript
 new MutationObserver(() => {
@@ -363,6 +454,8 @@ new MutationObserver(() => {
 ```
 
 `document.body` is the allowed identifier under `otm/no-document-query`. Filter by `attributeFilter` to scope the observer narrowly.
+
+**Before reaching for this pattern, check whether CSS can do the job.** If the response is purely visual (show/hide, color, layout), the CSS attribute selector is the right tool and the observer is overhead. Reserve `MutationObserver` for imperative APIs CSS can't express (`showModal`, `focus`, `scrollIntoView`, media controls, animation triggers).
 
 ### Working around `_t()` with an empty dictionary
 
