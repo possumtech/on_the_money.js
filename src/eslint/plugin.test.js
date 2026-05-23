@@ -116,6 +116,69 @@ test("no-style-mutation", () => {
 	});
 });
 
+test("no-server-dom", () => {
+	tester.run("no-server-dom", plugin.rules["no-server-dom"], {
+		valid: [
+			{ code: 'import { the } from "on_the_money";' },
+			{ code: 'import fs from "node:fs/promises";' },
+			{ code: 'import express from "express";' },
+		],
+		invalid: [
+			{
+				code: 'import { parseHTML } from "linkedom";',
+				errors: [{ messageId: "noServerDom" }],
+			},
+			{
+				code: 'import jsdom from "jsdom";',
+				errors: [{ messageId: "noServerDom" }],
+			},
+			{
+				code: 'import cheerio from "cheerio";',
+				errors: [{ messageId: "noServerDom" }],
+			},
+			{
+				code: 'import parse5 from "parse5";',
+				errors: [{ messageId: "noServerDom" }],
+			},
+		],
+	});
+});
+
+test("no-document-query", () => {
+	tester.run("no-document-query", plugin.rules["no-document-query"], {
+		valid: [
+			{ code: '$(".x")' },
+			{ code: '$$(".x")' },
+			{ code: "$.clone('#parent', '#tmpl')" },
+			{ code: "const b = document.body;" },
+			{ code: "const t = document.title;" },
+			{ code: "on(document.body, 'click', '.btn', fn);" },
+		],
+		invalid: [
+			{
+				code: 'document.querySelector(".x");',
+				errors: [{ messageId: "noDocumentQuery" }],
+			},
+			{
+				code: 'document.querySelectorAll(".x");',
+				errors: [{ messageId: "noDocumentQuery" }],
+			},
+			{
+				code: 'document.getElementById("x");',
+				errors: [{ messageId: "noDocumentQuery" }],
+			},
+			{
+				code: 'document.createElement("div");',
+				errors: [{ messageId: "noDocumentQuery" }],
+			},
+			{
+				code: 'document.write("x");',
+				errors: [{ messageId: "noDocumentQuery" }],
+			},
+		],
+	});
+});
+
 test("plugin: exports meta and configs.recommended", () => {
 	import("node:assert").then(({ default: assert }) => {
 		assert.strictEqual(plugin.meta.name, "eslint-plugin-otm");

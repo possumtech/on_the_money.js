@@ -1,6 +1,6 @@
 const meta = {
 	name: "eslint-plugin-otm",
-	version: "0.3.0",
+	version: "0.3.4",
 };
 
 const preferOn = {
@@ -12,7 +12,7 @@ const preferOn = {
 		},
 		messages: {
 			useOn:
-				"Direct addEventListener is forbidden. Use on() for event delegation.",
+				"Direct addEventListener is forbidden. Use on() for event delegation. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom.",
 		},
 		schema: [],
 	},
@@ -36,7 +36,7 @@ const preferTheSet = {
 		},
 		messages: {
 			useThe:
-				"Direct text manipulation is forbidden. Use the() or [data-text] binding instead.",
+				"Direct text manipulation is forbidden. Use the() or [data-text] binding instead. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render.",
 		},
 		schema: [],
 	},
@@ -64,7 +64,7 @@ const flatState = {
 		},
 		messages: {
 			notFlat:
-				"State must be flat. Nested objects or arrays are forbidden in the(). Use the.flat() to compose.",
+				"State must be flat. Nested objects or arrays are forbidden in the(). Common LLM mistake: passing a nested object — use the.flat(obj) to compose first.",
 		},
 		schema: [],
 	},
@@ -114,7 +114,7 @@ const preferSubmit = {
 		},
 		messages: {
 			useSubmit:
-				"Prefer using <form> submit events over direct button click listeners.",
+				"Prefer using <form> submit events over direct button click listeners. Common LLM mistake: per-button click handlers — one form submit handler captures every input route.",
 		},
 		schema: [],
 	},
@@ -147,7 +147,7 @@ const noStyleMutation = {
 		},
 		messages: {
 			noStyle:
-				"Direct style manipulation is forbidden. Use the() with attribute selectors instead.",
+				"Direct style manipulation is forbidden. Use the() with attribute selectors instead. Common LLM mistake: copying React/Vue inline-style patterns — CSS rules keyed off [data-state=...] handle state-driven styling cleanly.",
 		},
 		schema: [],
 	},
@@ -189,12 +189,100 @@ const noStyleMutation = {
 	},
 };
 
+const noServerDom = {
+	meta: {
+		type: "problem",
+		docs: {
+			description: "Disallow imports of server-side DOM libraries.",
+		},
+		messages: {
+			noServerDom:
+				"Server-side DOM library '{{name}}' is forbidden. Common LLM mistake: rendering HTML server-side instead of emitting JSON. The OTM client hydrates static templates via $.clone() + the() — keep server output to data.",
+		},
+		schema: [],
+	},
+	create(context) {
+		const banned = new Set([
+			"linkedom",
+			"jsdom",
+			"cheerio",
+			"parse5",
+			"htmlparser2",
+			"happy-dom",
+			"node-html-parser",
+			"parse5-htmlparser2-tree-adapter",
+			"fast-html-parser",
+		]);
+		return {
+			ImportDeclaration(node) {
+				const src = node.source?.value;
+				if (typeof src === "string" && banned.has(src)) {
+					context.report({
+						node,
+						messageId: "noServerDom",
+						data: { name: src },
+					});
+				}
+			},
+		};
+	},
+};
+
+const noDocumentQuery = {
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Disallow direct document.* DOM queries; use $/$$/$.clone instead.",
+		},
+		messages: {
+			noDocumentQuery:
+				"Direct document.{{method}} is forbidden. Common LLM mistake: querying through document instead of OTM's selectors. Use $(selector) for one, $$(selector) for many, or $.clone(parent, '#tmpl') for templates.",
+		},
+		schema: [],
+	},
+	create(context) {
+		const banned = new Set([
+			"querySelector",
+			"querySelectorAll",
+			"getElementById",
+			"getElementsByClassName",
+			"getElementsByTagName",
+			"getElementsByName",
+			"createElement",
+			"createTextNode",
+			"createDocumentFragment",
+			"write",
+			"writeln",
+		]);
+		return {
+			CallExpression(node) {
+				const callee = node.callee;
+				if (
+					callee?.type === "MemberExpression" &&
+					callee.object?.type === "Identifier" &&
+					callee.object.name === "document" &&
+					banned.has(callee.property?.name)
+				) {
+					context.report({
+						node,
+						messageId: "noDocumentQuery",
+						data: { method: callee.property.name },
+					});
+				}
+			},
+		};
+	},
+};
+
 const rules = {
 	"prefer-on": preferOn,
 	"prefer-the-set": preferTheSet,
 	"flat-state": flatState,
 	"prefer-submit": preferSubmit,
 	"no-style-mutation": noStyleMutation,
+	"no-server-dom": noServerDom,
+	"no-document-query": noDocumentQuery,
 };
 
 const plugin = {
@@ -211,6 +299,8 @@ plugin.configs = {
 			"otm/flat-state": "error",
 			"otm/prefer-submit": "warn",
 			"otm/no-style-mutation": "error",
+			"otm/no-server-dom": "error",
+			"otm/no-document-query": "error",
 		},
 	},
 };

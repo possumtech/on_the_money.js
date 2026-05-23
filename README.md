@@ -370,8 +370,12 @@ export default [
 | `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
 | `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
 | `otm/no-style-mutation` | bundled in `on_the_money` | Ban `el.style.* = ...`. |
+| `otm/no-server-dom` | bundled in `on_the_money` | Ban imports of `linkedom`, `jsdom`, `cheerio`, `parse5`, etc. — emit JSON and let the OTM client hydrate. |
+| `otm/no-document-query` | bundled in `on_the_money` | Ban `document.querySelector`/`getElementById`/`createElement`/etc.; use `$`/`$$`/`$.clone`. Use `// eslint-disable-next-line otm/no-document-query` for legitimate bridge code (MutationObserver targets, etc.). |
 | `no-unsanitized/no-inner-html` | `eslint-plugin-no-unsanitized` | Ban `innerHTML`/`outerHTML`. |
 | `no-unsanitized/method` | `eslint-plugin-no-unsanitized` | Ban `document.write`, `insertAdjacentHTML`. |
+
+The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your TypeScript files are covered if you bring a TS-aware parser like `@typescript-eslint/parser`. OTM's rules read AST nodes that don't depend on type info, but the parser still has to understand the syntax.
 
 ### 2. CSS — Stylelint + bundled plugin
 
