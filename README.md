@@ -412,8 +412,23 @@ npx otm-lint --check ./src
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
+| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. |
+| **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the silent-fallback-to-key UX bug at lint time. |
+| **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
 
-`otm-lint` default-excludes `node_modules`, `dist`, `.git`, and dotdirs. It only scans `.html` — everything else delegates to the layers above.
+`otm-lint` walks `.html`, `.js`, and locale `.json` files. HTML files get the per-file rules above; `.js` files contribute `$.clone` references for HTML-101; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs.
+
+### `--conformance` flag
+
+Append `--conformance` for a single machine-grep-able summary line at the end of output:
+
+```
+$ npx otm-lint --check ./src --conformance
+... violations ...
+OTM conformance: 3 violations
+```
+
+Useful for CI gates and LLM tooling that wants a one-line signal.
 
 ### Recommended companions (not shipped)
 

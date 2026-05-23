@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.6] — 2026-05-23
+
+### Added
+
+- **`otm-lint` cross-file checks.** Three new rules that no per-format tool can do:
+  - **HTML-101 — orphan templates.** `<template id="X">` declared but never referenced by `$.clone(_, "#X")`. Catches dead-template drift after refactors. (#59.1)
+  - **HTML-102 — missing i18n keys.** `data-i18n="K"` references a key not in any locale dictionary loaded via the file's `<meta name="i18n">`. Previously silent-fallback-to-key was a runtime UX bug; now caught at lint time. (#59.3)
+  - **HTML-103 — placeholder token mismatch.** `data-i18n-{var}` attr has no matching `{var}` token in the dictionary entry. The token is silently dropped at runtime; the lint surfaces it. (#59.4)
+- **`--conformance` flag.** Appends a single machine-grep-able line: `OTM conformance: N violations`. Useful for CI gates and LLM tooling. (#59.5)
+
+### Changed
+
+- **`otm-lint` now walks `.html`, `.js`, and locale `.json` files** (was `.html` only). JS files contribute `$.clone(_, "#id")` references for orphan-template analysis. Locale JSONs load per HTML file's own `<meta name="i18n">` so multi-app scans (e.g. `examples/blog` + `examples/todo` with different locale sets) don't cross-contaminate.
+
 ## [0.3.5] — 2026-05-23
 
 ### Added
