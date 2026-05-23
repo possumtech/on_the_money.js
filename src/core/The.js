@@ -47,25 +47,6 @@ export default class The {
 		);
 	}
 
-	static title(str) {
-		document.title = str;
-		return document.querySelector("title");
-	}
-
-	static attr(el, nameOrObj, val) {
-		if (typeof nameOrObj === "string") {
-			el.setAttribute(nameOrObj, val);
-			return el;
-		}
-		if (nameOrObj?.constructor === Object) {
-			for (const [k, v] of Object.entries(nameOrObj)) el.setAttribute(k, v);
-			return el;
-		}
-		throw new TypeError(
-			"the.attr: second arg must be a string or plain object",
-		);
-	}
-
 	static flat(obj, sep = "_") {
 		if (obj === null || typeof obj !== "object") {
 			throw new TypeError("the.flat: input must be an object");
@@ -252,17 +233,15 @@ export default class The {
 		navigate();
 	}
 
+	// ARIA mapping: HTML5 widget/form boolean states only. Closed set; no future
+	// expansion. Other ARIA attributes (aria-invalid, aria-controls, etc.) go
+	// through el.setAttribute("aria-...", val) like any HTML attribute.
 	static #ariaMap = {
 		expanded: "aria-expanded",
 		selected: "aria-selected",
 		hidden: "aria-hidden",
 		checked: "aria-checked",
 		disabled: "aria-disabled",
-		invalid: "aria-invalid",
-		required: "aria-required",
-		readonly: "aria-readonly",
-		pressed: "aria-pressed",
-		current: "aria-current",
 	};
 
 	static #get(el, key) {
@@ -275,8 +254,15 @@ export default class The {
 		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
 		el.setAttribute(attr, out);
 
-		if (el.querySelectorAll) {
-			const items = el.querySelectorAll(`[data-text="${key}"]`);
+		// Global writes (body) walk the whole document so [data-text="key"]
+		// slots in <head> (e.g. <title data-text="title">) hydrate too.
+		// Scoped writes stay within el.
+		const root =
+			el === document.body && typeof document !== "undefined"
+				? document.documentElement || document
+				: el;
+		if (root.querySelectorAll) {
+			const items = root.querySelectorAll(`[data-text="${key}"]`);
 			for (const item of items) item.textContent = out;
 		}
 		if (el.getAttribute?.("data-text") === key) el.textContent = out;

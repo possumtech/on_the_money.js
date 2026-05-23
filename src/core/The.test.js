@@ -86,54 +86,29 @@ test("the(el, {k:v}): batch-sets scoped state with aria mapping", (_t) => {
 	assert.strictEqual(el.getAttribute("aria-hidden"), "false");
 });
 
-test("the(el, key): aria mapping covers extended set", (_t) => {
+test("the(el, key): ARIA mapping covers the closed widget-state set", (_t) => {
+	const { document } = setupDOM('<button id="b"></button>');
+	const el = document.querySelector("#b");
+	The.the(el, { expanded: true, selected: false });
+	assert.strictEqual(el.getAttribute("aria-expanded"), "true");
+	assert.strictEqual(el.getAttribute("aria-selected"), "false");
+});
+
+test("the(el, key): non-mapped keys write data-*, not aria-*", (_t) => {
 	const { document } = setupDOM('<input id="el">');
 	const el = document.querySelector("#el");
-	The.the(el, { invalid: true, required: true, readonly: false });
-	assert.strictEqual(el.getAttribute("aria-invalid"), "true");
-	assert.strictEqual(el.getAttribute("aria-required"), "true");
-	assert.strictEqual(el.getAttribute("aria-readonly"), "false");
-	assert.strictEqual(The.the(el, "invalid"), "true");
+	The.the(el, "invalid", "true");
+	assert.strictEqual(el.getAttribute("data-invalid"), "true");
+	assert.strictEqual(el.getAttribute("aria-invalid"), null);
 });
 
-test("the(el, key): pressed and current also map to aria-*", (_t) => {
-	const { document } = setupDOM('<button id="b"></button><a id="a"></a>');
-	const btn = document.querySelector("#b");
-	const link = document.querySelector("#a");
-	The.the(btn, "pressed", true);
-	The.the(link, "current", "page");
-	assert.strictEqual(btn.getAttribute("aria-pressed"), "true");
-	assert.strictEqual(link.getAttribute("aria-current"), "page");
-});
-
-test("the.title(str): sets document.title and returns the title element", (_t) => {
-	const { document } = setupDOM("<title>old</title>");
-	const out = The.title("new page");
-	assert.strictEqual(document.title, "new page");
-	assert.strictEqual(out, document.querySelector("title"));
-});
-
-test("the.attr(el, name, val): writes a single attribute", (_t) => {
-	const { document } = setupDOM('<a id="x"></a>');
-	const el = document.querySelector("#x");
-	const out = The.attr(el, "href", "/users/alice");
-	assert.strictEqual(el.getAttribute("href"), "/users/alice");
-	assert.strictEqual(out, el);
-});
-
-test("the.attr(el, obj): batch-writes multiple attributes", (_t) => {
-	const { document } = setupDOM('<a id="x"></a>');
-	const el = document.querySelector("#x");
-	The.attr(el, { href: "/x", rel: "author", tabindex: "0" });
-	assert.strictEqual(el.getAttribute("href"), "/x");
-	assert.strictEqual(el.getAttribute("rel"), "author");
-	assert.strictEqual(el.getAttribute("tabindex"), "0");
-});
-
-test("the.attr: throws on unrecognized second arg", (_t) => {
-	const { document } = setupDOM('<a id="x"></a>');
-	const el = document.querySelector("#x");
-	assert.throws(() => The.attr(el, 42), /string or plain object/);
+test("the(key, val): global slot hydration walks head too (title etc.)", (_t) => {
+	const dom = setupDOM('<title data-text="title">old</title>');
+	The.the("title", "new title");
+	assert.strictEqual(
+		dom.document.querySelector("title").textContent,
+		"new title",
+	);
 });
 
 test("the(el, key, val): does NOT touch localStorage", (_t) => {

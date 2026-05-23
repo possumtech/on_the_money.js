@@ -129,6 +129,10 @@ export default class Linter {
 			Linter.#traverse(document, (node) => {
 				if (node.nodeName === "template") {
 					const idAttr = node.attrs?.find((a) => a.name === "id");
+					const dynamic = node.attrs?.some(
+						(a) => a.name === "data-otm-dynamic",
+					);
+					if (dynamic) return;
 					if (idAttr?.value) {
 						const loc = node.sourceCodeLocation || {
 							startLine: 1,

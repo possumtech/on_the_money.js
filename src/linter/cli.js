@@ -6,14 +6,11 @@ export default class Cli {
 	static async run(args = []) {
 		console.log("on_the_money.js Linter (Experimental)");
 
-		const wantConformance = args.includes("--conformance");
-
 		if (args.includes("--check")) {
 			const dirIndex = args.indexOf("--check") + 1;
 			const targetDir = args[dirIndex] || ".";
 			try {
-				const total = await Cli.scan(targetDir, { wantConformance });
-				return total;
+				return await Cli.scan(targetDir);
 			} catch (e) {
 				console.error(`Error scanning ${targetDir}: ${e.message}`);
 				return -1;
@@ -42,7 +39,7 @@ export default class Cli {
 			.filter((f) => exts.includes(path.extname(f)));
 	}
 
-	static async scan(dir, opts = {}) {
+	static async scan(dir) {
 		const allFiles = await Cli.getFiles(dir, [".html", ".js", ".json"]);
 		const htmlPaths = allFiles.filter((f) => f.endsWith(".html"));
 		const jsPaths = allFiles.filter((f) => f.endsWith(".js"));
@@ -119,10 +116,6 @@ export default class Cli {
 			console.log(
 				`\n✖ Found ${totalViolations} violations across ${htmlPaths.length} HTML files.`,
 			);
-		}
-
-		if (opts.wantConformance) {
-			console.log(`OTM conformance: ${totalViolations} violations`);
 		}
 
 		return totalViolations;
