@@ -1,5 +1,7 @@
 # on_the_money.js
 
+> _This README is the authoring context for AI agents using `on_the_money`. Read top-to-bottom for a complete picture; everything you need to write an OTM app is here. No satellite docs._
+
 Opinionated, attribute-driven, standards-oriented modern framework for the web. <2KB gzip. Native browser APIs only. ESNext.
 
 State lives in DOM attributes. Reactivity comes from `[data-text]` and `[data-i18n]` selectors. Events use one delegated listener per `(parent, type)` pair. Routing uses the History API. Localization uses `Intl`. There is no virtual DOM, no JSX, no transpilation step, no proprietary tooling. The framework is a thin layer of conventions over the platform.
@@ -65,7 +67,7 @@ Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, 
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`, `the.title(str)`, `the.attr(el, ...)`. Live accessors: `the.dictionary`, `the.locale`.
 Live accessors on `the`: `the.dictionary`, `the.locale`.
 
 ## API
@@ -109,7 +111,7 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 | `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. | `el` |
 | `the(el, { k: v, ... })` | Batch scoped write. | `el` |
 
-- **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. All other keys → `data-*`.
+- **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled`, `invalid`, `required`, `readonly`, `pressed`, `current` → `aria-*`. All other keys → `data-*`. Note: HTML `hidden` and `aria-hidden` are different concepts (layout vs accessibility tree); the mapping here is always to `aria-*`.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
 - **Values MUST be flat primitives.** Pass nested objects through `the.flat(...)` first.
 - **`the(key, undefined)` throws.** Two args means set; missing val is a contract violation.
@@ -126,6 +128,27 @@ the.form(form);
 ```
 
 Returns a **nested** object (matches browser submission semantics). Compose with `the.flat` before feeding to `the(el, {...})`.
+
+### `the.title(str)` — set `document.title`
+
+`<title>` lives in `<head>`, outside the body subtree that `the()` walks for `[data-text]` mirroring. Use `the.title(str)` for dynamic page titles instead of `document.title = "..."`.
+
+```javascript
+the.title(`${user.name} — Dashboard`);
+```
+
+Returns the `<title>` element.
+
+### `the.attr(el, name, val)` / `the.attr(el, { ...attrs })` — plain attribute writes
+
+Writes attributes that aren't `data-*` or ARIA — `href`, `value`, `rel`, `for`, etc. Use this instead of `el.setAttribute(...)` so all DOM writes in app code go through the OTM surface.
+
+```javascript
+the.attr($("#post-link"), "href", `/posts/${slug}`);
+the.attr($("#prev"), { href: prevUrl, rel: "prev" });
+```
+
+Returns `el`. Throws if the second arg is neither a string nor a plain object.
 
 ### `the.flat(obj, sep = "_")` — nested-to-flat
 

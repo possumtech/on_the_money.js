@@ -47,6 +47,25 @@ export default class The {
 		);
 	}
 
+	static title(str) {
+		document.title = str;
+		return document.querySelector("title");
+	}
+
+	static attr(el, nameOrObj, val) {
+		if (typeof nameOrObj === "string") {
+			el.setAttribute(nameOrObj, val);
+			return el;
+		}
+		if (nameOrObj?.constructor === Object) {
+			for (const [k, v] of Object.entries(nameOrObj)) el.setAttribute(k, v);
+			return el;
+		}
+		throw new TypeError(
+			"the.attr: second arg must be a string or plain object",
+		);
+	}
+
 	static flat(obj, sep = "_") {
 		if (obj === null || typeof obj !== "object") {
 			throw new TypeError("the.flat: input must be an object");
@@ -233,27 +252,26 @@ export default class The {
 		navigate();
 	}
 
+	static #ariaMap = {
+		expanded: "aria-expanded",
+		selected: "aria-selected",
+		hidden: "aria-hidden",
+		checked: "aria-checked",
+		disabled: "aria-disabled",
+		invalid: "aria-invalid",
+		required: "aria-required",
+		readonly: "aria-readonly",
+		pressed: "aria-pressed",
+		current: "aria-current",
+	};
+
 	static #get(el, key) {
-		const ariaMap = {
-			expanded: "aria-expanded",
-			selected: "aria-selected",
-			hidden: "aria-hidden",
-			checked: "aria-checked",
-			disabled: "aria-disabled",
-		};
-		const attr = ariaMap[key] || `data-${key}`;
+		const attr = The.#ariaMap[key] || `data-${key}`;
 		return el.getAttribute(attr);
 	}
 
 	static #set(el, key, val) {
-		const ariaMap = {
-			expanded: "aria-expanded",
-			selected: "aria-selected",
-			hidden: "aria-hidden",
-			checked: "aria-checked",
-			disabled: "aria-disabled",
-		};
-		const attr = ariaMap[key] || `data-${key}`;
+		const attr = The.#ariaMap[key] || `data-${key}`;
 		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
 		el.setAttribute(attr, out);
 

@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.4] — 2026-05-23
+
+### Added
+
+- **`the.title(str)`** — sets `document.title` and returns the `<title>` element. Closes the head-hydration gap; `the()` only walks body, so dynamic page titles previously required `document.title = "..."`. (#60)
+- **`the.attr(el, name, val)` / `the.attr(el, { attrs })`** — plain attribute writes for non-`data-*`/non-ARIA attributes (`href`, `value`, `rel`, `for`, etc.). Object form for batch. Lets app code stop calling `el.setAttribute(...)` directly. (#62)
+- **Extended ARIA mapping** in `the()`: adds `invalid`, `required`, `readonly`, `pressed`, `current` → `aria-*`. Common form/widget states no longer require `setAttribute` fallback. (#61)
+
+### Changed
+
+- **README preamble** explicitly signals that the file is the authoring context for AI agents. **`package.json` description** ends with "See README.md for the authoring context." Reduces inference cost for LLMs walking package metadata. (#59.7, modified — no satellite `LLMS.md` file)
+
 ## [0.3.3] — 2026-05-22
 
 ### Added
