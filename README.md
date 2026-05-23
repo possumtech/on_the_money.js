@@ -67,7 +67,7 @@ Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, 
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`, `the.title(str)`, `the.attr(el, ...)`. Live accessors: `the.dictionary`, `the.locale`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.boot(options?)`. Live accessors: `the.dictionary`, `the.locale`.
 Live accessors on `the`: `the.dictionary`, `the.locale`.
 
 ## API
@@ -111,7 +111,9 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 | `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. | `el` |
 | `the(el, { k: v, ... })` | Batch scoped write. | `el` |
 
-- **ARIA mapping** (key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled`, `invalid`, `required`, `readonly`, `pressed`, `current` → `aria-*`. All other keys → `data-*`. Note: HTML `hidden` and `aria-hidden` are different concepts (layout vs accessibility tree); the mapping here is always to `aria-*`.
+- **ARIA mapping** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Other ARIA attributes (`aria-invalid`, `aria-controls`, `aria-describedby`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute. Non-ARIA keys → `data-*`.
+- **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="title">Default</title>` in `<head>` and `the("title", "X")` updates it.
+- **Plain HTML attributes (href, value, rel, etc.)** use `el.setAttribute(name, val)` directly. The framework deliberately doesn't wrap these — `the()` is for state; `setAttribute()` is for structure. Two distinct concerns, two distinct primitives.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
 - **Values MUST be flat primitives.** Pass nested objects through `the.flat(...)` first.
 - **`the(key, undefined)` throws.** Two args means set; missing val is a contract violation.
@@ -128,27 +130,6 @@ the.form(form);
 ```
 
 Returns a **nested** object (matches browser submission semantics). Compose with `the.flat` before feeding to `the(el, {...})`.
-
-### `the.title(str)` — set `document.title`
-
-`<title>` lives in `<head>`, outside the body subtree that `the()` walks for `[data-text]` mirroring. Use `the.title(str)` for dynamic page titles instead of `document.title = "..."`.
-
-```javascript
-the.title(`${user.name} — Dashboard`);
-```
-
-Returns the `<title>` element.
-
-### `the.attr(el, name, val)` / `the.attr(el, { ...attrs })` — plain attribute writes
-
-Writes attributes that aren't `data-*` or ARIA — `href`, `value`, `rel`, `for`, etc. Use this instead of `el.setAttribute(...)` so all DOM writes in app code go through the OTM surface.
-
-```javascript
-the.attr($("#post-link"), "href", `/posts/${slug}`);
-the.attr($("#prev"), { href: prevUrl, rel: "prev" });
-```
-
-Returns `el`. Throws if the second arg is neither a string nor a plain object.
 
 ### `the.flat(obj, sep = "_")` — nested-to-flat
 
@@ -412,23 +393,21 @@ npx otm-lint --check ./src
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
-| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. |
+| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal `$.clone(_, "#id")` shape — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the silent-fallback-to-key UX bug at lint time. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
 
-`otm-lint` walks `.html`, `.js`, and locale `.json` files. HTML files get the per-file rules above; `.js` files contribute `$.clone` references for HTML-101; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs.
+`otm-lint` walks `.html`, `.js`, and locale `.json` files. HTML files get the per-file rules above; `.js` files contribute `$.clone` references for HTML-101; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is the violation count.
 
-### `--conformance` flag
+### Lint-rule scope
 
-Append `--conformance` for a single machine-grep-able summary line at the end of output:
+These rules are **discipline aids, not enforcement boundaries.** Each catches the obvious shape; determined consumers can route around them:
 
-```
-$ npx otm-lint --check ./src --conformance
-... violations ...
-OTM conformance: 3 violations
-```
+- `otm/no-server-dom` matches static `import` only. Dynamic `await import("linkedom")` and CJS `require()` are not caught.
+- `otm/no-document-query` catches `document.querySelector(...)` and friends at AST level. Chained calls (`document.body.querySelector(...)`, `document.getElementById("x").querySelector(...)`) are not caught — the call site has moved off `document`.
+- `HTML-101` regex-matches `$.clone(parent, "#id")` in `.js` files. Dynamic IDs and aliased calls are missed; use `data-otm-dynamic` to opt out of the check for templates instantiated indirectly.
 
-Useful for CI gates and LLM tooling that wants a one-line signal.
+The rules' job is to catch the *first* mistake and surface a teaching message ("Common LLM mistake: ..."). Strong patterns + good editor feedback do the rest.
 
 ### Recommended companions (not shipped)
 

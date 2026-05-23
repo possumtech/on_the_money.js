@@ -13,8 +13,6 @@ the.route = route;
 the.form = The.form;
 the.flat = The.flat;
 the.boot = The.boot;
-the.title = The.title;
-the.attr = The.attr;
 
 Object.defineProperty(the, "dictionary", {
 	get: () => The.dictionary,

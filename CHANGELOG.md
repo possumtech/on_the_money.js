@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-05-23
+
+### Breaking
+
+- **Removed `the.attr(el, name, val)`.** It was an aesthetic helper that wrapped `el.setAttribute` for non-state attributes. The platform's `setAttribute` is the right primitive for HTML structure attributes; `the()` is for state. Two distinct concerns, two distinct primitives. No call-site uniformity gain was worth the API duplication and the consumer-confusion cost of "which writes go through OTM?".
+- **Reverted ARIA mapping to its closed 5-entry set:** `expanded`, `selected`, `hidden`, `checked`, `disabled`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. The five added in 0.3.4 (`invalid`, `required`, `readonly`, `pressed`, `current`) go through `el.setAttribute("aria-...", val)` like any other HTML attribute. Without a stated criterion the ARIA map would grow forever; with one, the line is clear.
+- **Removed `the.title(str)`.** Title isn't state; making it a state-method was special-casing for symmetry's sake. Replaced by extending the global setter to walk the entire document (not just body) when looking for `[data-text="key"]` slots. Put `<title data-text="title">Default</title>` in `<head>` and `the("title", "X")` updates it — same pattern as every other reactive slot, no special-case API.
+- **Removed `--conformance` flag from `otm-lint`.** Exit code already encodes violation count; the flag duplicated that signal in output without distinct value.
+
+### Added
+
+- **`data-otm-dynamic` opt-out attribute for HTML-101.** `<template id="X" data-otm-dynamic>` is skipped by the orphan-template check. Use when a template is instantiated via dynamic IDs, aliased `$.clone` calls, or other indirection the regex-based detection misses.
+
+### Documentation
+
+- **README**: ARIA inclusion criterion documented (closed set, no future expansion).
+- **README**: lint-rule scope acknowledged honestly — `no-server-dom`, `no-document-query`, and `HTML-101` each have real loopholes; the README now describes them as "discipline aids, not enforcement boundaries."
+- **README**: plain attribute writes (`href`, `value`, `rel`) explicitly use `setAttribute` directly; the framework deliberately doesn't wrap them.
+- **README**: dynamic `<title>` and other `<head>` slot hydration via the body-rooted `the()` is documented as the canonical pattern.
+
+### Why this release
+
+A self-audit of 0.3.4–0.3.6 surfaced six items that violated the leanness mandate: aesthetic helpers, special-case methods, growing-without-criterion API surfaces, and performative lint rules without honest scope documentation. Each is resolved here in favor of clearer, leaner patterns. See #74.
+
 ## [0.3.6] — 2026-05-23
 
 ### Added

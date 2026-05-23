@@ -110,6 +110,21 @@ test("Linter.crossCheck: HTML-101 catches orphan templates", (_t) => {
 	assert.match(orphans[0].message, /"orphan"/);
 });
 
+test("Linter.crossCheck: HTML-101 respects data-otm-dynamic opt-out", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<template id="dynamic" data-otm-dynamic></template><template id="orphan"></template>',
+			dicts: [],
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources: [] });
+	const orphans = violations.filter((v) => v.ruleId === "HTML-101");
+	assert.strictEqual(orphans.length, 1);
+	assert.match(orphans[0].message, /"orphan"/);
+});
+
 test("Linter.crossCheck: HTML-101 ignored when both templates are used", (_t) => {
 	const htmlSources = [
 		{
