@@ -4,7 +4,7 @@
 
 Opinionated, attribute-driven, standards-oriented modern framework for the web. <2KB gzip. Native browser APIs only. ESNext.
 
-State lives in DOM attributes. Reactivity comes from `[data-text]` and `[data-i18n]` selectors. Events use one delegated listener per `(parent, type)` pair. Routing uses the History API. Localization uses `Intl`. There is no virtual DOM, no JSX, no transpilation step, no proprietary tooling. The framework is a thin layer of conventions over the platform.
+UI signal state — theme, page, modal-open, form-error, the boolean and enum flags that drive visual transitions — lives in DOM attributes; structured data (lists of records, collections, async results) lives in JS like everywhere else. Reactivity comes from `[data-text]` and `[data-i18n]` selectors and from CSS attribute-selector rules. Events use one delegated listener per `(parent, type)` pair. Routing uses the History API. Localization uses `Intl`. There is no virtual DOM, no JSX, no transpilation step, no proprietary tooling. The framework is a thin layer of conventions over the platform.
 
 ## Install
 
