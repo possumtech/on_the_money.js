@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] — 2026-05-23
+
+### Added
+
+- **`otm/no-server-dom`** — bans imports of `linkedom`, `jsdom`, `cheerio`, `parse5`, `htmlparser2`, `happy-dom`, `node-html-parser`, `parse5-htmlparser2-tree-adapter`, `fast-html-parser`. Catches the "render HTML server-side" instinct at the import line. (#58)
+- **`otm/no-document-query`** — bans `document.querySelector`, `getElementById`, `createElement`, `write`, etc. Forces consumers through `$()` / `$$()` / `$.clone()`. Bridge code (MutationObserver targets, etc.) uses `// eslint-disable-next-line otm/no-document-query`. (#58)
+
+### Changed
+
+- **ESLint config now matches `.ts`/`.tsx`/`.mts`/`.cts` files** in addition to `.js` variants. Consumers using Node 25 native TS execution (or any project with `.ts` files) no longer have OTM rules silently skip server-side code. README note: matching syntax still requires a TS-aware parser like `@typescript-eslint/parser`. (#57)
+- **All ESLint rule messages now include "Common LLM mistake: ..." hints** — turns rule output into a teaching surface. LLMs read rule messages more reliably than README sections, so corrections plant at the point of failure. (#59.6)
+
 ## [0.3.4] — 2026-05-23
 
 ### Added
