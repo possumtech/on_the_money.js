@@ -119,6 +119,119 @@ export default class Linter {
 		}
 	}
 
+	static crossCheck({ htmlSources, jsSources }) {
+		const violations = [];
+
+		// HTML-101: orphan templates — <template id="X"> never referenced by $.clone(_, "#X")
+		const templates = new Map();
+		for (const { file, source } of htmlSources) {
+			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			Linter.#traverse(document, (node) => {
+				if (node.nodeName === "template") {
+					const idAttr = node.attrs?.find((a) => a.name === "id");
+					if (idAttr?.value) {
+						const loc = node.sourceCodeLocation || {
+							startLine: 1,
+							startCol: 1,
+						};
+						templates.set(idAttr.value, {
+							file,
+							line: loc.startLine,
+							column: loc.startCol,
+						});
+					}
+				}
+			});
+		}
+
+		const cloneRefs = new Set();
+		for (const { source } of jsSources) {
+			const matches = source.matchAll(
+				/\$\.clone\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
+			);
+			for (const m of matches) cloneRefs.add(m[1]);
+		}
+
+		for (const [id, info] of templates) {
+			if (!cloneRefs.has(id)) {
+				Linter.#addViolation(
+					violations,
+					info.file,
+					{ line: info.line, column: info.column },
+					"HTML-101",
+					`Orphan template: <template id="${id}"> is never referenced by $.clone(). Remove the template or add a clone call.`,
+				);
+			}
+		}
+
+		// HTML-102: data-i18n keys missing from the html file's own locale dictionaries
+		// HTML-103: data-i18n-{var} attrs reference template tokens that don't exist in the dictionary entry
+		for (const { file, source, dicts } of htmlSources) {
+			if (!dicts || dicts.length === 0) continue;
+
+			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			Linter.#traverse(document, (node) => {
+				const attrs = node.attrs
+					? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
+					: {};
+				if (!attrs["data-i18n"]) return;
+
+				const key = attrs["data-i18n"];
+				const params = [];
+				for (const attr of node.attrs) {
+					if (
+						attr.name.startsWith("data-i18n-") &&
+						attr.name !== "data-i18n-type"
+					) {
+						params.push(attr.name.replace("data-i18n-", ""));
+					}
+				}
+				const loc = node.sourceCodeLocation?.attrs?.["data-i18n"] ||
+					node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				const where = { line: loc.startLine, column: loc.startCol };
+
+				const foundIn = dicts.filter((d) => key in d.dict);
+				if (foundIn.length === 0) {
+					Linter.#addViolation(
+						violations,
+						file,
+						where,
+						"HTML-102",
+						`i18n key "${key}" is not declared in any locale dictionary (${dicts.map((d) => d.locale).join(", ")}).`,
+					);
+					return;
+				}
+
+				for (const { locale, dict } of foundIn) {
+					const entry = dict[key];
+					let template;
+					if (typeof entry === "string") template = entry;
+					else if (typeof entry === "object" && entry !== null) {
+						template = entry.other || entry.one || Object.values(entry)[0];
+					}
+					if (typeof template !== "string") continue;
+
+					const tokens = new Set();
+					for (const m of template.matchAll(/\{([^}]+)\}/g)) tokens.add(m[1]);
+
+					for (const param of params) {
+						if (!tokens.has(param)) {
+							Linter.#addViolation(
+								violations,
+								file,
+								where,
+								"HTML-103",
+								`data-i18n-${param} has no matching {${param}} token in dictionary entry "${key}" (locale "${locale}").`,
+							);
+						}
+					}
+				}
+			});
+		}
+
+		return violations;
+	}
+
 	static #traverse(node, visitor) {
 		visitor(node);
 		const children = node.childNodes || node.content?.childNodes;

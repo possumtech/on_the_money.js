@@ -90,3 +90,86 @@ test("Linter.check: HTML-023/024 skipped for fragments (no <html>)", (_t) => {
 	);
 	assert.strictEqual(cross.length, 0);
 });
+
+test("Linter.crossCheck: HTML-101 catches orphan templates", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<template id="orphan"></template><template id="used"></template>',
+			dicts: [],
+		},
+	];
+	const jsSources = [
+		{ file: "a.js", source: 'const el = $.clone("#parent", "#used");' },
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	const orphans = violations.filter((v) => v.ruleId === "HTML-101");
+	assert.strictEqual(orphans.length, 1);
+	assert.match(orphans[0].message, /orphan/i);
+	assert.match(orphans[0].message, /"orphan"/);
+});
+
+test("Linter.crossCheck: HTML-101 ignored when both templates are used", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source: '<template id="a"></template><template id="b"></template>',
+			dicts: [],
+		},
+	];
+	const jsSources = [
+		{
+			file: "a.js",
+			source: '$.clone("#x", "#a"); $.clone("#y", "#b");',
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	const orphans = violations.filter((v) => v.ruleId === "HTML-101");
+	assert.strictEqual(orphans.length, 0);
+});
+
+test("Linter.crossCheck: HTML-102 catches data-i18n keys missing from locale dicts", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<span data-i18n="known"></span><span data-i18n="missing"></span>',
+			dicts: [
+				{ locale: "en", dict: { known: "Hi" } },
+				{ locale: "es", dict: { known: "Hola" } },
+			],
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources: [] });
+	const missing = violations.filter((v) => v.ruleId === "HTML-102");
+	assert.strictEqual(missing.length, 1);
+	assert.match(missing[0].message, /"missing"/);
+});
+
+test("Linter.crossCheck: HTML-103 catches placeholder token mismatch", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<span data-i18n="greet" data-i18n-name="X" data-i18n-extra="Y"></span>',
+			dicts: [{ locale: "en", dict: { greet: "Hello, {name}!" } }],
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources: [] });
+	const mismatch = violations.filter((v) => v.ruleId === "HTML-103");
+	assert.strictEqual(mismatch.length, 1);
+	assert.match(mismatch[0].message, /extra/);
+});
+
+test("Linter.crossCheck: HTML-102/103 skipped when dicts empty", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source: '<span data-i18n="anykey"></span>',
+			dicts: [],
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources: [] });
+	assert.strictEqual(violations.length, 0);
+});
