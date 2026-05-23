@@ -12,7 +12,7 @@ const preferOn = {
 		},
 		messages: {
 			useOn:
-				"Direct addEventListener is forbidden. Use on() for event delegation. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom.",
+				"Direct addEventListener is forbidden. Use on() for event delegation. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -36,7 +36,7 @@ const preferTheSet = {
 		},
 		messages: {
 			useThe:
-				"Direct text manipulation is forbidden. Use the() or [data-text] binding instead. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render.",
+				"Direct text manipulation is forbidden. Use the() or [data-text] binding instead. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -64,7 +64,7 @@ const flatState = {
 		},
 		messages: {
 			notFlat:
-				"State must be flat. Nested objects or arrays are forbidden in the(). Common LLM mistake: passing a nested object — use the.flat(obj) to compose first.",
+				"State must be flat. Nested objects or arrays are forbidden in the(). Common LLM mistake: passing a nested object — use the.flat(obj) to compose first. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -147,7 +147,7 @@ const noStyleMutation = {
 		},
 		messages: {
 			noStyle:
-				"Direct style manipulation is forbidden. Use the() with attribute selectors instead. Common LLM mistake: copying React/Vue inline-style patterns — CSS rules keyed off [data-state=...] handle state-driven styling cleanly.",
+				"Direct style manipulation is forbidden. Use the() with attribute selectors instead. Common LLM mistake: copying React/Vue inline-style patterns — CSS rules keyed off [data-state=...] handle state-driven styling cleanly. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -197,7 +197,7 @@ const noServerDom = {
 		},
 		messages: {
 			noServerDom:
-				"Server-side DOM library '{{name}}' is forbidden. Common LLM mistake: rendering HTML server-side instead of emitting JSON. The OTM client hydrates static templates via $.clone() + the() — keep server output to data.",
+				"Server-side DOM library '{{name}}' is forbidden. Common LLM mistake: rendering HTML server-side instead of emitting JSON. The OTM client hydrates static templates via $.clone() + the() — keep server output to data. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -237,7 +237,7 @@ const noDocumentQuery = {
 		},
 		messages: {
 			noDocumentQuery:
-				"Direct document.{{method}} is forbidden. Common LLM mistake: querying through document instead of OTM's selectors. Use $(selector) for one, $$(selector) for many, or $.clone(parent, '#tmpl') for templates.",
+				"Direct document.{{method}} is forbidden. Common LLM mistake: querying through document instead of OTM's selectors. Use $(selector) for one, $$(selector) for many, or $.clone(parent, '#tmpl') for templates. See README §The Discipline.",
 		},
 		schema: [],
 	},
