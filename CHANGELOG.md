@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] — 2026-05-28
+
+### Fixed
+
+- **`the.boot()` locale resolution now prefers `<html lang>` over `navigator.language`.** When a server deliberately renders `<html lang="es">`, that's an explicit signal about the document's language — the server may have already considered the visitor's cookies, URL path, or preferences when choosing it. `navigator.language` was previously winning and overriding the server's render with the browser's passive default, causing OTM to flash server-rendered Spanish text back to English on every navigation. Resolution chain is now: `?lang=` → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. (#82)
+
+### Behavior change worth noting
+
+Static SPAs that hardcoded `<html lang="en">` and relied on the framework to detect the visitor's browser language are affected. The framework now treats the `lang` attribute as authoritative. Consumers wanting navigator-driven detection should leave `<html lang>` empty or omit the attribute — then the chain falls through to navigator. This was always the more honest setup; the previous behavior papered over the SPA author's hardcoded `lang` claim.
+
 ## [0.5.2] — 2026-05-23
 
 ### Documentation

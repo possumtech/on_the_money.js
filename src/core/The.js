@@ -321,9 +321,14 @@ export default class The {
 				? window.location.search
 				: "";
 		const params = new URLSearchParams(search);
+		// <html lang> is the server's deliberate signal about the rendered document's
+		// language. It outranks navigator.language because the server may have
+		// already considered the visitor's preference when choosing it. Static SPAs
+		// that want navigator-driven locale detection should leave <html lang> empty
+		// or omit the attribute — then the chain falls through to navigator.
 		const browserLoc =
-			(typeof navigator !== "undefined" ? navigator.language : null) ||
 			document.documentElement.lang ||
+			(typeof navigator !== "undefined" ? navigator.language : null) ||
 			"en";
 
 		The.locale =
