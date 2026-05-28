@@ -408,6 +408,30 @@ test("the.boot({ defaultLocale }): fetches when resolved locale differs", async 
 	The.persistKeys = new Set();
 });
 
+test("the.boot(): <html lang> outranks navigator.language in resolution chain", async (_t) => {
+	const { document } = setupDOM();
+	document.documentElement.setAttribute("lang", "es");
+	Object.defineProperty(globalThis, "navigator", {
+		value: { language: "en-US" },
+		configurable: true,
+		writable: true,
+	});
+	await The.boot();
+	assert.strictEqual(The.locale, "es");
+});
+
+test("the.boot(): empty <html lang> falls through to navigator.language", async (_t) => {
+	setupDOM();
+	// document.documentElement.lang is "" by default in setupDOM
+	Object.defineProperty(globalThis, "navigator", {
+		value: { language: "de-DE" },
+		configurable: true,
+		writable: true,
+	});
+	await The.boot();
+	assert.strictEqual(The.locale, "de-DE");
+});
+
 test("the.boot(): auto-detects <html lang> as default locale", async (_t) => {
 	const { document } = setupDOM(
 		'<meta name="i18n" content="/locales" data-available="en">',

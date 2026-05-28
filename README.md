@@ -163,7 +163,7 @@ await the.boot({ signal, locales, dictionary, namespace, defaultLocale, persistK
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
-1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `navigator.language`. Writes `the.locale`.
+1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
 2. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 3 and 5. Static HTML already serves the right text.
 3. Resolve dictionary: inline `dictionary` → `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Falls back through full → base → `data-fallback`.
 4. Replay `localStorage` entries matching the prefix (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
