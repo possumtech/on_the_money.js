@@ -4,6 +4,9 @@ export default class On {
 			typeof parent === "string"
 				? document.querySelector(parent)
 				: parent || document.body;
+		if (!container) {
+			throw new Error(`on(): parent selector matched nothing: ${parent}`);
+		}
 
 		const handler = (e) => {
 			const target = e.target.closest(selector);

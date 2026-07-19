@@ -281,6 +281,41 @@ test("the.form(formEl): extracts named controls into nested object", (_t) => {
 	assert.deepStrictEqual(out.tags, ["a", "b"]);
 });
 
+test("the.form(formEl): single [] entry still yields an array", (_t) => {
+	const { document } = setupDOM(`
+		<form id="f">
+			<input name="tags[]" value="solo">
+		</form>
+	`);
+	const out = The.form(document.querySelector("#f"));
+	assert.deepStrictEqual(out.tags, ["solo"]);
+});
+
+test("the.form(formEl): multi-select yields every selected value", (_t) => {
+	const { document } = setupDOM(`
+		<form id="f">
+			<select name="colors[]" multiple>
+				<option value="red" selected>Red</option>
+				<option value="green">Green</option>
+				<option value="blue" selected>Blue</option>
+			</select>
+		</form>
+	`);
+	const out = The.form(document.querySelector("#f"));
+	assert.deepStrictEqual(out.colors, ["red", "blue"]);
+});
+
+test("the.form(formEl): skips file inputs", (_t) => {
+	const { document } = setupDOM(`
+		<form id="f">
+			<input type="file" name="upload" value="fake.pdf">
+			<input name="keep" value="yes">
+		</form>
+	`);
+	const out = The.form(document.querySelector("#f"));
+	assert.deepStrictEqual(out, { keep: "yes" });
+});
+
 test("the.form(formEl): skips disabled, unchecked, and submit controls", (_t) => {
 	const { document } = setupDOM(`
 		<form id="f">
