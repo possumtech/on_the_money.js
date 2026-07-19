@@ -38,18 +38,12 @@ export default class The {
 					`the(${JSON.stringify(a)}, undefined): val is required for set`,
 				);
 			}
-			const k = The.#kebab(a);
-			The.#set(el, k, b);
-			if (isGlobal && The.persistKeys.has(k))
-				localStorage.setItem(`${The.prefix}${k}`, b);
+			The.#write(el, isGlobal, a, b);
 			return el;
 		}
 		if (args.length === 1 && a?.constructor === Object) {
 			for (const [rawKey, v] of Object.entries(a)) {
-				const k = The.#kebab(rawKey);
-				The.#set(el, k, v);
-				if (isGlobal && The.persistKeys.has(k))
-					localStorage.setItem(`${The.prefix}${k}`, v);
+				The.#write(el, isGlobal, rawKey, v);
 			}
 			return el;
 		}
@@ -323,16 +317,43 @@ export default class The {
 		disabled: "aria-disabled",
 	};
 
+	// ARIA widget states are element-scoped; global state on body is always
+	// data-* (the("hidden", true) must never aria-hide the whole app).
+	static #attr(el, key) {
+		if (el === document.body) return `data-${key}`;
+		return The.#ariaMap[key] || `data-${key}`;
+	}
+
+	// null deletes; anything else sets. Persistence mirrors the same polarity.
+	static #write(el, isGlobal, rawKey, v) {
+		const k = The.#kebab(rawKey);
+		if (v === null) {
+			The.#delete(el, k);
+			if (isGlobal && The.persistKeys.has(k))
+				localStorage.removeItem(`${The.prefix}${k}`);
+			return;
+		}
+		The.#set(el, k, v);
+		if (isGlobal && The.persistKeys.has(k))
+			localStorage.setItem(`${The.prefix}${k}`, v);
+	}
+
 	static #get(el, key) {
-		const attr = The.#ariaMap[key] || `data-${key}`;
-		return el.getAttribute(attr);
+		return el.getAttribute(The.#attr(el, key));
 	}
 
 	static #set(el, key, val) {
-		const attr = The.#ariaMap[key] || `data-${key}`;
 		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
-		el.setAttribute(attr, out);
+		el.setAttribute(The.#attr(el, key), out);
+		The.#mirror(el, key, out);
+	}
 
+	static #delete(el, key) {
+		el.removeAttribute(The.#attr(el, key));
+		The.#mirror(el, key, "");
+	}
+
+	static #mirror(el, key, out) {
 		// Global writes (body) walk the whole document so [data-text="key"]
 		// slots in <head> (e.g. <title data-text="title">) hydrate too.
 		// Scoped writes stay within el.
