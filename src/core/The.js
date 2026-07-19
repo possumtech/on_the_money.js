@@ -105,10 +105,21 @@ export default class The {
 
 			const type = (el.type || "text").toLowerCase();
 			if (type === "submit" || type === "button" || type === "reset") continue;
+			if (type === "file") continue;
 
 			if (type === "checkbox" || type === "radio") {
 				const checked = el.checked ?? el.hasAttribute("checked");
 				if (!checked) continue;
+			}
+
+			if (el.tagName === "SELECT" && el.hasAttribute("multiple")) {
+				// selectedOptions in browsers; attribute query under linkedom (tests).
+				const opts =
+					"selectedOptions" in el
+						? el.selectedOptions
+						: el.querySelectorAll("option[selected]");
+				for (const opt of opts) The.#assign(obj, name, opt.value);
+				continue;
 			}
 
 			const value = el.value ?? el.getAttribute("value") ?? "";
@@ -118,13 +129,19 @@ export default class The {
 	}
 
 	static #assign(obj, key, value) {
+		// name="tags[]" is an array from the first entry — shape must not
+		// depend on cardinality.
+		const isArrayLeaf = key.endsWith("[]");
 		const parts = key.split(/[\[\]]/).filter(Boolean);
 		let current = obj;
 		for (let i = 0; i < parts.length; i++) {
 			const part = parts[i];
 			const isLast = i === parts.length - 1;
 			if (isLast) {
-				if (current[part] !== undefined) {
+				if (isArrayLeaf) {
+					current[part] ||= [];
+					current[part].push(value);
+				} else if (current[part] !== undefined) {
 					if (!Array.isArray(current[part])) current[part] = [current[part]];
 					current[part].push(value);
 				} else {

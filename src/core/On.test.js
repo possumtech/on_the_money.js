@@ -81,6 +81,14 @@ test("On.on: returns an unsubscribe function", (_t) => {
 	assert.strictEqual(count, 1);
 });
 
+test("On.on: throws a named error when the parent selector matches nothing", (_t) => {
+	setupDOM();
+	assert.throws(
+		() => On.on("#missing", "click", ".c", () => {}),
+		/parent selector matched nothing: #missing/,
+	);
+});
+
 test("On.emit: should dispatch CustomEvent with detail", (_t) => {
 	const dom = setupDOM('<div id="target"></div>');
 	const el = dom.querySelector("#target");
