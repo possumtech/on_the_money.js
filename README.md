@@ -2,9 +2,9 @@
 
 > _This README is the authoring context for AI agents using `on_the_money`. Read top-to-bottom for a complete picture; everything you need to write an OTM app is here. No satellite docs._
 
-Opinionated, attribute-driven, standards-oriented modern framework for the web. <2KB gzip. Native browser APIs only. ESNext.
+Opinionated, attribute-driven, standards-oriented modern framework for the web. Native browser APIs only. ESNext.
 
-UI signal state — theme, page, modal-open, form-error, the boolean and enum flags that drive visual transitions — lives in DOM attributes; structured data (lists of records, collections, async results) lives in JS like everywhere else. Reactivity comes from `[data-text]` and `[data-i18n]` selectors and from CSS attribute-selector rules. Events use one delegated listener per `(parent, type)` pair. Routing uses the History API. Localization uses `Intl`. There is no virtual DOM, no JSX, no transpilation step, no proprietary tooling. The framework is a thin layer of conventions over the platform.
+UI signal state — theme, page, modal-open, form-error, the boolean and enum flags that drive visual transitions — lives in DOM attributes; structured data (lists of records, collections, async results) lives in JS like everywhere else. Reactivity is delegated to the platform, not reimplemented: CSS attribute selectors respond to state visually, `[data-text]` projects state into text, and `MutationObserver` fans state into imperative calls — the framework adds no reactive machinery of its own. Events use one delegated listener per `(parent, type)` pair. Routing uses the History API. Localization uses `Intl`. There is no virtual DOM, no JSX, no transpilation step, no proprietary tooling. The framework is a thin layer of conventions over the platform.
 
 ## Install
 
@@ -22,6 +22,7 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="i18n" content="/locales" data-available="en" data-fallback="en">
   <title data-i18n="app_title">My App</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.classless.min.css">
   <script type="module" src="./app.js"></script>
@@ -29,8 +30,8 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 <body>
   <main>
     <h1 data-i18n="app_title">My App</h1>
-    <p>Hello, <strong data-text="user">friend</strong>.</p>
-    <button data-action="greet">Greet</button>
+    <p data-text="greeting">Press the button.</p>
+    <button data-action="greet" data-i18n="btn_greet">Greet</button>
   </main>
 </body>
 </html>
@@ -38,18 +39,16 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 
 ```javascript
 // app.js
-import { the, on } from "on_the_money";
+import { on, the } from "on_the_money";
 
-await the.boot({
-  dictionary: { app_title: "On The Money" },
-});
+await the.boot();
 
 on("main", "click", '[data-action="greet"]', () => {
-  the("user", "Alice");
+  the("greeting", "Hello, Alice!");
 });
 ```
 
-The framework rehydrates body `data-*` and `[data-text]` from `localStorage` on boot; subsequent `the()` writes both the attribute and persist to `localStorage["otm:KEY"]`.
+Every text node lives inside a carrier — `data-i18n` for localizable copy, `data-text` for state-projected content — and keeps its source-language text as fallback. With `<html lang="en">` and an English visitor, boot short-circuits: no dictionary fetch, no hydration pass, the static HTML already serves the right text. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
 
 ## Pico Classless integration
 
@@ -67,8 +66,9 @@ Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, 
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. Live accessors: `the.dictionary`, `the.locale`.
-Live accessors on `the`: `the.dictionary`, `the.locale`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. On `route`: `route.go(path)`. Live accessors on `the`: `the.dictionary`, `the.locale`.
+
+For tests: `import { setupDOM } from "on_the_money/test"` (see [Testing your app](#testing-your-app)).
 
 ## API
 
@@ -104,17 +104,21 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 
 | Call | Behavior | Returns |
 | --- | --- | --- |
-| `the(key)` | Read body `data-KEY` (or aria-mapped equivalent). | `string \| null` |
-| `the(key, val)` | Write body attribute + descendant `[data-text="key"]`. Persists to `localStorage` only if `key` is in `persistKeys`. | `document.body` |
-| `the({ k: v, ... })` | Batch global write. | `document.body` |
-| `the(el, key)` | Read scoped attribute on `el`. | `string \| null` |
+| `the(key)` | Read body `data-KEY`. | `string \| null` |
+| `the(key, val)` | Write body attribute + `[data-text="key"]` mirrors document-wide. Persists to `localStorage` only if `key` is in `persistKeys`. | `document.body` |
+| `the(key, null)` | Delete: remove the attribute, clear `[data-text]` mirrors, remove the persisted entry. | `document.body` |
+| `the({ k: v, ... })` | Batch global write; `null` values delete. | `document.body` |
+| `the(el, key)` | Read scoped attribute on `el` (or aria-mapped equivalent). | `string \| null` |
 | `the(el, key, val)` | Write scoped attribute on `el` + descendant `[data-text="key"]`. | `el` |
-| `the(el, { k: v, ... })` | Batch scoped write. | `el` |
+| `the(el, key, null)` | Delete the scoped attribute, clear descendant mirrors. | `el` |
+| `the(el, { k: v, ... })` | Batch scoped write; `null` values delete. | `el` |
 
 - **Key naming.** Keys auto-convert to kebab-case for attribute writes and `[data-text]` lookups. `the("chapterHasNav", x)` writes `data-chapter-has-nav`. snake_case (`chapter_has_nav`) normalizes to kebab too. Single-word keys (`theme`, `user`) pass through unchanged. Round-trips via the platform's `dataset` API: `el.dataset.chapterHasNav` reads the same attribute. CSS selectors and `[data-text="..."]` slot values must use kebab-case to match what JS writes.
 - **Persistence is opt-in.** Default behavior writes attributes only — nothing persists to `localStorage`. Declare `the.boot({ persistKeys: ["theme", "lang"] })` to opt specific keys in. The boot replay loads only those keys back. Common persistKeys for an i18n + theme app: `["theme", "lang"]`.
-- **ARIA mapping** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Other ARIA attributes (`aria-invalid`, `aria-controls`, `aria-describedby`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute. Non-ARIA keys → `data-*` (after kebab conversion).
-- **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="title">Default</title>` in `<head>` and `the("title", "X")` updates it.
+- **Deletion is `null`.** `the(key, null)` removes the attribute, clears every `[data-text="key"]` mirror to empty, and removes the persisted `localStorage` entry if the key is in `persistKeys`. `undefined` still throws — a missing value is a bug, an explicit `null` is a delete.
+- **ARIA mapping is element-scoped only** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Global writes always produce `data-*` — `the("hidden", true)` writes `data-hidden` on body, never `aria-hidden` (which would hide the whole app from screen readers). Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute.
+- **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="page-title">Default</title>` in `<head>` and `the("page-title", "X")` updates it.
+- **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components. Never reuse a global key as a scoped slot key inside a `<template>`; `otm-lint` flags this as HTML-104.
 - **Plain HTML attributes (href, value, rel, etc.)** use `el.setAttribute(name, val)` directly. The framework deliberately doesn't wrap these — `the()` is for state; `setAttribute()` is for structure. Two distinct concerns, two distinct primitives.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
 - **Values MUST be flat primitives.** Pass nested objects through `the.flat(...)` first.
@@ -122,13 +126,14 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 
 ### `the.form(formEl)` — form extraction
 
-Walks `input, select, textarea` descendants. Skips unnamed, disabled, submit/button/reset controls, and unchecked checkboxes/radios. Parses bracket-notation names into a nested object:
+Walks `input, select, textarea` descendants. Skips unnamed, disabled, submit/button/reset controls, file inputs, and unchecked checkboxes/radios. Parses bracket-notation names into a nested object:
 
 ```javascript
 the.form(form);
 // <input name="user[name]" value="Alice">     → { user: { name: "Alice" } }
-// <input name="tags[]" value="a">             → { tags: ["a", ...] }
-// <input name="tags[]" value="b">
+// <input name="tags[]" value="a">             → { tags: ["a"] } — [] names are
+//                                               arrays at every cardinality
+// <select name="colors[]" multiple>            → every selected option's value
 ```
 
 Returns a **nested** object (matches browser submission semantics). Compose with `the.flat` before feeding to `the(el, {...})`.
@@ -157,17 +162,18 @@ await the.boot({ signal, locales, dictionary, namespace, defaultLocale, persistK
 | --- | --- | --- |
 | `signal` | `AbortSignal` | Aborts the i18n fetch. |
 | `locales` | `string` | Override the `<meta name="i18n" content>` path. |
-| `dictionary` | `object` | Inline dictionary; skips the fetch entirely. |
+| `dictionary` | `object` | Inline dictionary. Always loads — even under the locale short-circuit — so programmatic `_t()` works; only the fetch and hydration are skipped. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
 | `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
 1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
-2. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 3 and 5. Static HTML already serves the right text.
-3. Resolve dictionary: inline `dictionary` → `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Falls back through full → base → `data-fallback`.
-4. Replay `localStorage` entries matching the prefix (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
-5. Run `_t()` to hydrate `[data-i18n]`.
+2. Load the inline `dictionary` if provided. This happens unconditionally.
+3. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 4 and 6. Static HTML already serves the right text.
+4. Fetch dictionary (when no inline one): `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Target selection falls through full → base → `data-fallback`. A failed fetch (network error or non-ok status) warns to the console and retries with the `data-fallback` file before giving up.
+5. Replay `localStorage` entries in `persistKeys` (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
+6. Run `_t()` to hydrate `[data-i18n]`.
 
 **Writing `data-i18n` elements:** always include the source-language text inside as a fallback:
 
@@ -194,7 +200,7 @@ _t(node);                                          // hydrate every [data-i18n] 
 _t();                                              // hydrate document.body
 ```
 
-Missing dictionary keys preserve existing `textContent` (SEO fallback). When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
+Missing dictionary keys preserve existing `textContent` during element hydration (SEO fallback); the programmatic string form returns the key. Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
 
 `[data-i18n]` element binding (always include source-language fallback text inside):
 
@@ -206,12 +212,26 @@ Missing dictionary keys preserve existing `textContent` (SEO fallback). When `op
 ### `route(callback)` — pushState router
 
 ```javascript
-route((pathname, search, hash) => {
+const off = route((pathname, search, hash) => {
   // render whatever fits this route
 });
 ```
 
-Fires the callback on initial mount, on `popstate`, on `hashchange`, and on intercepted internal `<a>` clicks. Skips interception for `data-external`, `target="_blank"`, and cross-origin hrefs. Hash-only same-page links are left to the browser; `hashchange` still triggers the callback.
+Fires the callback on initial mount, on `popstate`, on `hashchange`, and on intercepted internal `<a>` clicks. Left to the browser: modified clicks (meta/ctrl/shift/alt, non-primary button), `[download]` links, `data-external`, `target="_blank"`, and cross-origin hrefs. Clicking a link to the current URL is a no-op. Hash-only same-page links are left to the browser; `hashchange` still triggers the callback.
+
+Returns an unsubscribe function. One router at a time: calling `route()` while another registration is active throws — unsubscribe the first.
+
+### `route.go(path)` — programmatic navigation
+
+```javascript
+on("#login-form", "submit", async (e) => {
+  e.preventDefault();
+  await submitLogin(the.form(e.target));
+  route.go("/dashboard");
+});
+```
+
+`pushState` + callback invocation in one call. `pushState` alone never fires `popstate`, so this is the sanctioned path for redirects (post-submit, auth bounce). Throws if no router is active. Navigating to the current URL is a no-op.
 
 ### `the.match(pattern, path?)` — pattern matching with named segments
 
@@ -262,7 +282,7 @@ For `beforebegin` and `afterend`, the first argument is a sibling reference, not
 
 ## The Discipline
 
-on_the_money has no reactivity primitives. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. If you find yourself reaching for any of these — including importing them from another library — you're solving a problem the framework rejects.
+on_the_money adds no reactivity primitives of its own. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. Reactivity is **delegated to the platform** — CSS selectors, `[data-text]` projection, `MutationObserver` — not absent, and not yours to reimplement. If you find yourself reaching for a reactive primitive — including importing one from another library — you're solving a problem the framework rejects.
 
 Instead, the framework has **three state-response mechanisms**, each with one job:
 
@@ -402,13 +422,18 @@ main > section { display: none; }
 ### Hot dictionary swap
 
 ```javascript
+await the.boot({ persistKeys: ["theme", "lang"] });
+
 on("nav", "click", "[data-lang]", async (_e, link) => {
   const lang = link.getAttribute("data-lang");
+  the("lang", lang);        // persists — boot's resolution chain finds it on reload
   the.locale = lang;
   the.dictionary = await (await fetch(`/locales/${lang}.json`)).json();
   _t();
 });
 ```
+
+The `the("lang", lang)` write is what makes the choice survive reload: boot resolves `localStorage["otm:lang"]` ahead of `<html lang>`. Without it, the swap reverts on refresh.
 
 ### Namespaced state
 
@@ -424,6 +449,21 @@ const off = on("#modal", "click", "[data-action='close']", closeModal);
 on.emit(document.body, "modal-closed");
 off(); // detach when modal is destroyed
 ```
+
+### Fetch intake — server emits JSON, client renders
+
+```javascript
+const res = await fetch("/api/posts");
+const posts = await res.json();
+
+$("#posts").replaceChildren();               // clear previous render
+for (const post of posts) {
+  const el = $.clone("#posts", "#post-card");
+  the(el, { title: post.title });
+}
+```
+
+`replaceChildren()` is the sanctioned container-clear — `innerHTML = ""` and `textContent = ""` are both banned by the lint stack. Keep server output to data; `otm/no-server-dom` bans rendering HTML server-side.
 
 ### Routing with `the.match`
 
@@ -459,7 +499,7 @@ new MutationObserver(() => {
 
 ### Working around `_t()` with an empty dictionary
 
-When `the.boot({ defaultLocale })` skips the dictionary fetch, programmatic `_t(key, options)` calls return the key (no template to interpolate against). For default-locale interpolation, use template literals or a small wrapper:
+When the locale short-circuit skips the dictionary fetch and no inline `dictionary` was passed, programmatic `_t(key, options)` calls return the key (no template to interpolate against). Prefer passing an inline `dictionary` to `the.boot()` — it loads even under the short-circuit. Otherwise use template literals or a small wrapper:
 
 ```javascript
 // Template literal — the platform's interpolation primitive
@@ -490,7 +530,7 @@ On the client:
 await the.boot();   // localStorage values, if any, override the server-rendered attrs
 ```
 
-The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates when localStorage has matching keys.
+The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates keys opted into `persistKeys` that have stored values. Fallback text inside `data-text` carriers (`<h1 data-text="user">Alice</h1>`) is the sanctioned shape — HTML-004 requires it.
 
 ## Lint stack
 
@@ -527,7 +567,7 @@ export default [
 | `no-unsanitized/no-inner-html` | `eslint-plugin-no-unsanitized` | Ban `innerHTML`/`outerHTML`. |
 | `no-unsanitized/method` | `eslint-plugin-no-unsanitized` | Ban `document.write`, `insertAdjacentHTML`. |
 
-The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your TypeScript files are covered if you bring a TS-aware parser like `@typescript-eslint/parser`. OTM's rules read AST nodes that don't depend on type info, but the parser still has to understand the syntax.
+The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your TypeScript files are covered if you bring a TS-aware parser like `@typescript-eslint/parser`. OTM's rules read AST nodes that don't depend on type info, but the parser still has to understand the syntax. Test files (`**/*.test.*`) are exempt from `no-server-dom` and `no-document-query` — tests drive the DOM directly through the `on_the_money/test` harness.
 
 ### 2. CSS — Stylelint + bundled plugin
 
@@ -560,15 +600,18 @@ npx otm-lint --check ./src
 
 | Rule | Forbidden | Use instead |
 | --- | --- | --- |
-| **HTML-004** | Naked text in HTML | Wrap in a semantic tag or use `data-i18n="key"`. |
+| **HTML-004** | Naked text in HTML | Every rendered text node lives inside a carrier — `data-i18n="key"` for localizable copy, `data-text="key"` for state-projected content — and SHOULD keep source-language fallback text in place. |
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal `$.clone(_, "#id")` shape — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
-| **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the silent-fallback-to-key UX bug at lint time. |
+| **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the fallback-to-source UX gap at lint time. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
+| **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
+| **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
+| **HTML-106** *(warn)* | A globally written state key nothing consumes | The deletion test as lint: no CSS attribute selector, `[data-text]` slot, `"data-key"` JS string literal (e.g. MutationObserver `attributeFilter`), or `the("key")` read touches it — dead state or a missing CSS rule. Warn-level: reported, never fails the run. |
 
-`otm-lint` walks `.html`, `.js`, and locale `.json` files. HTML files get the per-file rules above; `.js` files contribute `$.clone` references for HTML-101; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is the violation count.
+`otm-lint` walks `.html`, `.js`, `.css`, and locale `.json` files. HTML files get the per-file rules above (template content included); `.js` files contribute `$.clone` references, `the()` write/read keys, and `data-action` selectors; `.css` files contribute attribute-selector consumption for HTML-106; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is nonzero when error-level violations are found.
 
 ### Lint-rule scope
 
@@ -589,29 +632,25 @@ The rules' job is to catch the *first* mistake and surface a teaching message ("
 | Runtime a11y | `axe-core` via Playwright/Cypress against the rendered page |
 | Supply-chain | `npm audit`, `osv-scanner` |
 
-## Production CSS purging
+## Testing your app
 
-OTM's CSS depends on attribute selectors written at runtime (`body[data-page="home"]`, `[data-state="active"]`, etc.). Default tree-shakers like PurgeCSS scan HTML for tokens and can't see attribute values that don't exist at build time — they'll strip your state-driven rules. Configure the safelist to preserve them:
+`on_the_money/test` ships the same harness this repo's own suite runs on: a [linkedom](https://github.com/WebReflection/linkedom) DOM with every global an OTM app touches installed on `globalThis` — `document`, `window` (with `location`/`history` stubs the router drives), `navigator`, `localStorage`, and the DOM constructors. Install `linkedom` as a dev dependency (it's an optional peer).
 
 ```javascript
-// postcss.config.js
-import purgecss from "@fullhuman/postcss-purgecss";
+// app.test.js
+import assert from "node:assert";
+import test from "node:test";
+import { setupDOM } from "on_the_money/test";
+import { the } from "on_the_money";
 
-export default {
-  plugins: [
-    purgecss({
-      content: ["src/**/*.html", "src/**/*.js"],
-      defaultExtractor: (s) => s.match(/[A-Za-z0-9_-]+/g) || [],
-      safelist: {
-        standard: [/^aria-/, "hidden"],
-        deep: [/^\[data-/, /^aria-/, /role-/],
-      },
-    }),
-  ],
-};
+test("theme write projects into the badge", (_t) => {
+  const { document } = setupDOM('<span data-text="theme"></span>');
+  the("theme", "dark");
+  assert.strictEqual(document.querySelector("span").textContent, "dark");
+});
 ```
 
-The `defaultExtractor` tweak ensures attribute names tokenize correctly (the default extractor treats `id="foo"` as one opaque token). The `deep` safelist preserves any selector containing `[data-*]` or `aria-*` from being purged. Without these, every `[data-page="home"] main > section` style gets stripped in production.
+`setupDOM(bodyHtml, { url, language })` returns the linkedom result — destructure `document`, `window`, or the constructors as needed. Each call installs a fresh DOM and empty `localStorage`, so tests stay isolated. Stub `globalThis.fetch` per test when boot needs a dictionary.
 
 ## Suggested project layout
 
@@ -640,6 +679,14 @@ src/
 │   ├── On.js              # event delegation + emit
 │   ├── The.js             # state, i18n, boot, route, form, flat
 │   └── Select.js          # $, $$, clone
+├── test/
+│   └── index.js           # setupDOM harness (on_the_money/test)
+├── eslint/
+│   ├── plugin.js          # eslint-plugin-otm rules
+│   └── config.js          # shareable flat config
+├── stylelint/
+│   ├── plugin.js          # prefer-attribute-selector
+│   └── config.js          # shareable config
 └── linter/
     ├── main.js            # otm-lint binary entrypoint
     ├── cli.js             # directory scan, output
@@ -659,6 +706,7 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm test` | Run all tests (`node --test`). |
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
+| `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
 | `npm run check` | `lint + build + test + coverage`. CI gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |
