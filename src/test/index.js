@@ -31,6 +31,8 @@ export const setupDOM = (
 		search: u.search,
 		hash: u.hash,
 		origin: u.origin,
+		host: u.host,
+		protocol: u.protocol,
 		href: u.href,
 	};
 

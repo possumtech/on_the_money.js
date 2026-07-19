@@ -14,7 +14,7 @@ const preferOn = {
 		},
 		messages: {
 			useOn:
-				"Direct addEventListener on DOM targets is forbidden — use on() for delegation. Non-DOM EventTargets (WebSocket, Worker, AbortSignal, MediaQueryList) have no selector to delegate against: use handler properties (socket.onmessage = fn), or eslint-disable with a justification for the rare multi-listener case. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
+				"Direct addEventListener on DOM targets is forbidden — use on() for delegation. Non-DOM EventTargets have no selector to delegate against: sockets get live() from on_the_money/live; Worker/AbortSignal/MediaQueryList get handler properties (worker.onmessage = fn); eslint-disable with a justification for the rare multi-listener case. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
 		},
 		schema: [],
 	},
@@ -277,6 +277,30 @@ const noDocumentQuery = {
 	},
 };
 
+const noRawWebsocket = {
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Disallow raw WebSocket construction; use live() from on_the_money/live.",
+		},
+		messages: {
+			useLive:
+				"Raw WebSocket construction is forbidden. Use live() from on_the_money/live — it owns reconnection, jittered backoff, JSON dispatch, and req_id correlation. Common LLM mistake: hand-rolling the socket lifecycle per consumer. See README §on_the_money/live.",
+		},
+		schema: [],
+	},
+	create(context) {
+		return {
+			NewExpression(node) {
+				if (node.callee?.name === "WebSocket") {
+					context.report({ node, messageId: "useLive" });
+				}
+			},
+		};
+	},
+};
+
 const rules = {
 	"prefer-on": preferOn,
 	"prefer-the-set": preferTheSet,
@@ -285,6 +309,7 @@ const rules = {
 	"no-style-mutation": noStyleMutation,
 	"no-server-dom": noServerDom,
 	"no-document-query": noDocumentQuery,
+	"no-raw-websocket": noRawWebsocket,
 };
 
 const plugin = {
@@ -303,6 +328,7 @@ plugin.configs = {
 			"otm/no-style-mutation": "error",
 			"otm/no-server-dom": "error",
 			"otm/no-document-query": "error",
+			"otm/no-raw-websocket": "error",
 		},
 	},
 };
