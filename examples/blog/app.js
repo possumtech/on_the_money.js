@@ -32,13 +32,10 @@ const langSelect = $("#lang-select");
 langSelect.value = the.locale.split("-")[0];
 
 const renderPostList = () => {
-	const list = $("#post-list");
-	list.replaceChildren();
-	for (const post of posts) {
-		const el = $.clone("#post-list", "#post-list-item");
-		the(el, "title", post.title);
-		$(el, "a").setAttribute("href", `#/post/${post.id}`);
-	}
+	$.cloneEach("#post-list", "#post-list-item", posts, (el, post) => {
+		the(el, { title: post.title, postUrl: `#/post/${post.id}` });
+	});
+	// data-i18n-qty is a directive, not projectable state — Discipline #2.
 	$('[data-i18n="post_count"]').setAttribute("data-i18n-qty", posts.length);
 	the.t();
 };
