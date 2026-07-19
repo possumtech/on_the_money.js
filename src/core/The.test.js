@@ -16,6 +16,9 @@ const setupDOM = (html = "") => {
 		setItem: (k, v) => {
 			storage[k] = String(v);
 		},
+		removeItem: (k) => {
+			delete storage[k];
+		},
 		key: (i) => Object.keys(storage)[i],
 		get length() {
 			return Object.keys(storage).length;
@@ -119,10 +122,50 @@ test("the(el, key): reads scoped state from element", (_t) => {
 	assert.strictEqual(The.the(el, "selected"), "true");
 });
 
-test("the(key): maps aria keys for getters", (_t) => {
+test("the(key): aria-named keys are data-* at global scope", (_t) => {
 	const { document } = setupDOM();
-	document.body.setAttribute("aria-expanded", "true");
-	assert.strictEqual(The.the("expanded"), "true");
+	The.the("hidden", true);
+	assert.strictEqual(document.body.getAttribute("data-hidden"), "true");
+	assert.strictEqual(document.body.getAttribute("aria-hidden"), null);
+	assert.strictEqual(The.the("hidden"), "true");
+});
+
+test("the(key, null): deletes the attribute and clears [data-text] mirrors", (_t) => {
+	const { document } = setupDOM('<span data-text="modal">old</span>');
+	The.the("modal", "session-expired");
+	assert.strictEqual(
+		document.body.getAttribute("data-modal"),
+		"session-expired",
+	);
+	The.the("modal", null);
+	assert.strictEqual(document.body.getAttribute("data-modal"), null);
+	assert.strictEqual(document.querySelector("span").textContent, "");
+});
+
+test("the(key, null): removes the persisted localStorage entry", (_t) => {
+	setupDOM();
+	The.persistKeys = new Set(["theme"]);
+	The.the("theme", "dark");
+	assert.strictEqual(localStorage.getItem("otm:theme"), "dark");
+	The.the("theme", null);
+	assert.strictEqual(localStorage.getItem("otm:theme"), null);
+	The.persistKeys = new Set();
+});
+
+test("the(el, key, null): deletes the scoped attribute", (_t) => {
+	const { document } = setupDOM('<div id="el"></div>');
+	const el = document.querySelector("#el");
+	The.the(el, "active", "yes");
+	The.the(el, "active", null);
+	assert.strictEqual(el.getAttribute("data-active"), null);
+});
+
+test("the({k: null}): batch write deletes null-valued keys", (_t) => {
+	const { document } = setupDOM();
+	The.the({ a: "1", b: "2" });
+	The.the({ a: null, b: "3" });
+	assert.strictEqual(document.body.getAttribute("data-a"), null);
+	assert.strictEqual(document.body.getAttribute("data-b"), "3");
 });
 
 test("the(key, val): writes body attr; persists only if key in persistKeys", (_t) => {
