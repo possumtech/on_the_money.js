@@ -367,6 +367,17 @@ Many platform elements already carry state in their own attributes, with native 
 
 The `body[data-modal]` indirection is correct when the state is a named enum the consumer controls (which modal is open, current page, theme). When the state genuinely lives on an element (is THIS dialog open?), let it live there.
 
+### Non-DOM EventTargets
+
+`on()` is DOM delegation — `closest(selector)` against a container. A `WebSocket`, `Worker`, `AbortSignal`, or `MediaQueryList` has no selector to delegate against, and `otm/prefer-on` still flags `addEventListener` on them, deliberately: the sanctioned shape there is different. Use **handler properties** for the single-handler case these targets almost always are:
+
+```javascript
+const socket = new WebSocket(`wss://${location.host}/ws`);
+socket.onmessage = (e) => receive(JSON.parse(e.data));
+```
+
+Needing multiple listeners or `{ once }` on a non-DOM target is rare enough to warrant `// eslint-disable-next-line otm/prefer-on` with a justification comment.
+
 ### Banned vocabulary, in spirit
 
 If you're searching online for "how to subscribe to OTM state changes" or "OTM reactive system" — you're looking for something the framework doesn't have and won't add. The three mechanisms above are the whole story. Reactivity-by-CSS, imperative-by-handler, DRY-by-observer.
