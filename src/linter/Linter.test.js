@@ -364,6 +364,84 @@ test("Linter.crossCheck: HTML-106 counts MutationObserver attributeFilter as con
 	);
 });
 
+test("Linter.crossCheck: HTML-107 flags a reveal span with no state-CSS rule", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<small data-error-key="not-found" data-i18n="e">Gone</small>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+	});
+	const parity = violations.filter((v) => v.ruleId === "HTML-107");
+	assert.strictEqual(parity.length, 1);
+	assert.match(parity[0].message, /can never show/);
+	assert.match(parity[0].message, /\[data-error="not-found"\]/);
+});
+
+test("Linter.crossCheck: HTML-107 satisfied when both halves exist", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<small data-error-key="not-found" data-i18n="e">Gone</small>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+		cssSources: [
+			{
+				file: "a.css",
+				source:
+					'body[data-error="not-found"] [data-error-key="not-found"] { display: block }',
+			},
+		],
+	});
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-107").length,
+		0,
+	);
+});
+
+test("Linter.crossCheck: HTML-107 flags dead CSS wiring with no span", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [],
+		jsSources: [],
+		cssSources: [
+			{
+				file: "a.css",
+				source: '[data-error-key="gone"] { display: block }',
+			},
+		],
+	});
+	const parity = violations.filter((v) => v.ruleId === "HTML-107");
+	assert.strictEqual(parity.length, 1);
+	assert.match(parity[0].message, /dead wiring/);
+});
+
+test("Linter.crossCheck: HTML-107 ignores data-i18n-* params and honors data-otm-dynamic", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source:
+					'<span data-i18n="greet" data-i18n-key="x">Hi</span><small data-error-key="late" data-otm-dynamic data-i18n="l">L</small>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+		cssSources: [
+			{ file: "a.css", source: '[data-error-key="late"] { display: block }' },
+		],
+	});
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-107").length,
+		0,
+	);
+});
+
 test("Linter.crossCheck: HTML-101 recognizes cloneEach references", (_t) => {
 	const htmlSources = [
 		{ file: "a.html", source: '<template id="row"></template>', dicts: [] },

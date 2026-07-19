@@ -359,6 +359,79 @@ export default class Linter {
 			);
 		}
 
+		// HTML-107: reveal-key parity. A span carrying data-K-key="V" shows
+		// only under a state-CSS rule matching [data-K="V"]; a rule
+		// referencing [data-K-key="V"] needs a span carrying it. Either half
+		// missing = the message silently never shows (the twice-hand-fixed
+		// bug class this rule automates).
+		const revealSpans = [];
+		const spanPairs = new Set(); // includes data-otm-dynamic spans — they
+		// still satisfy the css→span direction; only the span→css check is waived
+		for (const { file, source } of htmlSources) {
+			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			Linter.#traverse(document, (node) => {
+				for (const attr of node.attrs ?? []) {
+					const m = attr.name.match(/^data-([a-z0-9-]+)-key$/);
+					if (!m || m[1] === "i18n" || !attr.value) continue;
+					spanPairs.add(`${m[1]} ${attr.value}`);
+					if (node.attrs.some((a) => a.name === "data-otm-dynamic")) continue;
+					const loc = node.sourceCodeLocation?.attrs?.[attr.name] ||
+						node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+					revealSpans.push({
+						group: m[1],
+						value: attr.value,
+						file,
+						line: loc.startLine,
+						column: loc.startCol,
+					});
+				}
+			});
+		}
+
+		// Inline <style> blocks ride along in the raw HTML sources.
+		const styleTexts = [...cssSources, ...htmlSources];
+		const stateRules = new Set();
+		const spanRefs = [];
+		for (const { file, source } of styleTexts) {
+			for (const m of source.matchAll(
+				/\[data-([a-z0-9-]+?)-key=["']?([\w-]+)["']?\]/g,
+			)) {
+				spanRefs.push({
+					group: m[1],
+					value: m[2],
+					file,
+					line: Linter.#lineOf(source, m.index),
+				});
+			}
+			for (const m of source.matchAll(
+				/\[data-([a-z0-9-]+)=["']?([\w-]+)["']?\]/g,
+			)) {
+				if (!m[1].endsWith("-key")) stateRules.add(`${m[1]} ${m[2]}`);
+			}
+		}
+
+		for (const span of revealSpans) {
+			if (stateRules.has(`${span.group} ${span.value}`)) continue;
+			Linter.#addViolation(
+				violations,
+				span.file,
+				{ line: span.line, column: span.column },
+				"HTML-107",
+				`Reveal span data-${span.group}-key="${span.value}" has no state-CSS rule matching [data-${span.group}="${span.value}"] — the message can never show. Add the reveal rule, or delete the span, or mark it data-otm-dynamic.`,
+			);
+		}
+
+		for (const ref of spanRefs) {
+			if (spanPairs.has(`${ref.group} ${ref.value}`)) continue;
+			Linter.#addViolation(
+				violations,
+				ref.file,
+				{ line: ref.line, column: 1 },
+				"HTML-107",
+				`State-CSS references [data-${ref.group}-key="${ref.value}"] but no element carries it — dead wiring. Add the span or delete the rule.`,
+			);
+		}
+
 		return violations;
 	}
 
