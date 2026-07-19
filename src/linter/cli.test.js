@@ -63,3 +63,23 @@ test("Cli.getFiles: collects .html, skips node_modules, dist, .git, dotdirs", as
 	assert.ok(found[0].endsWith("ok.html"));
 	await fs.rm(tmp, { recursive: true, force: true });
 });
+
+test("Cli.scan: .ejs joins the markup universe for cross-file rules", async (_t) => {
+	const fs = await import("node:fs/promises");
+	const os = await import("node:os");
+	const path = await import("node:path");
+	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "otm-lint-ejs-"));
+	await fs.writeFile(
+		path.join(tmp, "partial.ejs"),
+		'<small data-error-key="not-found" data-i18n="e"><%= msg %></small>',
+	);
+	await fs.writeFile(
+		path.join(tmp, "state.css"),
+		'body[data-error="not-found"] [data-error-key="not-found"] { display: block }',
+	);
+	// The span lives in EJS; the CSS ref must be satisfied by it (no false
+	// dead-wiring) and the EJS template syntax must not trip per-file rules.
+	const result = await Cli.run(["--check", tmp]);
+	assert.strictEqual(result, 0);
+	await fs.rm(tmp, { recursive: true, force: true });
+});

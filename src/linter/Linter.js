@@ -437,7 +437,10 @@ export default class Linter {
 			);
 		}
 
-		for (const ref of spanRefs) {
+		// An empty span universe is evidence of blindness (markup living in
+		// templates the scan can't see), not of dead wiring — the css→span
+		// direction only fires when at least one reveal span was found.
+		for (const ref of spanPairs.size > 0 ? spanRefs : []) {
 			if (spanPairs.has(`${ref.group} ${ref.value}`)) continue;
 			Linter.#addViolation(
 				violations,

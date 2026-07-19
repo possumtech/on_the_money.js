@@ -405,7 +405,31 @@ test("Linter.crossCheck: HTML-107 satisfied when both halves exist", (_t) => {
 	);
 });
 
-test("Linter.crossCheck: HTML-107 flags dead CSS wiring with no span", (_t) => {
+test("Linter.crossCheck: HTML-107 flags dead CSS wiring when spans exist elsewhere", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<small data-error-key="found" data-i18n="e">E</small>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+		cssSources: [
+			{
+				file: "a.css",
+				source:
+					'body[data-error="found"] {} [data-error-key="gone"] { display: block }',
+			},
+		],
+	});
+	const parity = violations.filter((v) => v.ruleId === "HTML-107");
+	assert.strictEqual(parity.length, 1);
+	assert.match(parity[0].message, /dead wiring/);
+	assert.match(parity[0].message, /"gone"/);
+});
+
+test("Linter.crossCheck: HTML-107 css→span direction is silent when the span universe is empty", (_t) => {
 	const violations = Linter.crossCheck({
 		htmlSources: [],
 		jsSources: [],
@@ -416,9 +440,10 @@ test("Linter.crossCheck: HTML-107 flags dead CSS wiring with no span", (_t) => {
 			},
 		],
 	});
-	const parity = violations.filter((v) => v.ruleId === "HTML-107");
-	assert.strictEqual(parity.length, 1);
-	assert.match(parity[0].message, /dead wiring/);
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-107").length,
+		0,
+	);
 });
 
 test("Linter.crossCheck: HTML-107 ignores data-i18n-* params and honors data-otm-dynamic", (_t) => {
