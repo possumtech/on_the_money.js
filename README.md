@@ -119,7 +119,23 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 - **ARIA mapping is element-scoped only** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Global writes always produce `data-*` — `the("hidden", true)` writes `data-hidden` on body, never `aria-hidden` (which would hide the whole app from screen readers). Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute.
 - **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="page-title">Default</title>` in `<head>` and `the("page-title", "X")` updates it.
 - **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components. Never reuse a global key as a scoped slot key inside a `<template>`; `otm-lint` flags this as HTML-104.
-- **Plain HTML attributes (href, value, rel, etc.)** use `el.setAttribute(name, val)` directly. The framework deliberately doesn't wrap these — `the()` is for state; `setAttribute()` is for structure. Two distinct concerns, two distinct primitives.
+- **Attribute projection: `data-bind="attr:key"`.** The attribute-space sibling of `[data-text]` — state projects into plain attributes (`href`, `src`, `datetime`, `value`, `title`) declaratively. Space-separate multiple bindings; keys are kebab-case like every slot key; `the(el, { key: null })` removes the bound attribute.
+
+  ```html
+  <template id="profile-card">
+    <article data-item>
+      <a data-text="name" data-bind="href:profile-url">@someone</a>
+      <time data-text="joined" data-bind="datetime:joined-at">recently</time>
+    </article>
+  </template>
+  ```
+
+  ```javascript
+  const card = $.clone("#cards", "#profile-card");
+  the(card, { name: "@alice", profileUrl: "/@alice", joined: "May 2026", joinedAt: "2026-05-01" });
+  ```
+
+- **Truly one-off attributes** still use `el.setAttribute(name, val)` directly, colocated with the write (Discipline #2). `data-bind` is for attributes that carry per-element *state-derived data* (every card's link); `setAttribute` is for structural one-offs. If you're writing the same `setAttribute` line in every clone loop, that's a `data-bind`.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
 - **Values MUST be flat primitives.** Pass nested objects through `the.flat(...)` first.
 - **`the(key, undefined)` throws.** Two args means set; missing val is a contract violation.

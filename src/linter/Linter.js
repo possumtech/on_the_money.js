@@ -245,21 +245,30 @@ export default class Linter {
 			Linter.#traverse(document, (node) => {
 				if (node.nodeName !== "template") return;
 				Linter.#traverse(node, (inner) => {
+					const slotKeys = [];
 					const dt = inner.attrs?.find((a) => a.name === "data-text");
-					if (!dt?.value) return;
-					const writer = globalWriteKeys.get(dt.value);
-					if (!writer) return;
-					const loc = inner.sourceCodeLocation || {
-						startLine: 1,
-						startCol: 1,
-					};
-					Linter.#addViolation(
-						violations,
-						file,
-						{ line: loc.startLine, column: loc.startCol },
-						"HTML-104",
-						`Scoped slot data-text="${dt.value}" inside a <template> collides with the global the("${dt.value}", ...) write in ${writer.file}:${writer.line} — the global write will clobber every cloned instance. Rename the template slot key or the global key.`,
-					);
+					if (dt?.value) slotKeys.push({ attr: "data-text", key: dt.value });
+					const db = inner.attrs?.find((a) => a.name === "data-bind");
+					for (const pair of db?.value?.split(/\s+/) ?? []) {
+						const i = pair.indexOf(":");
+						if (i >= 1)
+							slotKeys.push({ attr: "data-bind", key: pair.slice(i + 1) });
+					}
+					for (const { attr, key } of slotKeys) {
+						const writer = globalWriteKeys.get(key);
+						if (!writer) continue;
+						const loc = inner.sourceCodeLocation || {
+							startLine: 1,
+							startCol: 1,
+						};
+						Linter.#addViolation(
+							violations,
+							file,
+							{ line: loc.startLine, column: loc.startCol },
+							"HTML-104",
+							`Scoped slot ${attr} key "${key}" inside a <template> collides with the global the("${key}", ...) write in ${writer.file}:${writer.line} — the global write will clobber every cloned instance. Rename the template slot key or the global key.`,
+						);
+					}
 				});
 			});
 		}
@@ -324,6 +333,12 @@ export default class Linter {
 				consumed.add(m[1]);
 			for (const m of source.matchAll(/data-text=["']([\w-]+)["']/g))
 				consumed.add(m[1]);
+			for (const m of source.matchAll(/data-bind=["']([^"']+)["']/g)) {
+				for (const pair of m[1].split(/\s+/)) {
+					const i = pair.indexOf(":");
+					if (i >= 1) consumed.add(pair.slice(i + 1));
+				}
+			}
 		}
 		for (const { source } of jsSources) {
 			for (const m of source.matchAll(/["']data-([a-z0-9-]+)["']/g))

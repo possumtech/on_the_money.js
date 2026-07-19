@@ -365,15 +365,15 @@ export default class The {
 	static #set(el, key, val) {
 		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
 		el.setAttribute(The.#attr(el, key), out);
-		The.#mirror(el, key, out);
+		The.#mirror(el, key, out, false);
 	}
 
 	static #delete(el, key) {
 		el.removeAttribute(The.#attr(el, key));
-		The.#mirror(el, key, "");
+		The.#mirror(el, key, "", true);
 	}
 
-	static #mirror(el, key, out) {
+	static #mirror(el, key, out, removed) {
 		// Global writes (body) walk the whole document so [data-text="key"]
 		// slots in <head> (e.g. <title data-text="title">) hydrate too.
 		// Scoped writes stay within el.
@@ -382,10 +382,27 @@ export default class The {
 				? document.documentElement || document
 				: el;
 		if (root.querySelectorAll) {
-			const items = root.querySelectorAll(`[data-text="${key}"]`);
-			for (const item of items) item.textContent = out;
+			for (const item of root.querySelectorAll(`[data-text="${key}"]`))
+				item.textContent = out;
+			// data-bind="attr:key attr2:key2" — attribute projection. The *=
+			// selector over-matches on substrings; #bindApply parse-verifies.
+			for (const item of root.querySelectorAll(`[data-bind*="${key}"]`))
+				The.#bindApply(item, key, out, removed);
 		}
 		if (el.getAttribute?.("data-text") === key) el.textContent = out;
+		The.#bindApply(el, key, out, removed);
+	}
+
+	static #bindApply(item, key, out, removed) {
+		const spec = item.getAttribute?.("data-bind");
+		if (!spec) return;
+		for (const pair of spec.split(/\s+/)) {
+			const i = pair.indexOf(":");
+			if (i < 1 || pair.slice(i + 1) !== key) continue;
+			const attr = pair.slice(0, i);
+			if (removed) item.removeAttribute(attr);
+			else item.setAttribute(attr, out);
+		}
 	}
 
 	static async boot({
