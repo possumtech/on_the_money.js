@@ -1,5 +1,7 @@
+import assert from "node:assert";
 import test from "node:test";
 import { RuleTester } from "eslint";
+import pkg from "../../package.json" with { type: "json" };
 import plugin from "./plugin.js";
 
 const tester = new RuleTester({
@@ -180,12 +182,14 @@ test("no-document-query", () => {
 });
 
 test("plugin: exports meta and configs.recommended", () => {
-	import("node:assert").then(({ default: assert }) => {
-		assert.strictEqual(plugin.meta.name, "eslint-plugin-otm");
-		assert.ok(plugin.configs.recommended.rules);
-		assert.strictEqual(
-			plugin.configs.recommended.rules["otm/prefer-on"],
-			"error",
-		);
-	});
+	assert.strictEqual(plugin.meta.name, "eslint-plugin-otm");
+	assert.ok(plugin.configs.recommended.rules);
+	assert.strictEqual(
+		plugin.configs.recommended.rules["otm/prefer-on"],
+		"error",
+	);
+});
+
+test("plugin: meta.version is single-sourced from package.json", () => {
+	assert.strictEqual(plugin.meta.version, pkg.version);
 });

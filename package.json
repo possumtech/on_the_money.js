@@ -1,7 +1,7 @@
 {
 	"name": "on_the_money",
-	"version": "0.5.3",
-	"description": "Opinionated, attribute-driven, standards-oriented modern framework. <2KB gzip. Native browser APIs only. See README.md for the authoring context.",
+	"version": "0.6.0",
+	"description": "Opinionated, attribute-driven, standards-oriented modern framework. Native browser APIs only. See README.md for the authoring context.",
 	"type": "module",
 	"main": "dist/on_the_money.min.js",
 	"module": "dist/on_the_money.min.js",
