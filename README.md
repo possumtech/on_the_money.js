@@ -341,6 +341,28 @@ const reply = await ch.request({ type: "filter", q: "cats" }, { takeLatest: true
 - **Wire contract:** server→client frames are `{ type, at, data }` with `{ type: "hello" }` first; the conventions live in `examples/live/asyncapi.yaml` with a reference server beside it — the contract is what agents build servers against.
 - **NOT in scope:** auth handshakes, heartbeats, binary frames, offline queueing, presence.
 
+### `sse(path, options)` — Server-Sent Events
+
+The platform's `EventSource` already owns reconnection, `retry:` hints, and `Last-Event-ID` resume — so this adapter is nearly nothing: named-event subscription (`types`, because the platform has no wildcard), JSON-or-raw-text decode, and the same handler contract as `live()`.
+
+```javascript
+import { sse } from "on_the_money/live";
+
+let answer = "";
+sse("/stream/answer", {
+  types: ["token", "done"],
+  onMessage(type, chunk) {
+    if (type === "done") return the("answering", null);
+    answer += chunk;
+    the("answer", answer);        // the [data-text="answer"] slot grows in place
+  },
+  onDown() { the("answering", null); },
+  signal: controller.signal,
+});
+```
+
+**Streaming into a slot:** accumulate in JS, project the whole value through `the()` each chunk. Replace-semantics projection is idempotent, so a platform reconnect replaying from `Last-Event-ID` re-renders correctly instead of duplicating text. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job), custom backoff (the server's `retry:` hint governs), `Authorization` headers (cookie auth only; header auth needs fetch-streaming, deferred until a consumer needs it).
+
 ## The Discipline
 
 on_the_money adds no reactivity primitives of its own. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. Reactivity is **delegated to the platform** — CSS selectors, `[data-text]` projection, `MutationObserver` — not absent, and not yours to reimplement. If you find yourself reaching for a reactive primitive — including importing one from another library — you're solving a problem the framework rejects.
