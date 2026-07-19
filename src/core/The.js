@@ -248,7 +248,7 @@ export default class The {
 
 	static #routeNavigate = null;
 
-	static route(callback) {
+	static route(callback, { match } = {}) {
 		if (typeof window === "undefined") return;
 		if (The.#routeNavigate) {
 			throw new Error(
@@ -278,6 +278,9 @@ export default class The {
 			) {
 				return;
 			}
+			// Selective enhancement: with a match selector, only opted-in links
+			// are intercepted — everything else navigates natively.
+			if (match && !link.matches(match)) return;
 
 			const url = new URL(link.getAttribute("href"), window.location.href);
 			if (url.origin !== window.location.origin) return;

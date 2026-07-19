@@ -151,6 +151,33 @@ test("Integration: Router unsubscribe detaches; re-registration works; double-re
 	off2();
 });
 
+test("Integration: Router match option intercepts only matching links", async (_t_context) => {
+	const { document: dom } = setupDOM(`
+		<a href="/instant" id="fast-link" data-route>Instant</a>
+		<a href="/normal" id="slow-link">Normal</a>
+	`);
+
+	let calls = 0;
+	let lastPath = "";
+	const off = route(
+		(path) => {
+			calls++;
+			lastPath = path;
+		},
+		{ match: "[data-route]" },
+	);
+	assert.strictEqual(calls, 1);
+
+	dom.getElementById("slow-link").click();
+	assert.strictEqual(calls, 1);
+
+	dom.getElementById("fast-link").click();
+	assert.strictEqual(calls, 2);
+	assert.strictEqual(lastPath, "/instant");
+
+	off();
+});
+
 test("Integration: route.go navigates programmatically", async (_t_context) => {
 	setupDOM();
 
