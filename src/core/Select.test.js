@@ -103,3 +103,34 @@ test("Select.clone: { position: 'beforebegin' } inserts as sibling before refere
 	const el = Select.clone(anchor, "#tmp", { position: "beforebegin" });
 	assert.strictEqual(anchor.previousElementSibling, el);
 });
+
+test("Select.cloneEach: clears, clones per item, fills with index, returns mounted", (_t) => {
+	const { document: dom } = setupDOM(`
+		<template id="row"><li data-item><span data-text="name"></span></li></template>
+		<ul id="list"><li data-item>stale</li></ul>
+	`);
+	const out = Select.cloneEach(
+		"#list",
+		"#row",
+		["a", "b", "c"],
+		(el, item, i) => {
+			The.the(el, { name: `${item}${i}` });
+		},
+	);
+	const list = dom.querySelector("#list");
+	assert.strictEqual(out.length, 3);
+	assert.strictEqual(list.children.length, 3);
+	assert.strictEqual(list.children[0].querySelector("span").textContent, "a0");
+	assert.strictEqual(list.children[2].querySelector("span").textContent, "c2");
+	assert.strictEqual(list.textContent.includes("stale"), false);
+});
+
+test("Select.cloneEach: empty items yields an empty container", (_t) => {
+	const { document: dom } = setupDOM(`
+		<template id="row"><li data-item></li></template>
+		<ul id="list"><li data-item>stale</li></ul>
+	`);
+	const out = Select.cloneEach("#list", "#row", []);
+	assert.deepStrictEqual(out, []);
+	assert.strictEqual(dom.querySelector("#list").children.length, 0);
+});

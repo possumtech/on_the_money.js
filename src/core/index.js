@@ -32,6 +32,7 @@ Object.defineProperty(the, "locale", {
 
 export const $ = Select.$;
 $.clone = Select.clone;
+$.cloneEach = Select.cloneEach;
 
 export const $$ = Select.$$;
 
