@@ -153,7 +153,7 @@ export default class Linter {
 		const cloneRefs = new Set();
 		for (const { source } of jsSources) {
 			const matches = source.matchAll(
-				/\$\.clone\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
+				/\$\.clone(?:Each)?\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
 			);
 			for (const m of matches) cloneRefs.add(m[1]);
 		}

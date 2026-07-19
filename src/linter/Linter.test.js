@@ -363,3 +363,17 @@ test("Linter.crossCheck: HTML-106 counts MutationObserver attributeFilter as con
 		0,
 	);
 });
+
+test("Linter.crossCheck: HTML-101 recognizes cloneEach references", (_t) => {
+	const htmlSources = [
+		{ file: "a.html", source: '<template id="row"></template>', dicts: [] },
+	];
+	const jsSources = [
+		{ file: "a.js", source: '$.cloneEach("#list", "#row", items, fn);' },
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-101").length,
+		0,
+	);
+});

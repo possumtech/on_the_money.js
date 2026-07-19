@@ -298,6 +298,16 @@ Clones the first element of `<template selector>`, runs `_t(el)` for i18n hydrat
 
 For `beforebegin` and `afterend`, the first argument is a sibling reference, not a true parent.
 
+### `$.cloneEach(parent, selector, items, fill?)` — list rendering
+
+```javascript
+$.cloneEach("#posts", "#post-card", posts, (el, post) => {
+  the(el, { title: post.title, permalink: `/posts/${post.slug}` });
+});
+```
+
+Clears `parent` (`replaceChildren`), clones the template once per item, calls `fill(el, item, index)`, returns the mounted elements. Replace-children semantics only — append flows (infinite scroll) stay a manual `$.clone` loop. Deliberately **not** reactive array-binding: no keyed diffing, no mutate-array-and-watch; that's framework territory and the wrong side of OTM's line. Composes with `data-bind` so `fill` is usually a single `the(el, {...})` call.
+
 ## The Discipline
 
 on_the_money adds no reactivity primitives of its own. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. Reactivity is **delegated to the platform** — CSS selectors, `[data-text]` projection, `MutationObserver` — not absent, and not yours to reimplement. If you find yourself reaching for a reactive primitive — including importing one from another library — you're solving a problem the framework rejects.
@@ -485,14 +495,12 @@ off(); // detach when modal is destroyed
 const res = await fetch("/api/posts");
 const posts = await res.json();
 
-$("#posts").replaceChildren();               // clear previous render
-for (const post of posts) {
-  const el = $.clone("#posts", "#post-card");
+$.cloneEach("#posts", "#post-card", posts, (el, post) => {
   the(el, { title: post.title });
-}
+});
 ```
 
-`replaceChildren()` is the sanctioned container-clear — `innerHTML = ""` and `textContent = ""` are both banned by the lint stack. Keep server output to data; `otm/no-server-dom` bans rendering HTML server-side.
+`$.cloneEach` clears the container for you; when clearing manually, `replaceChildren()` is the sanctioned idiom — `innerHTML = ""` and `textContent = ""` are both banned by the lint stack. Keep server output to data; `otm/no-server-dom` bans rendering HTML server-side.
 
 ### Routing with `the.match`
 
@@ -633,7 +641,7 @@ npx otm-lint --check ./src
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
-| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal `$.clone(_, "#id")` shape — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
+| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the fallback-to-source UX gap at lint time. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
 | **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
