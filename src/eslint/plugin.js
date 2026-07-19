@@ -14,7 +14,7 @@ const preferOn = {
 		},
 		messages: {
 			useOn:
-				"Direct addEventListener is forbidden. Use on() for event delegation. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
+				"Direct addEventListener on DOM targets is forbidden — use on() for delegation. Non-DOM EventTargets (WebSocket, Worker, AbortSignal, MediaQueryList) have no selector to delegate against: use handler properties (socket.onmessage = fn), or eslint-disable with a justification for the rare multi-listener case. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
 		},
 		schema: [],
 	},
