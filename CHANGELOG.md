@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] — 2026-07-19
+
+Port feedback, same day: the first downstream migrations onto the 0.7.0 batteries surfaced three regressions. Issues #132–#135, #137; PRs #138–#142.
+
+### Fixed
+
+- **`otm/no-raw-websocket` flags only the browser global.** Scope-resolved: an imported or locally declared `WebSocket` (a Node `ws`-package client) passes — the hand-rolled-lifecycle slop vector the rule targets doesn't exist there. (#132)
+- **`.ejs` joins otm-lint's markup universe** for cross-file rules (reveal spans, slots, actions); per-file rules stay `.html`-only so template syntax never trips HTML-004. HTML-107's css→span direction is silent when zero reveal spans were found anywhere — an empty universe is blindness, not dead wiring. Kills 46 false errors on server-templated projects. (#133)
+- **src-first entry — the core singleton unforked.** `exports "."` (and `main`/`module`) resolve to `src/core/index.js`, the same graph every battery subpath imports; previously `.` pointed at the dist bundle, so importing the entry plus any battery loaded two `The` singletons and `boot()` configured one while batteries read the other. The redundant `./src` alias is gone; `dist/` demotes to a CDN/script-tag artifact. Reverses the 0.2.0 dist-entry decision — deliberately, no legacy. (#134)
+- Test-runner IPC flake (`Unable to deserialize cloned data`) starved at the source: the CLI's console chatter is mocked in its tests. (#30 lineage)
+
+### Changed
+
+- Blog example modernized to 0.7.0 idioms: `$.cloneEach` + `data-bind` replace the manual clone loop and per-clone `setAttribute`. (#135)
+
 ## [0.7.0] — 2026-07-19
 
 The boundary release. OTM's mandate extends to the browser side of live data — batteries for the platform's gaps, contracts instead of server code, and the lint stack grown into a drift wall — under a ratified constitution: a battery ships only if it wraps a platform *absence*, rides an existing standard or published machine-readable convention, lands with lint + doctest on day one, lives in a subpath the core never pays for, and carries an explicit NOT-list. Issues #84, #86–#89, #115–#120; PRs #121–#131.
