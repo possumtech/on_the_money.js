@@ -121,7 +121,7 @@ test("Integration: Surgical Router", async (_t_context) => {
 	`);
 
 	let currentPath = "";
-	route((path) => {
+	const off = route((path) => {
 		currentPath = path;
 	});
 
@@ -136,6 +136,86 @@ test("Integration: Surgical Router", async (_t_context) => {
 	currentPath = "unchanged";
 	dom.getElementById("ext-link").click();
 	assert.strictEqual(currentPath, "unchanged");
+
+	off();
+});
+
+test("Integration: Router ignores modified clicks and download links", async (_t_context) => {
+	const dom = setupDOM(`
+		<a href="/about" id="about-link">About</a>
+		<a href="/file.pdf" id="dl-link" download>File</a>
+	`);
+
+	let calls = 0;
+	const off = route(() => {
+		calls++;
+	});
+	assert.strictEqual(calls, 1);
+
+	const modified = new CustomEvent("click", {
+		bubbles: true,
+		cancelable: true,
+	});
+	modified.metaKey = true;
+	dom.getElementById("about-link").dispatchEvent(modified);
+	assert.strictEqual(calls, 1);
+
+	dom.getElementById("dl-link").click();
+	assert.strictEqual(calls, 1);
+
+	off();
+});
+
+test("Integration: Router treats same-URL clicks as no-ops", async (_t_context) => {
+	const dom = setupDOM('<a href="/" id="self-link">Home</a>');
+
+	let calls = 0;
+	const off = route(() => {
+		calls++;
+	});
+	assert.strictEqual(calls, 1);
+
+	dom.getElementById("self-link").click();
+	assert.strictEqual(calls, 1);
+
+	off();
+});
+
+test("Integration: Router unsubscribe detaches; re-registration works; double-registration throws", async (_t_context) => {
+	const dom = setupDOM('<a href="/about" id="about-link">About</a>');
+
+	let calls = 0;
+	const off = route(() => {
+		calls++;
+	});
+	assert.strictEqual(calls, 1);
+	assert.throws(() => route(() => {}), /already active/);
+
+	off();
+	dom.getElementById("about-link").click();
+	assert.strictEqual(calls, 1);
+
+	const off2 = route(() => {
+		calls++;
+	});
+	assert.strictEqual(calls, 2);
+	off2();
+});
+
+test("Integration: route.go navigates programmatically", async (_t_context) => {
+	setupDOM();
+
+	assert.throws(() => route.go("/nowhere"), /no active router/);
+
+	let currentPath = "";
+	const off = route((path) => {
+		currentPath = path;
+	});
+	route.go("/dashboard");
+	assert.strictEqual(currentPath, "/dashboard");
+	assert.strictEqual(globalThis.window.location.pathname, "/dashboard");
+
+	off();
 });
 
 test("Integration: Namespace Storage", async (_t_context) => {
