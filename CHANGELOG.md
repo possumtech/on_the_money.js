@@ -4,6 +4,35 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-07-19
+
+The boundary release. OTM's mandate extends to the browser side of live data — batteries for the platform's gaps, contracts instead of server code, and the lint stack grown into a drift wall — under a ratified constitution: a battery ships only if it wraps a platform *absence*, rides an existing standard or published machine-readable convention, lands with lint + doctest on day one, lives in a subpath the core never pays for, and carries an explicit NOT-list. Issues #84, #86–#89, #115–#120; PRs #121–#131.
+
+### Breaking
+
+- **`_t` currency must be explicit.** The hardcoded USD default is gone: `options.currency` / `data-i18n-currency` (ISO 4217), throw without one, platform `RangeError` on invalid codes. New HTML-025 catches the missing declarative code at lint time. Constitutional principle: directive attributes mirror Intl option names verbatim — OTM invents no formatting vocabulary. (#118)
+- **New error-tier lint rules** fail runs that previously passed: `otm/no-raw-websocket` (use `live()`), HTML-107 reveal-key parity. (#86, #117)
+
+### Added
+
+- **`on_the_money/live`** — WebSocket battery harvested from four production implementations of the same lifecycle: `live(pathOrState, { onMessage, onDown, onUp, signal })` → `{ send, request }`; jittered backoff with stable-timer reset and guarded dial; `close(1000)` terminal; `req_id` correlation that resolves `null` and never rejects; `takeLatest` supersession; server-advertised channels via body state. Wire conventions ship as `examples/live/asyncapi.yaml` + reference server — contract-as-document, no server code in the package. (#86)
+- **`sse()`** — EventSource adapter in the live subpath: named-event subscription, JSON-or-raw-text decode, the same handler contract; reconnection stays the platform's. Streaming-into-slot discipline documented (accumulate + whole-value projection, idempotent under `Last-Event-ID` replay). (#115)
+- **`on_the_money/clipboard`** — copy affordances via the capability-declaration pattern: `body[data-clipboard="available"]` reveals server-rendered-hidden `[data-copy]` buttons; `data-copied` pulse for the CSS flash; no dead controls without JS or a secure context. (#116)
+- **`data-bind="attr:key"`** — attribute projection, the `[data-text]` sibling: state into `href`/`src`/`datetime`/any plain attribute; `null` removes; HTML-104/106 aware. (#87)
+- **`$.cloneEach(parent, selector, items, fill)`** — list rendering with replace-children semantics; deliberately not reactive array-binding; HTML-101 recognizes the shape. (#88)
+- **`route(cb, { match })`** — selective enhancement: intercept only opted-in links, everything else navigates natively. (#89)
+- **HTML-107** — reveal-key parity wall: `data-K-key="V"` spans ↔ `[data-K="V"]` state-CSS rules, both directions. (#117)
+
+### Fixed
+
+- `otm/prefer-on` states its DOM boundary and names the sanctioned alternatives (handler properties; `live()` for sockets). (#84)
+- Test harness `location` stub gained `host`/`protocol`.
+
+### Documentation
+
+- **Substrate contract** replaces the named-stylesheet coupling: four clauses (classless semantic styling, ARIA state response, token custom properties, data-attribute theme switch); vendor a pinned copy as `-vendor.css`. The four-layer CSS architecture (`-vendor`/`-structure`/`-style`/`-state`) is canon, with `-state.css` as the only OTM-aware layer. (#119)
+- **The enhancement ladder** (rungs 0–4) with the module-form deletion test; **capability declaration** named as a pattern; **battery admission rule** published. (#119)
+
 ## [0.6.0] — 2026-07-19
 
 The alignment release. A full-repo audit (theory, specification, documentation, implementation) surfaced probe-confirmed contradictions between the README's contracts and the runtime; 0.6.0 resolves every one against a ratified doctrine (AGENTS.md §0.6.0) and adds CI enforcement so spec/implementation drift becomes a red build. Issues #91–#102, PRs #103–#114.
