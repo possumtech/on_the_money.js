@@ -293,7 +293,7 @@ Default. Anything visual goes through `[data-key="value"]` selectors in your sty
 ```css
 body[data-modal="session-expired"] #session-expired-modal { display: block }
 body[data-page="home"] main > section[data-route="home"] { display: block }
-[data-state="loading"] .spinner { display: inline }
+[data-state="loading"] progress { display: inline }
 ```
 
 ```javascript
