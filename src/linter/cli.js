@@ -62,8 +62,19 @@ export default class Cli {
 	}
 
 	static async scan(dir) {
-		const allFiles = await Cli.getFiles(dir, [".html", ".js", ".json", ".css"]);
-		const htmlPaths = allFiles.filter((f) => f.endsWith(".html"));
+		const allFiles = await Cli.getFiles(dir, [
+			".html",
+			".ejs",
+			".js",
+			".json",
+			".css",
+		]);
+		// .ejs joins the markup universe for cross-file rules (reveal spans,
+		// slots, actions); per-file rules stay .html-only — Linter.check
+		// skips non-.html, so template syntax never false-positives HTML-004.
+		const htmlPaths = allFiles.filter(
+			(f) => f.endsWith(".html") || f.endsWith(".ejs"),
+		);
 		const jsPaths = allFiles.filter((f) => f.endsWith(".js"));
 		const cssPaths = allFiles.filter((f) => f.endsWith(".css"));
 		let totalViolations = 0;
