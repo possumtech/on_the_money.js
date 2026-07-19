@@ -849,8 +849,10 @@ src/
 test/
 └── integration.test.js    # cross-module integration suite
 dist/
-└── on_the_money.min.js    # built ESM bundle (esbuild)
+└── on_the_money.min.js    # CDN/script-tag artifact only — npm resolves "." to src
 ```
+
+**One module graph.** The npm entry (`.`) and every battery subpath resolve into the same `src/` graph, so `The`'s statics (`dictionary`, `locale`, `prefix`, `persistKeys`) are one singleton everywhere. `dist/on_the_money.min.js` exists solely for `<script type="module">` hotlinking — importing it *alongside* npm subpaths would fork the core, which is exactly the bug this arrangement removes.
 
 Unit tests are co-located with source: `src/core/On.test.js`, etc.
 

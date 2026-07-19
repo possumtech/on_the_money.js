@@ -194,6 +194,17 @@ test("Integration: route.go navigates programmatically", async (_t_context) => {
 	off();
 });
 
+test("Integration: npm entry and battery subpaths share one core singleton", async (_t_context) => {
+	// Self-reference resolution: "." must land in the same module graph the
+	// batteries import, or The's statics fork (the #134 bug — "." pointed at
+	// the dist bundle while ./live imported src).
+	const entry = await import("on_the_money");
+	const core = await import("../src/core/index.js");
+	const TheDirect = (await import("../src/core/The.js")).default;
+	assert.strictEqual(entry.the, core.the);
+	assert.strictEqual(entry.the, TheDirect.the);
+});
+
 test("Integration: Namespace Storage", async (_t_context) => {
 	setupDOM(`
 		<div data-text="theme"></div>
