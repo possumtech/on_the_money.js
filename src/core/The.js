@@ -165,7 +165,9 @@ export default class The {
 						}
 					}
 					const type = el.getAttribute("data-i18n-type");
-					el.textContent = The._t(k, { ...params, type });
+					const resolved = The.#resolve(k, { ...params, type });
+					// Miss → preserve the source-language fallback text already inside.
+					if (resolved !== null) el.textContent = resolved;
 				}
 			}
 			return key;
@@ -176,6 +178,12 @@ export default class The {
 			return "";
 		}
 
+		return The.#resolve(key, options) ?? key;
+	}
+
+	// Returns the localized string, or null on a true miss (no dictionary
+	// entry and no Intl-only formatting path).
+	static #resolve(key, options) {
 		let entry = The.dictionary[key];
 		if (!entry) {
 			if (
@@ -193,7 +201,7 @@ export default class The {
 					? fmt.format(new Date(options.val))
 					: fmt.format(Number(options.val));
 			}
-			return key;
+			return null;
 		}
 
 		if (typeof entry === "object") {
@@ -221,7 +229,8 @@ export default class The {
 				val =
 					options.type === "date" ? fmt.format(new Date(v)) : fmt.format(num);
 			}
-			result = result.replace(`{${k}}`, val);
+			// Function replacement keeps $-patterns in values inert.
+			result = result.replaceAll(`{${k}}`, () => val);
 		}
 
 		return result;
