@@ -17,7 +17,37 @@ test("The._t: missing entry with type=currency still Intl-formats val", (_t) => 
 	setupDOM();
 	The.dictionary = {};
 	The.locale = "en-US";
-	assert.strictEqual(The._t("price", { val: 9.99, type: "currency" }), "$9.99");
+	assert.strictEqual(
+		The._t("price", { val: 9.99, type: "currency", currency: "USD" }),
+		"$9.99",
+	);
+	assert.strictEqual(
+		The._t("price", { val: 9.99, type: "currency", currency: "EUR" }),
+		"€9.99",
+	);
+});
+
+test("The._t: type=currency without an explicit currency throws", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	assert.throws(
+		() => The._t("price", { val: 9.99, type: "currency" }),
+		/explicit currency/,
+	);
+	The.dictionary = { price: "Costs {val}" };
+	assert.throws(
+		() => The._t("price", { val: 9.99, type: "currency" }),
+		/explicit currency/,
+	);
+});
+
+test("The._t: invalid ISO 4217 codes throw via the platform", (_t) => {
+	setupDOM();
+	The.dictionary = {};
+	assert.throws(
+		() => The._t("price", { val: 1, type: "currency", currency: "NOPE!" }),
+		RangeError,
+	);
 });
 
 test("The._t: missing entry with type=date still Intl-formats val", (_t) => {
@@ -64,7 +94,7 @@ test("The._t: node hydration replaces textContent on present keys", (_t) => {
 
 test("The._t: node hydration Intl-formats currency without a dictionary entry", (_t) => {
 	const { document } = setupDOM(
-		'<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency">$9.99</span>',
+		'<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency" data-i18n-currency="USD">$9.99</span>',
 	);
 	The.dictionary = {};
 	The.locale = "en-US";

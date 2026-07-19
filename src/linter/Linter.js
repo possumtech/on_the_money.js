@@ -69,6 +69,21 @@ export default class Linter {
 				}
 			}
 
+			if (
+				attrs["data-i18n-type"] === "currency" &&
+				!attrs["data-i18n-currency"]
+			) {
+				const loc = node.sourceCodeLocation?.attrs?.["data-i18n-type"] ||
+					node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-025",
+					'data-i18n-type="currency" without data-i18n-currency — _t() throws at runtime without an explicit code. Add data-i18n-currency (ISO 4217, e.g. "EUR").',
+				);
+			}
+
 			if (node.nodeName === "#text") {
 				const parent = node.parentNode;
 				const parentName = parent?.nodeName;
@@ -187,7 +202,8 @@ export default class Linter {
 				for (const attr of node.attrs) {
 					if (
 						attr.name.startsWith("data-i18n-") &&
-						attr.name !== "data-i18n-type"
+						attr.name !== "data-i18n-type" &&
+						attr.name !== "data-i18n-currency"
 					) {
 						params.push(attr.name.replace("data-i18n-", ""));
 					}
