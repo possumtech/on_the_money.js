@@ -1,6 +1,6 @@
 {
 	"name": "on_the_money",
-	"version": "0.6.0",
+	"version": "0.7.0",
 	"description": "Opinionated, attribute-driven, standards-oriented modern framework. Native browser APIs only. See README.md for the authoring context.",
 	"type": "module",
 	"main": "dist/on_the_money.min.js",
