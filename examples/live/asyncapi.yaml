@@ -1,0 +1,46 @@
+# on_the_money/live wire conventions — the contract agents build servers
+# against. server.js beside this file is the reference implementation.
+#
+# Envelope rules:
+#   server → client   { type, at, data }   — first frame is always
+#                     { type: "hello", at }; the type vocabulary is
+#                     append-only and unknown types must be ignorable.
+#   client → server   fire-and-forget frames are plain objects; request
+#                     frames carry a client-monotonic integer req_id and
+#                     the server echoes it verbatim on the correlated
+#                     reply.
+#   close(1000)       deliberate and terminal — the client will not
+#                     reconnect. Any other close retries with capped,
+#                     jittered exponential backoff.
+asyncapi: 3.0.0
+info:
+  title: on_the_money live channel conventions
+  version: 0.7.0
+channels:
+  live:
+    address: /ws
+    messages:
+      event:
+        payload:
+          type: object
+          required: [type, at]
+          properties:
+            type: { type: string }
+            at: { type: string, format: date-time }
+            data: { type: object }
+      request:
+        payload:
+          type: object
+          required: [req_id, type]
+          properties:
+            req_id: { type: integer }
+            type: { type: string }
+      reply:
+        payload:
+          type: object
+          required: [req_id, type, at]
+          properties:
+            req_id: { type: integer }
+            type: { type: string }
+            at: { type: string, format: date-time }
+            data: {}

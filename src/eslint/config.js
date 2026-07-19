@@ -12,14 +12,17 @@ const recommended = [
 			"otm/no-style-mutation": "error",
 			"otm/no-server-dom": "error",
 			"otm/no-document-query": "error",
+			"otm/no-raw-websocket": "error",
 		},
 	},
 	{
-		// Tests drive the DOM directly (on_the_money/test uses linkedom).
+		// Tests drive the DOM (on_the_money/test uses linkedom) and stub
+		// transports directly.
 		files: ["**/*.test.{js,mjs,ts,mts}"],
 		rules: {
 			"otm/no-server-dom": "off",
 			"otm/no-document-query": "off",
+			"otm/no-raw-websocket": "off",
 		},
 	},
 ];

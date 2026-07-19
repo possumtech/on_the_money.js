@@ -181,6 +181,25 @@ test("no-document-query", () => {
 	});
 });
 
+test("no-raw-websocket", () => {
+	tester.run("no-raw-websocket", plugin.rules["no-raw-websocket"], {
+		valid: [
+			{ code: 'const ch = live("/ws", { onMessage });' },
+			{ code: "const wss = new WebSocketServer({ noServer: true });" },
+		],
+		invalid: [
+			{
+				code: 'new WebSocket("wss://example.test/ws");',
+				errors: [{ messageId: "useLive" }],
+			},
+			{
+				code: "const s = new WebSocket(url);",
+				errors: [{ messageId: "useLive" }],
+			},
+		],
+	});
+});
+
 test("plugin: exports meta and configs.recommended", () => {
 	assert.strictEqual(plugin.meta.name, "eslint-plugin-otm");
 	assert.ok(plugin.configs.recommended.rules);

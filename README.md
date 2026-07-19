@@ -308,6 +308,39 @@ $.cloneEach("#posts", "#post-card", posts, (el, post) => {
 
 Clears `parent` (`replaceChildren`), clones the template once per item, calls `fill(el, item, index)`, returns the mounted elements. Replace-children semantics only — append flows (infinite scroll) stay a manual `$.clone` loop. Deliberately **not** reactive array-binding: no keyed diffing, no mutate-array-and-watch; that's framework territory and the wrong side of OTM's line. Composes with `data-bind` so `fill` is usually a single `the(el, {...})` call.
 
+## `on_the_money/live` — WebSocket battery
+
+The platform gives WebSocket almost nothing: no reconnection, no backoff, no dispatch, no correlation. `live()` owns exactly that absence and hands your handler the messages — how the data is *handled* stays the Discipline's job.
+
+```javascript
+import { live } from "on_the_money/live";
+
+const ch = live("/ws", {
+  onMessage(type, data, at) {
+    if (type === "status") the("model-offline", data.offline ? "1" : "");
+  },
+  onDown() { the({ modelOffline: "1", rates: "" }); },  // fail closed
+  onUp()   { /* colocated recovery, if any */ },
+  signal: controller.signal,                            // teardown
+});
+
+ch.send({ type: "ping" });
+const reply = await ch.request({ type: "filter", q: "cats" }, { takeLatest: true });
+```
+
+| Option | Behavior |
+| --- | --- |
+| `onMessage(type, data, at)` | Every non-reply frame. Unknown types must be ignorable — the vocabulary is append-only. |
+| `onDown()` / `onUp()` | Link state hooks. Fail closed in `onDown`: a dead socket should surface the degraded truth. |
+| `signal` | `AbortSignal`; abort closes the socket and stops reconnecting. |
+
+- **Channel forms.** `live("/ws", opts)` derives `ws(s)://` from the page origin; full URLs pass through. `live({ fromState: "live-channel" }, opts)` reads the server-advertised channel from body state and returns `null` when the page has no live representation — the conditional-mount pattern.
+- **Lifecycle owned:** jittered exponential backoff (capped 30 s) that resets only after the link holds stable, guarded dial (a throwing constructor reschedules, never orphans the loop), `close(1000)` is deliberate and terminal.
+- **`send(frame)`** is fire-and-forget, dropped while down — best-effort posture.
+- **`request(frame, { timeoutMs, takeLatest })`** stamps a client-monotonic `req_id`, resolves the echoed reply, and resolves `null` on down, timeout, or supersession — it never rejects. `takeLatest` makes it a latest-wins lane: stale replies drop, and while disconnected only the newest frame is held for the next open.
+- **Wire contract:** server→client frames are `{ type, at, data }` with `{ type: "hello" }` first; the conventions live in `examples/live/asyncapi.yaml` with a reference server beside it — the contract is what agents build servers against.
+- **NOT in scope:** auth handshakes, heartbeats, binary frames, offline queueing, presence.
+
 ## The Discipline
 
 on_the_money adds no reactivity primitives of its own. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. Reactivity is **delegated to the platform** — CSS selectors, `[data-text]` projection, `MutationObserver` — not absent, and not yours to reimplement. If you find yourself reaching for a reactive primitive — including importing one from another library — you're solving a problem the framework rejects.
@@ -397,14 +430,14 @@ The `body[data-modal]` indirection is correct when the state is a named enum the
 
 ### Non-DOM EventTargets
 
-`on()` is DOM delegation — `closest(selector)` against a container. A `WebSocket`, `Worker`, `AbortSignal`, or `MediaQueryList` has no selector to delegate against, and `otm/prefer-on` still flags `addEventListener` on them, deliberately: the sanctioned shape there is different. Use **handler properties** for the single-handler case these targets almost always are:
+`on()` is DOM delegation — `closest(selector)` against a container. A `Worker`, `AbortSignal`, or `MediaQueryList` has no selector to delegate against, and `otm/prefer-on` still flags `addEventListener` on them, deliberately: the sanctioned shape there is different. Use **handler properties** for the single-handler case these targets almost always are:
 
 ```javascript
-const socket = new WebSocket(`wss://${location.host}/ws`);
-socket.onmessage = (e) => receive(JSON.parse(e.data));
+const dark = matchMedia("(prefers-color-scheme: dark)");
+dark.onchange = (e) => the("scheme", e.matches ? "dark" : "light");
 ```
 
-Needing multiple listeners or `{ once }` on a non-DOM target is rare enough to warrant `// eslint-disable-next-line otm/prefer-on` with a justification comment.
+Sockets are their own case: `otm/no-raw-websocket` bans `new WebSocket` outright — use [`live()`](#on_the_moneylive--websocket-battery). Needing multiple listeners or `{ once }` on a non-DOM target is rare enough to warrant `// eslint-disable-next-line otm/prefer-on` with a justification comment.
 
 ### Banned vocabulary, in spirit
 
