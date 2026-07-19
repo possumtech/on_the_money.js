@@ -293,9 +293,14 @@ const noRawWebsocket = {
 	create(context) {
 		return {
 			NewExpression(node) {
-				if (node.callee?.name === "WebSocket") {
-					context.report({ node, messageId: "useLive" });
-				}
+				if (node.callee?.name !== "WebSocket") return;
+				// Only the browser GLOBAL is banned. An imported or locally
+				// declared WebSocket (a Node ws-package client) resolves to a
+				// definition and is outside live()'s reach — let it pass.
+				const scope = context.sourceCode.getScope(node);
+				const ref = scope.references.find((r) => r.identifier === node.callee);
+				if (ref?.resolved?.defs.length) return;
+				context.report({ node, messageId: "useLive" });
 			},
 		};
 	},

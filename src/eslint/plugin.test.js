@@ -186,6 +186,12 @@ test("no-raw-websocket", () => {
 		valid: [
 			{ code: 'const ch = live("/ws", { onMessage });' },
 			{ code: "const wss = new WebSocketServer({ noServer: true });" },
+			{
+				code: 'import WebSocket from "ws"; const s = new WebSocket(url, { headers });',
+			},
+			{
+				code: 'const { WebSocket } = await import("ws"); new WebSocket(url);',
+			},
 		],
 		invalid: [
 			{
