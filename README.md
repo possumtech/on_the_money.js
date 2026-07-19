@@ -24,7 +24,7 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="i18n" content="/locales" data-available="en" data-fallback="en">
   <title data-i18n="app_title">My App</title>
-  <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.classless.min.css">
+  <link rel="stylesheet" href="./substrate.css">
   <script type="module" src="./app.js"></script>
 </head>
 <body>
@@ -50,15 +50,30 @@ on("main", "click", '[data-action="greet"]', () => {
 
 Every text node lives inside a carrier — `data-i18n` for localizable copy, `data-text` for state-projected content — and keeps its source-language text as fallback. With `<html lang="en">` and an English visitor, boot short-circuits: no dictionary fetch, no hydration pass, the static HTML already serves the right text. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
 
-## Pico Classless integration
+## The substrate stylesheet
 
-Pico Classless is the recommended companion stylesheet. It styles semantic HTML directly — no classes, no JS. Include the stylesheet once:
+The lint stack bans class selectors, so an OTM site rides on a **classless substrate** — a stylesheet satisfying four contract clauses:
 
-```html
-<link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.classless.min.css">
+1. Styles semantic HTML directly — zero classes required (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, `<input>` with `<label>`).
+2. Responds to ARIA state attributes (`[aria-invalid]`, `[aria-busy]`, `[disabled]`, `<dialog open>`).
+3. Exposes its design tokens as CSS custom properties, so your `-style.css` themes by variable override.
+4. Hooks theme switching on a data attribute (`[data-theme="dark"]`), so `the("theme", ...)` switches it.
+
+Vendor a pinned copy as your `-vendor.css` (see [CSS architecture](#css-architecture)) rather than hotlinking a CDN. Any contract-satisfying sheet slots in; goes great with [Pico Classless](https://picocss.com)!
+
+## CSS architecture
+
+Both this framework's conventions and its lint assume a four-layer stylesheet split, one concern per file:
+
+```
+styles/
+├── app-vendor.css      # your pinned substrate copy — zero app knowledge
+├── app-structure.css   # layout scaffolding: grid/flex, gap, landmarks
+├── app-style.css       # brand: custom-property overrides of substrate tokens
+└── app-state.css       # the ONLY OTM-aware layer: attribute-selector reveals
 ```
 
-Then write semantic HTML (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, `<input>` with `<label>`, etc.). on_the_money's conventions all use `data-*` and `aria-*` attributes, so they layer cleanly under Pico's element-targeted CSS.
+`-state.css` is where `body[data-page="home"]`, reveal-key rules, and every state→visual correspondence live — the layer the deletion test exercises and HTML-106/107 audit. Keeping it separate keeps the state vocabulary greppable and the other three layers portable.
 
 ## Exports
 
@@ -310,6 +325,16 @@ $.cloneEach("#posts", "#post-card", posts, (el, post) => {
 
 Clears `parent` (`replaceChildren`), clones the template once per item, calls `fill(el, item, index)`, returns the mounted elements. Replace-children semantics only — append flows (infinite scroll) stay a manual `$.clone` loop. Deliberately **not** reactive array-binding: no keyed diffing, no mutate-array-and-watch; that's framework territory and the wrong side of OTM's line. Composes with `data-bind` so `fill` is usually a single `the(el, {...})` call.
 
+## Batteries
+
+The subpaths below are OTM's batteries — the platform's gaps, pre-disciplined. Admission is constitutional; a battery ships only when it clears all five clauses:
+
+1. It wraps a platform **absence** (the WebSocket lifecycle: yes; fetch itself: never).
+2. Its contract is an existing web standard or a published machine-readable convention — no code-only inventions.
+3. It lands with its lint rules and doctest coverage on day one.
+4. It lives in a subpath the core bundle never pays for.
+5. It carries an explicit NOT-list.
+
 ## `on_the_money/live` — WebSocket battery
 
 The platform gives WebSocket almost nothing: no reconnection, no backoff, no dispatch, no correlation. `live()` owns exactly that absence and hands your handler the messages — how the data is *handled* stays the Discipline's job.
@@ -460,13 +485,25 @@ The single best self-check: strip every JS function except `on()` handlers, the 
 - Does the page respond correctly? You're idiomatic.
 - Does it not? You're missing either a CSS rule (most likely) or an imperative call at a state-write site (occasionally).
 
+### The enhancement ladder
+
+Classify every JS module by why a page refresh cannot replace it — the rung justifies the module's existence:
+
+0. **Structure and content** — the server's job. Never JS.
+1. **State → visual** — CSS's job (mechanism #1). No JS beyond the `the()` write.
+2. **Server-initiated updates** — a refresh cannot know to happen (a payment confirmed, a comment arrived). The one category that is JS territory by definition: `live()`/`sse()` intake writing state.
+3. **Capability-gated affordances** — behavior the platform may not offer (clipboard, share, fullscreen). Feature-detect once, declare the capability as state, reveal dependent controls by CSS.
+4. **Latency elimination** — making instant what navigation already does (reactive filters via `route(cb, { match })` + `request()`). The page must stay whole without it.
+
+Every module above rung 1 must pass the deletion test's module form: **delete the file and the site is whole.** If deleting a module breaks content or structure, it was squatting on a rung that belongs to the server or to CSS.
+
 ### Element-as-state-carrier
 
 Many platform elements already carry state in their own attributes, with native CSS hooks. When the state genuinely lives on a specific element, use that — don't add a `body[data-x]` indirection:
 
 | Element | Native state attribute | What you do |
 | --- | --- | --- |
-| `<dialog>` | `[open]` | `el.setAttribute("open", "")` + Pico's `dialog[open]` CSS, or `el.showModal()` if you need the backdrop and focus trap |
+| `<dialog>` | `[open]` | `el.setAttribute("open", "")` + the substrate's `dialog[open]` CSS, or `el.showModal()` if you need the backdrop and focus trap |
 | `<details>` | `[open]` | Same shape; browser handles the disclosure UX |
 | `<input>`, `<textarea>` | `[aria-invalid]`, `[aria-required]`, `[disabled]` | Direct `setAttribute`; CSS targets `:invalid`, `[disabled]` |
 | `<button>` | `[aria-pressed]` (toggle state), `[disabled]` | Native focus/style for free |
@@ -774,7 +811,7 @@ test("theme write projects into the badge", (_t) => {
 
 ```
 my-app/
-├── index.html              # Pico + meta tags + script entry
+├── index.html              # substrate link + meta tags + script entry
 ├── app.js                  # await the.boot(); register handlers
 ├── locales/
 │   ├── en.json
