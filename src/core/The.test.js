@@ -115,6 +115,54 @@ test("the(key, null): removes the persisted localStorage entry", (_t) => {
 	The.persistKeys = new Set();
 });
 
+test("the(el, {k:v}): projects into descendant data-bind attributes", (_t) => {
+	const { document } = setupDOM(
+		'<article id="card"><a data-text="name" data-bind="href:profile-url">@x</a></article>',
+	);
+	const card = document.querySelector("#card");
+	The.the(card, { name: "@alice", profileUrl: "/@alice" });
+	const a = document.querySelector("a");
+	assert.strictEqual(a.textContent, "@alice");
+	assert.strictEqual(a.getAttribute("href"), "/@alice");
+});
+
+test("the(key, val): global writes project into data-bind document-wide", (_t) => {
+	const { document } = setupDOM(
+		'<a data-bind="href:docs-url" data-i18n="docs">Docs</a>',
+	);
+	The.the("docs-url", "/docs/v2");
+	assert.strictEqual(
+		document.querySelector("a").getAttribute("href"),
+		"/docs/v2",
+	);
+});
+
+test("data-bind: multiple pairs on one element; null removes only the bound attr", (_t) => {
+	const { document } = setupDOM(
+		'<time id="t" data-bind="datetime:at title:at-label"></time>',
+	);
+	const el = document.querySelector("#t");
+	The.the({ at: "2026-07-19", atLabel: "July" });
+	assert.strictEqual(el.getAttribute("datetime"), "2026-07-19");
+	assert.strictEqual(el.getAttribute("title"), "July");
+	The.the("at", null);
+	assert.strictEqual(el.getAttribute("datetime"), null);
+	assert.strictEqual(el.getAttribute("title"), "July");
+});
+
+test("data-bind: substring keys do not false-apply", (_t) => {
+	const { document } = setupDOM('<a id="a" data-bind="href:subtitle"></a>');
+	The.the("title", "X");
+	assert.strictEqual(document.querySelector("#a").getAttribute("href"), null);
+});
+
+test("data-bind: self-element binding applies on scoped writes", (_t) => {
+	const { document } = setupDOM('<a id="a" data-bind="href:link"></a>');
+	const a = document.querySelector("#a");
+	The.the(a, "link", "/x");
+	assert.strictEqual(a.getAttribute("href"), "/x");
+});
+
 test("the(el, key, null): deletes the scoped attribute", (_t) => {
 	const { document } = setupDOM('<div id="el"></div>');
 	const el = document.querySelector("#el");

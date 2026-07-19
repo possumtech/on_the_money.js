@@ -237,6 +237,40 @@ test("Linter.crossCheck: HTML-104 ignores scoped writes and non-template slots",
 	assert.strictEqual(collisions.length, 0);
 });
 
+test("Linter.crossCheck: HTML-104 catches data-bind slot collisions in templates", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source:
+					'<template id="c" data-otm-dynamic><a data-bind="href:link"></a></template>',
+				dicts: [],
+			},
+		],
+		jsSources: [{ file: "a.js", source: 'the("link", "/x");' }],
+	});
+	const collisions = violations.filter((v) => v.ruleId === "HTML-104");
+	assert.strictEqual(collisions.length, 1);
+	assert.match(collisions[0].message, /data-bind key "link"/);
+});
+
+test("Linter.crossCheck: HTML-106 counts data-bind consumption", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<a data-bind="href:profile-url" data-i18n="p">P</a>',
+				dicts: [],
+			},
+		],
+		jsSources: [{ file: "a.js", source: 'the("profile-url", "/@a");' }],
+	});
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-106").length,
+		0,
+	);
+});
+
 test("Linter.crossCheck: HTML-105 catches dead controls and orphan handlers", (_t) => {
 	const htmlSources = [
 		{
