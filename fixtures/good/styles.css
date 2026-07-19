@@ -10,3 +10,7 @@ main {
 [data-theme="dark"] {
   background: black;
 }
+
+body[data-menu="open"] nav {
+  display: block;
+}

@@ -62,9 +62,10 @@ export default class Cli {
 	}
 
 	static async scan(dir) {
-		const allFiles = await Cli.getFiles(dir, [".html", ".js", ".json"]);
+		const allFiles = await Cli.getFiles(dir, [".html", ".js", ".json", ".css"]);
 		const htmlPaths = allFiles.filter((f) => f.endsWith(".html"));
 		const jsPaths = allFiles.filter((f) => f.endsWith(".js"));
+		const cssPaths = allFiles.filter((f) => f.endsWith(".css"));
 		let totalViolations = 0;
 
 		const htmlSources = [];
@@ -117,9 +118,16 @@ export default class Cli {
 			jsSources.push({ file, source });
 		}
 
+		const cssSources = [];
+		for (const file of cssPaths) {
+			const source = await fs.readFile(file, "utf-8");
+			cssSources.push({ file, source });
+		}
+
 		const crossViolations = Linter.crossCheck({
 			htmlSources,
 			jsSources,
+			cssSources,
 		});
 
 		if (crossViolations.length > 0) {
@@ -129,7 +137,10 @@ export default class Cli {
 				byFile.get(v.file).push(v);
 			}
 			for (const [file, vs] of byFile) Cli.report(file, vs);
-			totalViolations += crossViolations.length;
+			// Warn-level findings are reported but never fail the run.
+			totalViolations += crossViolations.filter(
+				(v) => v.severity !== "warn",
+			).length;
 		}
 
 		if (totalViolations === 0) {
@@ -146,9 +157,9 @@ export default class Cli {
 	static report(file, violations) {
 		console.log(`\nIn ${file}:`);
 		for (const v of violations) {
-			console.log(
-				`  [${v.ruleId}] Line ${v.line}, Col ${v.column}: ${v.message}`,
-			);
+			const tag =
+				v.severity === "warn" ? `[${v.ruleId}][warn]` : `[${v.ruleId}]`;
+			console.log(`  ${tag} Line ${v.line}, Col ${v.column}: ${v.message}`);
 		}
 	}
 }
