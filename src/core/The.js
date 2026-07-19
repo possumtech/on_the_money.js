@@ -235,8 +235,15 @@ export default class The {
 		return result;
 	}
 
+	static #routeNavigate = null;
+
 	static route(callback) {
 		if (typeof window === "undefined") return;
+		if (The.#routeNavigate) {
+			throw new Error(
+				"route(): a router is already active — call its unsubscribe first",
+			);
+		}
 
 		const navigate = () =>
 			callback(
@@ -244,16 +251,18 @@ export default class The {
 				window.location.search,
 				window.location.hash,
 			);
+		The.#routeNavigate = navigate;
 
-		window.addEventListener("popstate", navigate);
-		window.addEventListener("hashchange", navigate);
-
-		document.addEventListener("click", (e) => {
+		const onClick = (e) => {
+			// Modified clicks (new tab, context menu chords) belong to the browser.
+			if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0)
+				return;
 			const link = e.target.closest("a");
 			if (
 				!link ||
 				!link.getAttribute("href") ||
 				link.hasAttribute("data-external") ||
+				link.hasAttribute("download") ||
 				link.target === "_blank"
 			) {
 				return;
@@ -271,11 +280,36 @@ export default class The {
 			}
 
 			e.preventDefault();
+			if (url.href === window.location.href) return;
 			window.history.pushState({}, "", url.href);
 			navigate();
-		});
+		};
+
+		window.addEventListener("popstate", navigate);
+		window.addEventListener("hashchange", navigate);
+		document.addEventListener("click", onClick);
 
 		navigate();
+
+		return () => {
+			window.removeEventListener("popstate", navigate);
+			window.removeEventListener("hashchange", navigate);
+			document.removeEventListener("click", onClick);
+			The.#routeNavigate = null;
+		};
+	}
+
+	// Programmatic navigation. pushState doesn't fire popstate, so the click
+	// interceptor can't cover redirects (e.g. post-submit).
+	static go(path) {
+		if (typeof window === "undefined") return;
+		if (!The.#routeNavigate) {
+			throw new Error("route.go(): no active router — call route() first");
+		}
+		const url = new URL(path, window.location.href);
+		if (url.href === window.location.href) return;
+		window.history.pushState({}, "", url.href);
+		The.#routeNavigate();
 	}
 
 	// ARIA mapping: HTML5 widget/form boolean states only. Closed set; no future
