@@ -11,6 +11,7 @@
 	"exports": {
 		".": "./dist/on_the_money.min.js",
 		"./src": "./src/core/index.js",
+		"./test": "./src/test/index.js",
 		"./eslint-plugin": "./src/eslint/plugin.js",
 		"./eslint-config": "./src/eslint/config.js",
 		"./stylelint-plugin": "./src/stylelint/plugin.js",
@@ -42,9 +43,13 @@
 		"parse5": "7.2.1"
 	},
 	"peerDependencies": {
+		"linkedom": ">=0.18",
 		"stylelint": ">=16"
 	},
 	"peerDependenciesMeta": {
+		"linkedom": {
+			"optional": true
+		},
 		"stylelint": {
 			"optional": true
 		}

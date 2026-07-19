@@ -1,14 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
-import { parseHTML } from "linkedom";
+import { setupDOM } from "../test/index.js";
 import The from "./The.js";
-
-const setupDOM = (html = "") => {
-	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
-	globalThis.document = dom.document;
-	globalThis.Node = dom.Node;
-	return dom.document;
-};
 
 test("The._t: should exist as a static function", (_t) => {
 	assert.strictEqual(typeof The._t, "function");
@@ -49,7 +42,9 @@ test("The._t: missing entry with val but no type returns key", (_t) => {
 });
 
 test("The._t: node hydration preserves textContent on missing keys", (_t) => {
-	const document = setupDOM('<h1 data-i18n="title">Welcome to the app</h1>');
+	const { document } = setupDOM(
+		'<h1 data-i18n="title">Welcome to the app</h1>',
+	);
 	The.dictionary = {};
 	The._t(document.body);
 	assert.strictEqual(
@@ -59,14 +54,16 @@ test("The._t: node hydration preserves textContent on missing keys", (_t) => {
 });
 
 test("The._t: node hydration replaces textContent on present keys", (_t) => {
-	const document = setupDOM('<h1 data-i18n="title">Welcome to the app</h1>');
+	const { document } = setupDOM(
+		'<h1 data-i18n="title">Welcome to the app</h1>',
+	);
 	The.dictionary = { title: "Bienvenido" };
 	The._t(document.body);
 	assert.strictEqual(document.querySelector("h1").textContent, "Bienvenido");
 });
 
 test("The._t: node hydration Intl-formats currency without a dictionary entry", (_t) => {
-	const document = setupDOM(
+	const { document } = setupDOM(
 		'<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency">$9.99</span>',
 	);
 	The.dictionary = {};

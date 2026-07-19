@@ -1,45 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
-import { parseHTML } from "linkedom";
+import { setupDOM } from "../test/index.js";
 import The from "./The.js";
 import { the } from "./index.js";
-
-const setupDOM = (html = "") => {
-	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
-	globalThis.document = dom.document;
-	globalThis.Node = dom.Node;
-	globalThis.Element = dom.Element;
-
-	const storage = {};
-	globalThis.localStorage = {
-		getItem: (k) => storage[k] || null,
-		setItem: (k, v) => {
-			storage[k] = String(v);
-		},
-		removeItem: (k) => {
-			delete storage[k];
-		},
-		key: (i) => Object.keys(storage)[i],
-		get length() {
-			return Object.keys(storage).length;
-		},
-		clear: () => {
-			for (const k in storage) delete storage[k];
-		},
-	};
-
-	globalThis.fetch = async (url) => {
-		if (url.includes("en.json")) {
-			return {
-				ok: true,
-				json: async () => ({ fetched: "success" }),
-			};
-		}
-		return { ok: false };
-	};
-
-	return dom;
-};
 
 test("the(key): reads global state from body", (_t) => {
 	const { document } = setupDOM();
@@ -350,6 +313,11 @@ test("the.boot(): does NOT rehydrate keys absent from persistKeys", async (_t) =
 
 test("the.boot(): fetches dictionary when <meta name=i18n> is present", async (_t) => {
 	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
+	globalThis.fetch = async (url) => {
+		if (url.includes("en.json"))
+			return { ok: true, json: async () => ({ fetched: "success" }) };
+		return { ok: false, status: 404 };
+	};
 	The.dictionary = {};
 	await The.boot();
 	assert.strictEqual(The.dictionary.fetched, "success");
