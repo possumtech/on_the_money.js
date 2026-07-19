@@ -455,3 +455,33 @@ test("Linter.crossCheck: HTML-101 recognizes cloneEach references", (_t) => {
 		0,
 	);
 });
+
+test("Linter.check: HTML-025 catches currency type without a currency code", (_t) => {
+	const code =
+		'<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency">x</span>';
+	const violations = Linter.check("test.html", code);
+	const missing = violations.filter((v) => v.ruleId === "HTML-025");
+	assert.strictEqual(missing.length, 1);
+	assert.match(missing[0].message, /data-i18n-currency/);
+});
+
+test("Linter.check: HTML-025 satisfied by data-i18n-currency; HTML-103 ignores the directive", (_t) => {
+	const code =
+		'<span data-i18n="p" data-i18n-val="9.99" data-i18n-type="currency" data-i18n-currency="EUR">x</span>';
+	assert.strictEqual(
+		Linter.check("test.html", code).filter((v) => v.ruleId === "HTML-025")
+			.length,
+		0,
+	);
+	const cross = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: code,
+				dicts: [{ locale: "en", dict: { p: "Costs {val}" } }],
+			},
+		],
+		jsSources: [],
+	});
+	assert.strictEqual(cross.filter((v) => v.ruleId === "HTML-103").length, 0);
+});

@@ -209,7 +209,7 @@ The framework preserves existing `textContent` when a dictionary key is missing,
 _t("hello");                                       // string lookup in the.dictionary
 _t("hello", { name: "Alice" });                    // {name} → "Alice"
 _t("items", { qty: 5 });                           // Intl.PluralRules picks { one, other } entry
-_t("price", { val: 9.99, type: "currency" });      // Intl.NumberFormat (USD)
+_t("price", { val: 9.99, type: "currency", currency: "EUR" });  // Intl.NumberFormat
 _t("when", { val: Date.now(), type: "date" });     // Intl.DateTimeFormat
 
 _t(node);                                          // hydrate every [data-i18n] inside node
@@ -218,11 +218,13 @@ _t();                                              // hydrate document.body
 
 Missing dictionary keys preserve existing `textContent` during element hydration (SEO fallback); the programmatic string form returns the key. Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
 
+**Formatting vocabulary is Intl's, verbatim.** Directive attributes mirror Intl option names one-to-one — `data-i18n-currency` → `currency` — and OTM defaults none of them: `type: "currency"` without an explicit currency **throws** (the platform itself refuses to infer currency from locale, and it validates ISO 4217 codes with a `RangeError`). The framework ships Intl plumbing, never a currency choice; HTML-025 catches the missing declarative code at lint time.
+
 `[data-i18n]` element binding (always include source-language fallback text inside):
 
 ```html
 <span data-i18n="cart_items" data-i18n-qty="3">3 items</span>
-<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency">$9.99</span>
+<span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency" data-i18n-currency="USD">$9.99</span>
 ```
 
 ### `route(callback)` — pushState router
@@ -718,6 +720,7 @@ npx otm-lint --check ./src
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
+| **HTML-025** | `data-i18n-type="currency"` without `data-i18n-currency` | `_t()` throws at runtime without an explicit ISO 4217 code — declare it on the element. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the fallback-to-source UX gap at lint time. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |

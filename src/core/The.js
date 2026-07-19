@@ -191,6 +191,18 @@ export default class The {
 		return The.#resolve(key, options) ?? key;
 	}
 
+	// The framework ships Intl plumbing, never a currency choice: no
+	// default — the platform itself refuses to infer currency from locale,
+	// and Intl throws RangeError on invalid ISO 4217 codes.
+	static #currency(options) {
+		if (!options.currency) {
+			throw new TypeError(
+				'_t: type "currency" requires an explicit currency (options.currency or data-i18n-currency)',
+			);
+		}
+		return options.currency;
+	}
+
 	// Returns the localized string, or null on a true miss (no dictionary
 	// entry and no Intl-only formatting path).
 	static #resolve(key, options) {
@@ -204,7 +216,7 @@ export default class The {
 					options.type === "currency"
 						? new Intl.NumberFormat(The.locale, {
 								style: "currency",
-								currency: "USD",
+								currency: The.#currency(options),
 							})
 						: new Intl.DateTimeFormat(The.locale);
 				return options.type === "date"
@@ -231,7 +243,7 @@ export default class The {
 					options.type === "currency"
 						? new Intl.NumberFormat(The.locale, {
 								style: "currency",
-								currency: "USD",
+								currency: The.#currency(options),
 							})
 						: options.type === "date"
 							? new Intl.DateTimeFormat(The.locale)
