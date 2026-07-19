@@ -22,6 +22,24 @@ test("Cli.run: should return violation count when scanning bad fixtures", async 
 	assert.ok(result > 0);
 });
 
+test("Cli.scan: detects <meta name=i18n> regardless of attribute order", async (_t) => {
+	const fs = await import("node:fs/promises");
+	const os = await import("node:os");
+	const path = await import("node:path");
+	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "otm-lint-meta-"));
+	await fs.mkdir(path.join(tmp, "locales"));
+	await fs.writeFile(path.join(tmp, "locales", "en.json"), '{"t":"T"}');
+	await fs.writeFile(
+		path.join(tmp, "index.html"),
+		'<!DOCTYPE html><html lang="en"><head><meta content="./locales" data-available="en,zz" data-fallback="en" name="i18n"></head><body><h1 data-i18n="t">T</h1></body></html>',
+	);
+	// data-available lists "zz" the folder lacks → HTML-024 fires only if the
+	// meta tag was actually detected despite content-before-name ordering.
+	const result = await Cli.run(["--check", tmp]);
+	assert.ok(result > 0, "expected HTML-024 from the mismatched manifest");
+	await fs.rm(tmp, { recursive: true, force: true });
+});
+
 test("Cli.getFiles: collects .html, skips node_modules, dist, .git, dotdirs", async (_t) => {
 	const fs = await import("node:fs/promises");
 	const os = await import("node:os");

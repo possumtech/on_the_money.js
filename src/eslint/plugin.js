@@ -36,7 +36,7 @@ const preferTheSet = {
 		},
 		messages: {
 			useThe:
-				"Direct text manipulation is forbidden. Use the() or [data-text] binding instead. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render. See README §The Discipline.",
+				"Direct text manipulation is forbidden. Use the(el, key, val) with a [data-text] slot for content, or el.replaceChildren() to clear a container. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render. See README §The Discipline.",
 		},
 		schema: [],
 	},
