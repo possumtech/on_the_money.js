@@ -290,6 +290,44 @@ test("the.boot({ dictionary }): uses inline dictionary, skips fetch", async (_t)
 	assert.strictEqual(The.dictionary.greeting, "hi");
 });
 
+test("the.boot({ dictionary }): loads inline dictionary under the locale short-circuit; hydration still skipped", async (_t) => {
+	const dom = setupDOM('<h1 data-i18n="app_title">Source text</h1>');
+	dom.document.documentElement.setAttribute("lang", "en");
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({}) };
+	};
+	The.dictionary = {};
+	await The.boot({ dictionary: { app_title: "On The Money" } });
+	assert.strictEqual(The.dictionary.app_title, "On The Money");
+	assert.strictEqual(fetched, false);
+	assert.strictEqual(
+		dom.document.querySelector("h1").textContent,
+		"Source text",
+	);
+});
+
+test("the.boot(): failed dictionary fetch warns and falls back to data-fallback file", async (t) => {
+	setupDOM(
+		'<meta name="i18n" content="/locales" data-available="es,en" data-fallback="en">',
+	);
+	The.prefix = "otm:";
+	localStorage.setItem("otm:lang", "es");
+	const warn = t.mock.method(console, "warn", () => {});
+	const urls = [];
+	globalThis.fetch = async (url) => {
+		urls.push(url);
+		if (url.includes("es.json")) return { ok: false, status: 404 };
+		return { ok: true, json: async () => ({ fetched: "fallback" }) };
+	};
+	The.dictionary = {};
+	await The.boot();
+	assert.deepStrictEqual(urls, ["/locales/es.json", "/locales/en.json"]);
+	assert.strictEqual(The.dictionary.fetched, "fallback");
+	assert.strictEqual(warn.mock.calls.length, 1);
+});
+
 test("the.boot({ locales }): overrides meta-tag path", async (_t) => {
 	setupDOM();
 	let requestedUrl = "";

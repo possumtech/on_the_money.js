@@ -1,7 +1,6 @@
 export default class The {
 	static dictionary = {};
-	static locale =
-		typeof navigator !== "undefined" ? navigator.language : "en-US";
+	static locale = typeof navigator !== "undefined" ? navigator.language : "en";
 	static prefix = "otm:";
 	// Default: nothing persists. Opt in per key via the.boot({ persistKeys }).
 	static persistKeys = new Set();
@@ -350,31 +349,44 @@ export default class The {
 		const sourceBase = sourceLang?.toLowerCase().split("-")[0];
 		const skipI18n = Boolean(sourceBase) && localeBase === sourceBase;
 
-		if (!skipI18n) {
-			if (dictionary) {
-				The.dictionary = dictionary;
-			} else {
-				const meta = document.querySelector('meta[name="i18n"]');
-				const path = locales || meta?.getAttribute("content");
-				if (path) {
-					const fallback = meta?.getAttribute("data-fallback") || "en";
-					const available = (meta?.getAttribute("data-available") || "")
-						.split(",")
-						.map((s) => s.trim().toLowerCase());
+		// Inline dictionary always loads — programmatic _t() must work even when
+		// the locale short-circuit skips the fetch and the hydration pass.
+		if (dictionary) {
+			The.dictionary = dictionary;
+		} else if (!skipI18n) {
+			const meta = document.querySelector('meta[name="i18n"]');
+			const path = locales || meta?.getAttribute("content");
+			if (path) {
+				const fallback = meta?.getAttribute("data-fallback") || "en";
+				const available = (meta?.getAttribute("data-available") || "")
+					.split(",")
+					.map((s) => s.trim().toLowerCase());
 
-					const full = The.locale.toLowerCase();
-					const base = full.split("-")[0];
+				const full = The.locale.toLowerCase();
+				const base = full.split("-")[0];
 
-					let target = fallback;
-					if (available.includes(full)) target = full;
-					else if (available.includes(base)) target = base;
+				let target = fallback;
+				if (available.includes(full)) target = full;
+				else if (available.includes(base)) target = base;
 
-					try {
-						const res = await fetch(`${path}/${target}.json`, { signal });
-						if (res.ok) The.dictionary = await res.json();
-					} catch (e) {
-						if (signal?.aborted) throw e;
-						console.warn("otm: i18n fetch failed", e);
+				const load = async (loc) => {
+					const res = await fetch(`${path}/${loc}.json`, { signal });
+					if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc}.json`);
+					return res.json();
+				};
+
+				try {
+					The.dictionary = await load(target);
+				} catch (e) {
+					if (signal?.aborted) throw e;
+					console.warn(`otm: i18n fetch failed for "${target}"`, e);
+					if (target !== fallback) {
+						try {
+							The.dictionary = await load(fallback);
+						} catch (e2) {
+							if (signal?.aborted) throw e2;
+							console.warn(`otm: i18n fallback "${fallback}" failed`, e2);
+						}
 					}
 				}
 			}
