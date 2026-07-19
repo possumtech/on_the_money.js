@@ -72,7 +72,9 @@ export default class Linter {
 			if (node.nodeName === "#text") {
 				const parent = node.parentNode;
 				const parentName = parent?.nodeName;
-				const hasI18n = parent?.attrs?.some((a) => a.name === "data-i18n");
+				const hasCarrier = parent?.attrs?.some(
+					(a) => a.name === "data-i18n" || a.name === "data-text",
+				);
 				const leafTextParents = new Set([
 					"script",
 					"style",
@@ -84,7 +86,7 @@ export default class Linter {
 				if (
 					!leafTextParents.has(parentName) &&
 					node.value.trim() !== "" &&
-					!hasI18n
+					!hasCarrier
 				) {
 					const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
 					Linter.#addViolation(
@@ -92,7 +94,7 @@ export default class Linter {
 						file,
 						{ line: loc.startLine, column: loc.startCol },
 						"HTML-004",
-						"Naked strings in HTML are forbidden. Use data-i18n or wrap in a semantic tag (for label/value pairs, prefer <dl>/<dt>/<dd>).",
+						'Naked text is forbidden. Give the enclosing element data-i18n="key" (localizable copy) or data-text="key" (state-projected content), keeping this text in place as the source-language fallback.',
 					);
 				}
 			}
@@ -105,7 +107,7 @@ export default class Linter {
 					file,
 					{ line: 1, column: 1 },
 					"HTML-023",
-					"Localization detected, but missing <meta name='i18n' ...>.",
+					'Localization detected, but missing <meta name=\'i18n\' ...>. Add <meta name="i18n" content="/locales" data-available="en" data-fallback="en"> to <head>.',
 				);
 			} else if (!manifestMatches) {
 				Linter.#addViolation(
@@ -113,7 +115,7 @@ export default class Linter {
 					file,
 					{ line: 1, column: 1 },
 					"HTML-024",
-					"The data-available attribute on <meta name='i18n'> does not match the locales folder.",
+					"The data-available attribute on <meta name='i18n'> does not match the locales folder. Update data-available to list exactly the locale .json files present.",
 				);
 			}
 		}

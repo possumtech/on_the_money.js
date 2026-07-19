@@ -21,6 +21,20 @@ test("Linter.check: HTML-004 allows data-i18n", (_t) => {
 	assert.strictEqual(naked.length, 0);
 });
 
+test("Linter.check: HTML-004 allows data-text carriers with fallback text", (_t) => {
+	const code = '<strong data-text="user">friend</strong>';
+	const violations = Linter.check("test.html", code);
+	const naked = violations.filter((v) => v.ruleId === "HTML-004");
+	assert.strictEqual(naked.length, 0);
+});
+
+test("Linter.check: HTML-004 message names both carriers", (_t) => {
+	const violations = Linter.check("test.html", "<div>hello</div>");
+	const naked = violations.filter((v) => v.ruleId === "HTML-004");
+	assert.match(naked[0].message, /data-i18n="key"/);
+	assert.match(naked[0].message, /data-text="key"/);
+});
+
 test("Linter.check: HTML-004 allows leaf-text elements (option, textarea, title)", (_t) => {
 	const code =
 		"<select><option>English</option></select><textarea>x</textarea><title>X</title>";

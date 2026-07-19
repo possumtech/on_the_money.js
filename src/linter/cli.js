@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import * as parse5 from "parse5";
 import Linter from "./Linter.js";
 
 export default class Cli {
@@ -20,6 +21,27 @@ export default class Cli {
 	}
 
 	static #excludeDirs = new Set(["node_modules", "dist", ".git"]);
+
+	// parse5, not regex — attribute order must not matter.
+	static #findI18nMeta(source) {
+		const doc = parse5.parse(source);
+		let content = null;
+		const walk = (node) => {
+			if (content) return;
+			if (node.nodeName === "meta") {
+				const attrs = Object.fromEntries(
+					(node.attrs || []).map((a) => [a.name, a.value]),
+				);
+				if (attrs.name === "i18n" && attrs.content) {
+					content = attrs.content;
+					return;
+				}
+			}
+			for (const child of node.childNodes || []) walk(child);
+		};
+		walk(doc);
+		return content;
+	}
 
 	static async getFiles(dir, exts = [".html"]) {
 		const entries = await fs.readdir(dir, { withFileTypes: true });
@@ -51,11 +73,11 @@ export default class Cli {
 			let availableLocales = null;
 			const dicts = [];
 
-			const match = source.match(/<meta\s+name="i18n"\s+content="([^"]+)"/);
-			if (match) {
+			const metaContent = Cli.#findI18nMeta(source);
+			if (metaContent) {
 				const localesDir = path.resolve(
 					path.dirname(file),
-					match[1].startsWith("/") ? `.${match[1]}` : match[1],
+					metaContent.startsWith("/") ? `.${metaContent}` : metaContent,
 				);
 				try {
 					const entries = await fs.readdir(localesDir);
