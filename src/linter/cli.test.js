@@ -2,27 +2,41 @@ import assert from "node:assert";
 import test from "node:test";
 import Cli from "./cli.js";
 
-test("Cli.run: should return 0 when called with empty args", async (_t) => {
+// The CLI narrates to the console; in tests that chatter rides the test
+// runner's worker IPC channel and has twice triggered the 'Unable to
+// deserialize cloned data' race (#30). Silence it — exit codes are the
+// contract under test, not the prose.
+const quiet = (t) => {
+	t.mock.method(console, "log", () => {});
+	t.mock.method(console, "error", () => {});
+};
+
+test("Cli.run: should return 0 when called with empty args", async (t) => {
+	quiet(t);
 	const result = await Cli.run([]);
 	assert.strictEqual(result, 0);
 });
 
-test("Cli.run: should return -1 when scan fails", async (_t) => {
+test("Cli.run: should return -1 when scan fails", async (t) => {
+	quiet(t);
 	const result = await Cli.run(["--check", "./non-existent-dir"]);
 	assert.strictEqual(result, -1);
 });
 
-test("Cli.run: should return 0 when scanning good fixtures", async (_t) => {
+test("Cli.run: should return 0 when scanning good fixtures", async (t) => {
+	quiet(t);
 	const result = await Cli.run(["--check", "./fixtures/good"]);
 	assert.strictEqual(result, 0);
 });
 
-test("Cli.run: should return violation count when scanning bad fixtures", async (_t) => {
+test("Cli.run: should return violation count when scanning bad fixtures", async (t) => {
+	quiet(t);
 	const result = await Cli.run(["--check", "./fixtures/bad"]);
 	assert.ok(result > 0);
 });
 
-test("Cli.scan: detects <meta name=i18n> regardless of attribute order", async (_t) => {
+test("Cli.scan: detects <meta name=i18n> regardless of attribute order", async (t) => {
+	quiet(t);
 	const fs = await import("node:fs/promises");
 	const os = await import("node:os");
 	const path = await import("node:path");
@@ -64,7 +78,8 @@ test("Cli.getFiles: collects .html, skips node_modules, dist, .git, dotdirs", as
 	await fs.rm(tmp, { recursive: true, force: true });
 });
 
-test("Cli.scan: .ejs joins the markup universe for cross-file rules", async (_t) => {
+test("Cli.scan: .ejs joins the markup universe for cross-file rules", async (t) => {
+	quiet(t);
 	const fs = await import("node:fs/promises");
 	const os = await import("node:os");
 	const path = await import("node:path");
