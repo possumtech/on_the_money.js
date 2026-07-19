@@ -221,6 +221,8 @@ Fires the callback on initial mount, on `popstate`, on `hashchange`, and on inte
 
 Returns an unsubscribe function. One router at a time: calling `route()` while another registration is active throws — unsubscribe the first.
 
+**Selective enhancement:** `route(cb, { match: "[data-route]" })` intercepts only links matching the selector — the opt-in polarity for making specific controls instant (sort toggles, filters) while the rest of the site navigates natively. Non-matching links are untouched; `popstate` and `route.go` behave identically in both modes, so the back button stays correct without any hand-rolled listener.
+
 ### `route.go(path)` — programmatic navigation
 
 ```javascript
