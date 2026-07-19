@@ -202,3 +202,130 @@ test("Linter.crossCheck: HTML-102/103 skipped when dicts empty", (_t) => {
 	const violations = Linter.crossCheck({ htmlSources, jsSources: [] });
 	assert.strictEqual(violations.length, 0);
 });
+
+test("Linter.crossCheck: HTML-104 catches global/scoped data-text key collision", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<template id="card" data-otm-dynamic><h2 data-text="title"></h2></template>',
+			dicts: [],
+		},
+	];
+	const jsSources = [{ file: "a.js", source: 'the("title", "My Site");' }];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	const collisions = violations.filter((v) => v.ruleId === "HTML-104");
+	assert.strictEqual(collisions.length, 1);
+	assert.match(collisions[0].message, /"title"/);
+	assert.match(collisions[0].message, /a\.js:1/);
+});
+
+test("Linter.crossCheck: HTML-104 ignores scoped writes and non-template slots", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source:
+				'<h1 data-text="title"></h1><template id="card" data-otm-dynamic><h2 data-text="name"></h2></template>',
+			dicts: [],
+		},
+	];
+	const jsSources = [
+		{ file: "a.js", source: 'the("title", "x"); the(el, "name", "y");' },
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	const collisions = violations.filter((v) => v.ruleId === "HTML-104");
+	assert.strictEqual(collisions.length, 0);
+});
+
+test("Linter.crossCheck: HTML-105 catches dead controls and orphan handlers", (_t) => {
+	const htmlSources = [
+		{
+			file: "a.html",
+			source: '<button data-action="save" data-i18n="s">Save</button>',
+			dicts: [],
+		},
+	];
+	const jsSources = [
+		{
+			file: "a.js",
+			source: `on("main", "click", '[data-action="ghost"]', fn);`,
+		},
+	];
+	const violations = Linter.crossCheck({ htmlSources, jsSources });
+	const dead = violations.filter(
+		(v) => v.ruleId === "HTML-105" && /dead control/.test(v.message),
+	);
+	const orphan = violations.filter(
+		(v) => v.ruleId === "HTML-105" && /orphan handler/.test(v.message),
+	);
+	assert.strictEqual(dead.length, 1);
+	assert.match(dead[0].message, /"save"/);
+	assert.strictEqual(orphan.length, 1);
+	assert.match(orphan[0].message, /"ghost"/);
+});
+
+test("Linter.crossCheck: HTML-105 satisfied by matching handler; wildcard dispatch waives dead-control check", (_t) => {
+	const matched = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<button data-action="save" data-i18n="s">Save</button>',
+				dicts: [],
+			},
+		],
+		jsSources: [
+			{ file: "a.js", source: `on("m", "click", '[data-action="save"]', f);` },
+		],
+	});
+	assert.strictEqual(matched.filter((v) => v.ruleId === "HTML-105").length, 0);
+
+	const wildcard = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.html",
+				source: '<button data-action="anything" data-i18n="s">Go</button>',
+				dicts: [],
+			},
+		],
+		jsSources: [
+			{ file: "a.js", source: `on("m", "click", "[data-action]", f);` },
+		],
+	});
+	assert.strictEqual(wildcard.filter((v) => v.ruleId === "HTML-105").length, 0);
+});
+
+test("Linter.crossCheck: HTML-106 warns on unconsumed global keys; CSS consumption satisfies it", (_t) => {
+	const jsSources = [{ file: "a.js", source: 'the("theme", "dark");' }];
+
+	const unconsumed = Linter.crossCheck({ htmlSources: [], jsSources });
+	const warns = unconsumed.filter((v) => v.ruleId === "HTML-106");
+	assert.strictEqual(warns.length, 1);
+	assert.strictEqual(warns[0].severity, "warn");
+	assert.match(warns[0].message, /"theme"/);
+
+	const consumed = Linter.crossCheck({
+		htmlSources: [],
+		jsSources,
+		cssSources: [
+			{ file: "a.css", source: 'body[data-theme="dark"] { color: red }' },
+		],
+	});
+	assert.strictEqual(consumed.filter((v) => v.ruleId === "HTML-106").length, 0);
+});
+
+test("Linter.crossCheck: HTML-106 counts MutationObserver attributeFilter as consumption", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [],
+		jsSources: [
+			{
+				file: "a.js",
+				source:
+					'the("modal", "x"); observer.observe(document.body, { attributeFilter: ["data-modal"] });',
+			},
+		],
+	});
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-106").length,
+		0,
+	);
+});

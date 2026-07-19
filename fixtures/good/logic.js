@@ -1,5 +1,5 @@
-// JS-003: Good (no direct style)
-the(".menu", "visible", "true");
+// JS-003: Good (no direct style) — data-menu is consumed by styles.css
+the("menu", "open");
 
 // JS-009: Good (event delegation)
 on(document, "submit", "form", (e) => console.log(e));

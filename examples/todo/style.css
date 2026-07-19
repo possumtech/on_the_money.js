@@ -68,4 +68,9 @@ ul {
 	margin-left: auto;
 	background: #e74c3c;
 	padding: 0.2rem 0.5rem;
+
+	/* Presentation glyph lives in CSS; the accessible name is the aria-label. */
+	&::before {
+		content: "\00d7";
+	}
 }
