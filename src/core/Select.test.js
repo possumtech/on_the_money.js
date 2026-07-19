@@ -1,16 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
-import { parseHTML } from "linkedom";
+import { setupDOM } from "../test/index.js";
 import Select from "./Select.js";
 import The from "./The.js";
-
-const setupDOM = (html = "") => {
-	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
-	globalThis.document = dom.document;
-	globalThis.Node = dom.Node;
-	globalThis.CustomEvent = dom.CustomEvent;
-	return dom.document;
-};
 
 test("Select.$: should find element in document by default", (_t) => {
 	setupDOM('<div class="find-me"></div>');
@@ -20,7 +12,7 @@ test("Select.$: should find element in document by default", (_t) => {
 });
 
 test("Select.$: should find element within context", (_t) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
     <div class="parent">
       <span class="child"></span>
     </div>
@@ -40,7 +32,7 @@ test("Select.$$: should return real Array", (_t) => {
 });
 
 test("Select.clone: should clone template and return first element", (_t) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
     <div id="mount"></div>
     <template id="tmp">
       <div class="cloned">Hello</div>
@@ -82,7 +74,7 @@ test("Select.clone: should throw if parent not found", (_t) => {
 });
 
 test("Select.clone: { position: 'afterbegin' } prepends instead of appending", (_t) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<ul id="list"><li id="existing"></li></ul>
 		<template id="tmp"><li class="new"></li></template>
 	`);
@@ -93,7 +85,7 @@ test("Select.clone: { position: 'afterbegin' } prepends instead of appending", (
 });
 
 test("Select.clone: { position: 'beforeend' } default appends", (_t) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<ul id="list"><li id="existing"></li></ul>
 		<template id="tmp"><li class="new"></li></template>
 	`);
@@ -103,7 +95,7 @@ test("Select.clone: { position: 'beforeend' } default appends", (_t) => {
 });
 
 test("Select.clone: { position: 'beforebegin' } inserts as sibling before reference", (_t) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<ul id="parent"><li id="anchor"></li></ul>
 		<template id="tmp"><div class="sibling"></div></template>
 	`);

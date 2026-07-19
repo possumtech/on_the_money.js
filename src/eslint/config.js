@@ -14,6 +14,14 @@ const recommended = [
 			"otm/no-document-query": "error",
 		},
 	},
+	{
+		// Tests drive the DOM directly (on_the_money/test uses linkedom).
+		files: ["**/*.test.{js,mjs,ts,mts}"],
+		rules: {
+			"otm/no-server-dom": "off",
+			"otm/no-document-query": "off",
+		},
+	},
 ];
 
 export default recommended;

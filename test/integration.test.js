@@ -1,64 +1,11 @@
 import assert from "node:assert";
 import test from "node:test";
-import { parseHTML } from "linkedom";
 import The from "../src/core/The.js";
 import { $, $$, _t, on, route, the } from "../src/core/index.js";
-
-const setupDOM = (html = "") => {
-	const dom = parseHTML(`<!DOCTYPE html><html><body>${html}</body></html>`);
-	globalThis.document = dom.document;
-	globalThis.Node = dom.Node;
-	globalThis.Element = dom.Element;
-	globalThis.CustomEvent = dom.CustomEvent;
-	globalThis.HTMLElement = dom.HTMLElement;
-	globalThis.HTMLFormElement = dom.HTMLFormElement;
-	globalThis.FormData = dom.FormData;
-	globalThis.window = dom.window;
-
-	Object.defineProperty(globalThis, "navigator", {
-		value: { language: "en-US" },
-		configurable: true,
-		writable: true,
-	});
-
-	globalThis.window.location = {
-		pathname: "/",
-		search: "",
-		hash: "",
-		origin: "http://localhost",
-		href: "http://localhost/",
-	};
-
-	globalThis.window.history = {
-		pushState: (_state, _title, url) => {
-			const u = new URL(url, "http://localhost");
-			globalThis.window.location.href = u.href;
-			globalThis.window.location.pathname = u.pathname;
-			globalThis.window.location.search = u.search;
-			globalThis.window.location.hash = u.hash;
-		},
-	};
-
-	const storage = {};
-	globalThis.localStorage = {
-		getItem: (k) => storage[k] || null,
-		setItem: (k, v) => {
-			storage[k] = String(v);
-		},
-		key: (i) => Object.keys(storage)[i],
-		get length() {
-			return Object.keys(storage).length;
-		},
-		clear: () => {
-			for (const k in storage) delete storage[k];
-		},
-	};
-
-	return dom.document;
-};
+import { setupDOM } from "../src/test/index.js";
 
 test("Integration: The Full Lifecycle (Strict Clone)", async (_t_context) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<template id="item-tmp">
 			<li data-item aria-checked="false">
 				<span data-text="task"></span>
@@ -88,7 +35,7 @@ test("Integration: The Full Lifecycle (Strict Clone)", async (_t_context) => {
 });
 
 test("Integration: Form Extraction (Advanced)", async (_t_context) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<form id="my-form">
 			<input name="user[name]" value="John">
 			<input name="user[email]" value="john@example.com">
@@ -112,7 +59,7 @@ test("Integration: Form Extraction (Advanced)", async (_t_context) => {
 });
 
 test("Integration: Surgical Router", async (_t_context) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<nav>
 			<a href="/about" id="about-link">About</a>
 			<a href="#section" id="hash-link">Hash</a>
@@ -141,7 +88,7 @@ test("Integration: Surgical Router", async (_t_context) => {
 });
 
 test("Integration: Router ignores modified clicks and download links", async (_t_context) => {
-	const dom = setupDOM(`
+	const { document: dom } = setupDOM(`
 		<a href="/about" id="about-link">About</a>
 		<a href="/file.pdf" id="dl-link" download>File</a>
 	`);
@@ -167,7 +114,7 @@ test("Integration: Router ignores modified clicks and download links", async (_t
 });
 
 test("Integration: Router treats same-URL clicks as no-ops", async (_t_context) => {
-	const dom = setupDOM('<a href="/" id="self-link">Home</a>');
+	const { document: dom } = setupDOM('<a href="/" id="self-link">Home</a>');
 
 	let calls = 0;
 	const off = route(() => {
@@ -182,7 +129,9 @@ test("Integration: Router treats same-URL clicks as no-ops", async (_t_context) 
 });
 
 test("Integration: Router unsubscribe detaches; re-registration works; double-registration throws", async (_t_context) => {
-	const dom = setupDOM('<a href="/about" id="about-link">About</a>');
+	const { document: dom } = setupDOM(
+		'<a href="/about" id="about-link">About</a>',
+	);
 
 	let calls = 0;
 	const off = route(() => {
