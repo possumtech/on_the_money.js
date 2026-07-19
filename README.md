@@ -363,6 +363,28 @@ sse("/stream/answer", {
 
 **Streaming into a slot:** accumulate in JS, project the whole value through `the()` each chunk. Replace-semantics projection is idempotent, so a platform reconnect replaying from `Last-Event-ID` re-renders correctly instead of duplicating text. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job), custom backoff (the server's `retry:` hint governs), `Authorization` headers (cookie auth only; header auth needs fetch-streaming, deferred until a consumer needs it).
 
+## `on_the_money/clipboard` — copy affordances
+
+Clipboard writes are behavior CSS cannot express, and the API exists only in secure contexts. This battery is the **capability-declaration pattern** in 20 lines: render copy buttons hidden, declare the capability as state, let state-CSS reveal them. With JS off or no clipboard API, the buttons never appear — no dead controls.
+
+```html
+<button data-copy="npm install on_the_money" data-i18n="copy-cmd">Copy</button>
+```
+
+```css
+[data-copy] { display: none; }
+body[data-clipboard="available"] [data-copy] { display: inline-block; }
+[data-copy][data-copied="true"] { outline: 2px solid var(--ok, green); }
+```
+
+```javascript
+import { clipboard } from "on_the_money/clipboard";
+
+const off = clipboard();   // null when the capability is absent
+```
+
+Clicking any `[data-copy]` writes the attribute's value to the clipboard and pulses `data-copied="true"` on the button for two seconds (`{ resetMs }` to tune) — the confirmation flash is CSS's job. **Capability declaration generalizes**: feature-detect once, write one state attribute, and every dependent control is revealed by stylesheet rule instead of JS existence checks scattered per control.
+
 ## The Discipline
 
 on_the_money adds no reactivity primitives of its own. No signal, effect, autorun, watch, atom, store, derived state, or subscription. There is also no event broadcast on `the()` writes. Reactivity is **delegated to the platform** — CSS selectors, `[data-text]` projection, `MutationObserver` — not absent, and not yours to reimplement. If you find yourself reaching for a reactive primitive — including importing one from another library — you're solving a problem the framework rejects.
