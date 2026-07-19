@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-07-19
+
+The alignment release. A full-repo audit (theory, specification, documentation, implementation) surfaced probe-confirmed contradictions between the README's contracts and the runtime; 0.6.0 resolves every one against a ratified doctrine (AGENTS.md §0.6.0) and adds CI enforcement so spec/implementation drift becomes a red build. Issues #91–#102, PRs #103–#114.
+
+### Breaking
+
+- **`the(key, null)` now deletes** — removes the attribute, clears `[data-text]` mirrors, removes the persisted `localStorage` entry for `persistKeys` members. Previously wrote the literal string `"null"`. `undefined` still throws. (#94)
+- **ariaMap is element-scoped only.** Global writes always produce `data-*`; `the("hidden", true)` no longer sets `aria-hidden` on `<body>` (which hid the whole app from screen readers). (#94)
+- **`the.form`**: `[]` names yield arrays at every cardinality (was string at 1, array at 2+); multi-`<select>` yields all selected values; file inputs skipped. (#95)
+- **`route()`** returns an unsubscribe and throws on double-registration while one is active (previously stacked listeners and corrupted history). (#93)
+- **HTML-004** reimplemented: rendered text must live inside a `data-i18n` or `data-text` carrier, kept as source-language fallback. `data-text` parents are exempt now; the "wrap in a semantic tag" guidance (which the implementation never honored) is gone. (#96)
+
+### Fixed
+
+- `_t()` element hydration preserves existing `textContent` on missing dictionary keys — as the README always claimed. Interpolation replaces every `{token}` occurrence and is inert to `$`-patterns in values. (#91)
+- `the.boot({ dictionary })` loads unconditionally; the locale short-circuit governs only the fetch and hydration pass (the quickstart's dictionary was previously discarded silently). Failed dictionary fetches warn and retry the `data-fallback` file. Locale default unified to `"en"`. (#92)
+- Router guards modified clicks (meta/ctrl/shift/alt, non-primary button) and `[download]` links; same-URL clicks no-op. (#93)
+- `on()` throws a named contract error when a string parent matches nothing. (#95)
+- otm-lint detects `<meta name="i18n">` via parse5 — attribute order no longer silently disables HTML-024/102/103. (#96)
+- Latent `Linter.#traverse` bug: parse5 template content was never walked; HTML rules now inspect template subtrees. (#97)
+
+### Added
+
+- `route.go(path)` — programmatic navigation (`pushState` never fires `popstate`; redirects had no sanctioned path). (#93)
+- **HTML-104**: global `the()` write keys colliding with `data-text` slots in `<template>` subtrees. (#97)
+- **HTML-105**: `data-action` ↔ `on()` selector cross-check, both directions (dead controls, orphan handlers); generic `[data-action]` dispatch waives, `data-otm-dynamic` opts out. (#97)
+- **HTML-106** (warn tier — reported, never fails the run): the deletion test as lint — globally written keys nothing consumes. otm-lint now scans `.css`. (#97)
+- **`on_the_money/test`** subpath: the `setupDOM` linkedom harness consumers need to test OTM apps; the repo's own suite dogfoods it. `linkedom` is an optional peer. Shipped eslint config exempts `**/*.test.*` from `no-server-dom`/`no-document-query`. (#98)
+- **Dogfooding**: `eslint.config.js`/`stylelint.config.js` consume the shipped configs via package self-reference; `npm run lint:examples` wired into the `check` gate. (#99)
+- **README doctest harness**: every fenced HTML block linted, the quickstart cross-file-scanned and executed end-to-end, every JS block parsed, every CSS block stylelinted — in CI. (#101)
+
+### Documentation
+
+- README rewritten against the doctrine: lint-clean quickstart that teaches real boot behavior, opt-in persistence stated once and correctly, reactivity reframed as delegated-to-platform, all new contracts documented, Testing-your-app section, fetch-intake + `replaceChildren()` recipes, hot-swap pattern persists the language. Size claims and the (incorrect) PurgeCSS section removed. (#100, #102)
+
 ## [0.5.3] — 2026-05-28
 
 ### Fixed

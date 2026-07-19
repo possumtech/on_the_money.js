@@ -1,6 +1,8 @@
+import pkg from "../../package.json" with { type: "json" };
+
 const meta = {
 	name: "eslint-plugin-otm",
-	version: "0.3.4",
+	version: pkg.version,
 };
 
 const preferOn = {
