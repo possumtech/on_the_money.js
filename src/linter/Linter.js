@@ -371,7 +371,6 @@ export default class Linter {
 				{ line: writer.line, column: 1 },
 				"HTML-106",
 				`State key "${key}" is written via the() but never consumed by a CSS attribute selector, a [data-text] slot, or a JS data-attribute reference — dead state or a missing CSS rule (the deletion test).`,
-				"warn",
 			);
 		}
 

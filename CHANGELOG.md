@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.2] — 2026-07-20
+
+### Changed
+
+- **HTML-106 promoted from warn to error tier.** The production trial closed with zero false positives across both consumers and one true positive (a `the()` write projecting into a slot that doesn't exist — dead state the deletion test exists to catch). Runs that previously reported-and-passed now fail on unconsumed global keys; consume the key or delete the write. The warn-tier machinery remains for future rules. (#136)
+- **HTML-107 pairs by CSS reference, not name coupling** (landed post-0.7.1 as #144): the state key revealing a span may be named anything — a reveal rule necessarily references the span it reveals, so the reference is the proof. Kills the false-positive class that condemned functional cross-named wiring. (#143)
+
 ## [0.7.1] — 2026-07-19
 
 Port feedback, same day: the first downstream migrations onto the 0.7.0 batteries surfaced three regressions. Issues #132–#135, #137; PRs #138–#142.
