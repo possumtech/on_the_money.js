@@ -405,13 +405,18 @@ export default class Linter {
 		}
 
 		// Inline <style> blocks ride along in the raw HTML sources.
+		// Pairing is by CSS *reference*, never by name coupling: the state key
+		// that reveals a span may be named anything (body[data-form-error="V"]
+		// revealing [data-error-key="V"] is fully functional) — a reveal rule
+		// necessarily references the span it reveals, so the ref IS the proof.
 		const styleTexts = [...cssSources, ...htmlSources];
-		const stateRules = new Set();
 		const spanRefs = [];
+		const refPairs = new Set();
 		for (const { file, source } of styleTexts) {
 			for (const m of source.matchAll(
 				/\[data-([a-z0-9-]+?)-key=["']?([\w-]+)["']?\]/g,
 			)) {
+				refPairs.add(`${m[1]} ${m[2]}`);
 				spanRefs.push({
 					group: m[1],
 					value: m[2],
@@ -419,21 +424,16 @@ export default class Linter {
 					line: Linter.#lineOf(source, m.index),
 				});
 			}
-			for (const m of source.matchAll(
-				/\[data-([a-z0-9-]+)=["']?([\w-]+)["']?\]/g,
-			)) {
-				if (!m[1].endsWith("-key")) stateRules.add(`${m[1]} ${m[2]}`);
-			}
 		}
 
 		for (const span of revealSpans) {
-			if (stateRules.has(`${span.group} ${span.value}`)) continue;
+			if (refPairs.has(`${span.group} ${span.value}`)) continue;
 			Linter.#addViolation(
 				violations,
 				span.file,
 				{ line: span.line, column: span.column },
 				"HTML-107",
-				`Reveal span data-${span.group}-key="${span.value}" has no state-CSS rule matching [data-${span.group}="${span.value}"] — the message can never show. Add the reveal rule, or delete the span, or mark it data-otm-dynamic.`,
+				`Reveal span data-${span.group}-key="${span.value}" is referenced by no state-CSS rule — the message can never show. Add a reveal rule selecting [data-${span.group}-key="${span.value}"], or delete the span, or mark it data-otm-dynamic.`,
 			);
 		}
 
