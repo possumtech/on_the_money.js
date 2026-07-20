@@ -332,10 +332,11 @@ test("Linter.crossCheck: HTML-106 warns on unconsumed global keys; CSS consumpti
 	const jsSources = [{ file: "a.js", source: 'the("theme", "dark");' }];
 
 	const unconsumed = Linter.crossCheck({ htmlSources: [], jsSources });
-	const warns = unconsumed.filter((v) => v.ruleId === "HTML-106");
-	assert.strictEqual(warns.length, 1);
-	assert.strictEqual(warns[0].severity, "warn");
-	assert.match(warns[0].message, /"theme"/);
+	const found = unconsumed.filter((v) => v.ruleId === "HTML-106");
+	assert.strictEqual(found.length, 1);
+	// Error tier since 0.7.2 — no severity field means it counts toward exit.
+	assert.strictEqual(found[0].severity, undefined);
+	assert.match(found[0].message, /"theme"/);
 
 	const consumed = Linter.crossCheck({
 		htmlSources: [],
