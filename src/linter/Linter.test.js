@@ -378,7 +378,34 @@ test("Linter.crossCheck: HTML-107 flags a reveal span with no state-CSS rule", (
 	const parity = violations.filter((v) => v.ruleId === "HTML-107");
 	assert.strictEqual(parity.length, 1);
 	assert.match(parity[0].message, /can never show/);
-	assert.match(parity[0].message, /\[data-error="not-found"\]/);
+	assert.match(parity[0].message, /\[data-error-key="not-found"\]/);
+});
+
+test("Linter.crossCheck: HTML-107 pairs by CSS reference, not name coupling", (_t) => {
+	// The state key revealing a span may be named anything — the runtime
+	// wiring body[data-form-error=V] → [data-error-key=V] is functional and
+	// must lint clean (the #143 false-positive class).
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.ejs",
+				source: '<small data-error-key="csrf" data-i18n="e">Retry</small>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+		cssSources: [
+			{
+				file: "a.css",
+				source:
+					'[data-error-key] { display: none; } body[data-form-error="csrf"] [data-error-key="csrf"] { display: inline; }',
+			},
+		],
+	});
+	assert.strictEqual(
+		violations.filter((v) => v.ruleId === "HTML-107").length,
+		0,
+	);
 });
 
 test("Linter.crossCheck: HTML-107 satisfied when both halves exist", (_t) => {
@@ -419,7 +446,7 @@ test("Linter.crossCheck: HTML-107 flags dead CSS wiring when spans exist elsewhe
 			{
 				file: "a.css",
 				source:
-					'body[data-error="found"] {} [data-error-key="gone"] { display: block }',
+					'body[data-error="found"] [data-error-key="found"] {} [data-error-key="gone"] { display: block }',
 			},
 		],
 	});
