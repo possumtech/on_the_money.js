@@ -1,10 +1,12 @@
-import * as parse5 from "parse5";
+import Markup from "./Markup.js";
 
 export default class Linter {
 	static check(file, source, availableLocales = null) {
 		if (!file.endsWith(".html")) return [];
 		const violations = [];
-		const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+		const document = Markup.parse(file, source, {
+			sourceCodeLocationInfo: true,
+		});
 		Linter.#checkHtmlRules(document, violations, file, availableLocales);
 		return violations;
 	}
@@ -142,7 +144,9 @@ export default class Linter {
 		// HTML-101: orphan templates — <template id="X"> never referenced by $.clone(_, "#X")
 		const templates = new Map();
 		for (const { file, source } of htmlSources) {
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			const document = Markup.parse(file, source, {
+				sourceCodeLocationInfo: true,
+			});
 			Linter.#traverse(document, (node) => {
 				if (node.nodeName === "template") {
 					const idAttr = node.attrs?.find((a) => a.name === "id");
@@ -190,7 +194,9 @@ export default class Linter {
 		for (const { file, source, dicts } of htmlSources) {
 			if (!dicts || dicts.length === 0) continue;
 
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			const document = Markup.parse(file, source, {
+				sourceCodeLocationInfo: true,
+			});
 			Linter.#traverse(document, (node) => {
 				const attrs = node.attrs
 					? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
@@ -257,7 +263,9 @@ export default class Linter {
 		const globalWriteKeys = Linter.#globalWriteKeys(jsSources);
 
 		for (const { file, source } of htmlSources) {
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			const document = Markup.parse(file, source, {
+				sourceCodeLocationInfo: true,
+			});
 			Linter.#traverse(document, (node) => {
 				if (node.nodeName !== "template") return;
 				Linter.#traverse(node, (inner) => {
@@ -304,7 +312,9 @@ export default class Linter {
 
 		const actionValues = new Set();
 		for (const { file, source } of htmlSources) {
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			const document = Markup.parse(file, source, {
+				sourceCodeLocationInfo: true,
+			});
 			Linter.#traverse(document, (node) => {
 				const action = node.attrs?.find((a) => a.name === "data-action");
 				if (!action?.value) return;
@@ -343,13 +353,14 @@ export default class Linter {
 			for (const m of source.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
 		}
-		for (const { source } of htmlSources) {
+		for (const { file, source } of htmlSources) {
+			const markup = Markup.source(file, source);
 			// Inline <style> blocks ride along in the raw HTML source.
-			for (const m of source.matchAll(/\[data-([a-z0-9-]+)/g))
+			for (const m of markup.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
-			for (const m of source.matchAll(/data-text=["']([\w-]+)["']/g))
+			for (const m of markup.matchAll(/data-text=["']([\w-]+)["']/g))
 				consumed.add(m[1]);
-			for (const m of source.matchAll(/data-bind=["']([^"']+)["']/g)) {
+			for (const m of markup.matchAll(/data-bind=["']([^"']+)["']/g)) {
 				for (const pair of m[1].split(/\s+/)) {
 					const i = pair.indexOf(":");
 					if (i >= 1) consumed.add(pair.slice(i + 1));
@@ -383,7 +394,9 @@ export default class Linter {
 		const spanPairs = new Set(); // includes data-otm-dynamic spans — they
 		// still satisfy the css→span direction; only the span→css check is waived
 		for (const { file, source } of htmlSources) {
-			const document = parse5.parse(source, { sourceCodeLocationInfo: true });
+			const document = Markup.parse(file, source, {
+				sourceCodeLocationInfo: true,
+			});
 			Linter.#traverse(document, (node) => {
 				for (const attr of node.attrs ?? []) {
 					const m = attr.name.match(/^data-([a-z0-9-]+)-key$/);
@@ -412,7 +425,8 @@ export default class Linter {
 		const spanRefs = [];
 		const refPairs = new Set();
 		for (const { file, source } of styleTexts) {
-			for (const m of source.matchAll(
+			const styleSource = Markup.source(file, source);
+			for (const m of styleSource.matchAll(
 				/\[data-([a-z0-9-]+?)-key=["']?([\w-]+)["']?\]/g,
 			)) {
 				refPairs.add(`${m[1]} ${m[2]}`);
@@ -420,7 +434,7 @@ export default class Linter {
 					group: m[1],
 					value: m[2],
 					file,
-					line: Linter.#lineOf(source, m.index),
+					line: Linter.#lineOf(styleSource, m.index),
 				});
 			}
 		}

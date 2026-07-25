@@ -409,6 +409,25 @@ test("Linter.crossCheck: HTML-107 pairs by CSS reference, not name coupling", (_
 	);
 });
 
+test("Linter.crossCheck: EJS tags cannot hide reveal spans from HTML-107", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "a.ejs",
+				source:
+					'<%# prose mentioning <style> and [data-error-key="fake"] %>\n<span data-form-error-key="error_probe"></span>',
+				dicts: [],
+			},
+		],
+		jsSources: [],
+		cssSources: [],
+	});
+	const parity = violations.filter((v) => v.ruleId === "HTML-107");
+	assert.strictEqual(parity.length, 1);
+	assert.strictEqual(parity[0].line, 2);
+	assert.match(parity[0].message, /data-form-error-key="error_probe"/);
+});
+
 test("Linter.crossCheck: HTML-107 satisfied when both halves exist", (_t) => {
 	const violations = Linter.crossCheck({
 		htmlSources: [

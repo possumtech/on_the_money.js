@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import * as parse5 from "parse5";
 import Linter from "./Linter.js";
+import Markup from "./Markup.js";
 
 export default class Cli {
 	static async run(args = []) {
@@ -23,8 +23,8 @@ export default class Cli {
 	static #excludeDirs = new Set(["node_modules", "dist", ".git"]);
 
 	// parse5, not regex — attribute order must not matter.
-	static #findI18nMeta(source) {
-		const doc = parse5.parse(source);
+	static #findI18nMeta(file, source) {
+		const doc = Markup.parse(file, source);
 		let content = null;
 		const walk = (node) => {
 			if (content) return;
@@ -85,7 +85,7 @@ export default class Cli {
 			let availableLocales = null;
 			const dicts = [];
 
-			const metaContent = Cli.#findI18nMeta(source);
+			const metaContent = Cli.#findI18nMeta(file, source);
 			if (metaContent) {
 				const localesDir = path.resolve(
 					path.dirname(file),
