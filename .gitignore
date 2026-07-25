@@ -140,3 +140,4 @@ vite.config.ts.timestamp-*
 
 # on_the_money.js
 AGENTS.md
+test-results/

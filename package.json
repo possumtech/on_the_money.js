@@ -9,17 +9,42 @@
 		"otm-lint": "./src/linter/main.js"
 	},
 	"exports": {
-		".": "./src/core/index.js",
-		"./live": "./src/live/index.js",
-		"./clipboard": "./src/clipboard/index.js",
-		"./test": "./src/test/index.js",
-		"./eslint-plugin": "./src/eslint/plugin.js",
-		"./eslint-config": "./src/eslint/config.js",
-		"./stylelint-plugin": "./src/stylelint/plugin.js",
-		"./stylelint-config": "./src/stylelint/config.js"
+		".": {
+			"types": "./src/core/index.d.ts",
+			"default": "./src/core/index.js"
+		},
+		"./live": {
+			"types": "./src/live/index.d.ts",
+			"default": "./src/live/index.js"
+		},
+		"./clipboard": {
+			"types": "./src/clipboard/index.d.ts",
+			"default": "./src/clipboard/index.js"
+		},
+		"./test": {
+			"types": "./src/test/index.d.ts",
+			"default": "./src/test/index.js"
+		},
+		"./eslint-plugin": {
+			"types": "./src/eslint/plugin.d.ts",
+			"default": "./src/eslint/plugin.js"
+		},
+		"./eslint-config": {
+			"types": "./src/eslint/config.d.ts",
+			"default": "./src/eslint/config.js"
+		},
+		"./stylelint-plugin": {
+			"types": "./src/stylelint/plugin.d.ts",
+			"default": "./src/stylelint/plugin.js"
+		},
+		"./stylelint-config": {
+			"types": "./src/stylelint/config.d.ts",
+			"default": "./src/stylelint/config.js"
+		}
 	},
 	"files": [
 		"src/**/*.js",
+		"src/**/*.d.ts",
 		"!src/**/*.test.js",
 		"dist",
 		"README.md",
@@ -29,8 +54,10 @@
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
 		"test": "node --test --test-concurrency=1 src/core/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
+		"test:browser": "playwright test",
+		"test:types": "tsc --project tsconfig.types.json",
 		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
-		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage",
+		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage && npm run test:types && npm run test:browser",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:examples": "eslint examples/ && stylelint \"examples/**/*.css\"",
 		"lint:fix": "biome check --write ./src ./test ./examples",
@@ -42,7 +69,8 @@
 		"node": ">=24.0.0"
 	},
 	"dependencies": {
-		"parse5": "7.2.1"
+		"parse5": "7.2.1",
+		"postcss-selector-parser": "7.1.1"
 	},
 	"peerDependencies": {
 		"linkedom": ">=0.18",
@@ -58,11 +86,12 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "1.9.4",
+		"@playwright/test": "1.62.0",
 		"esbuild": "0.25.0",
 		"eslint": "10.4.0",
 		"linkedom": "0.18.6",
-		"postcss-selector-parser": "7.1.1",
-		"stylelint": "17.11.1"
+		"stylelint": "17.11.1",
+		"typescript": "5.9.2"
 	},
 	"license": "MIT"
 }
