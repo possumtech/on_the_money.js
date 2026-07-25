@@ -152,12 +152,12 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 
 - **Truly one-off attributes** still use `el.setAttribute(name, val)` directly, colocated with the write (Discipline #2). `data-bind` is for attributes that carry per-element *state-derived data* (every card's link); `setAttribute` is for structural one-offs. If you're writing the same `setAttribute` line in every clone loop, that's a `data-bind`.
 - **Booleans coerce** to `"true"`/`"false"` inside the setter. `the(el, "checked", true)` writes `"true"`.
-- **Values MUST be flat primitives.** Pass nested objects through `the.flat(...)` first.
+- **Values MUST be strings, finite numbers, booleans, or `null`.** Numbers and booleans stringify; `null` deletes. Objects, arrays, functions, symbols, bigint, `NaN`, and infinities throw at runtime. Pass nested objects through `the.flat(...)` first.
 - **`the(key, undefined)` throws.** Two args means set; missing val is a contract violation.
 
 ### `the.form(formEl)` — form extraction
 
-Walks `input, select, textarea` descendants. Skips unnamed, disabled, submit/button/reset controls, file inputs, and unchecked checkboxes/radios. Parses bracket-notation names into a nested object:
+Walks `input, select, textarea` descendants. Skips unnamed, disabled, submit/button/reset controls, file inputs, and unchecked checkboxes/radios. Parses bracket-notation names into a nested object. Unsafe path segments (`__proto__`, `prototype`, `constructor`) throw instead of entering the result graph:
 
 ```javascript
 the.form(form);
@@ -358,6 +358,7 @@ const reply = await ch.request({ type: "filter", q: "cats" }, { takeLatest: true
 | Option | Behavior |
 | --- | --- |
 | `onMessage(type, data, at)` | Every non-reply frame. Unknown types must be ignorable — the vocabulary is append-only. |
+| `onError(error, raw)` | Malformed JSON frame. Without this callback, `live()` warns; either way the connection remains open. |
 | `onDown()` / `onUp()` | Link state hooks. Fail closed in `onDown`: a dead socket should surface the degraded truth. |
 | `signal` | `AbortSignal`; abort closes the socket and stops reconnecting. |
 

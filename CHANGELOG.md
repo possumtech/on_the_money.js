@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- Public TypeScript declarations for every package subpath, compiler-checked against representative consumer calls.
+- Real-browser contract tests across Chromium, Firefox, and WebKit.
+- `live()` `onError(error, raw)` hook for malformed JSON frames; without a hook the error warns, and either way the connection remains open.
+
+### Changed
+
+- **Breaking:** `the()` now enforces flat state at runtime: strings, finite numbers, booleans, and `null` deletion only. Previously objects and other unsupported values reached the DOM through implicit string coercion.
+- The shipped Stylelint plugin's direct `postcss-selector-parser` import is now a declared runtime dependency.
+
+### Fixed
+
+- `the.form()` rejects `__proto__`, `prototype`, and `constructor` bracket-path segments, preventing form field names from traversing or mutating inherited prototypes.
+- EJS code and comment tags are neutralized before markup linting, so raw HTML tokens inside template code cannot push parse5 into RAWTEXT mode and hide the rest of the file. (#146)
+
 ## [0.7.2] — 2026-07-20
 
 ### Changed
