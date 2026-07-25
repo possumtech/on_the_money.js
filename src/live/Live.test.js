@@ -26,6 +26,9 @@ class FakeSocket {
 	message(obj) {
 		this.onmessage?.({ data: JSON.stringify(obj) });
 	}
+	raw(data) {
+		this.onmessage?.({ data });
+	}
 }
 
 const setup = (html = "") => {
@@ -66,6 +69,38 @@ test("live: dispatches {type, data, at} to onMessage", (_t) => {
 	sock.open();
 	sock.message({ type: "status", at: "now", data: { ok: true } });
 	assert.deepStrictEqual(seen, [["status", { ok: true }, "now"]]);
+});
+
+test("live: malformed JSON calls onError and leaves the channel usable", (_t) => {
+	setup();
+	const errors = [];
+	const messages = [];
+	new Live("/ws", {
+		onError: (error, raw) => errors.push([error, raw]),
+		onMessage: (type) => messages.push(type),
+	});
+	const sock = FakeSocket.instances[0];
+	sock.open();
+	sock.raw("{nope");
+	assert.strictEqual(errors.length, 1);
+	assert.ok(errors[0][0] instanceof SyntaxError);
+	assert.match(errors[0][0].message, /malformed JSON frame/);
+	assert.ok(errors[0][0].cause instanceof SyntaxError);
+	assert.strictEqual(errors[0][1], "{nope");
+	sock.message({ type: "healthy" });
+	assert.deepStrictEqual(messages, ["healthy"]);
+});
+
+test("live: malformed JSON warns when onError is absent", (t) => {
+	setup();
+	const warn = t.mock.method(console, "warn", () => {});
+	new Live("/ws");
+	const sock = FakeSocket.instances[0];
+	sock.open();
+	sock.raw("not-json");
+	assert.strictEqual(warn.mock.calls.length, 1);
+	assert.ok(warn.mock.calls[0].arguments[0] instanceof SyntaxError);
+	assert.strictEqual(warn.mock.calls[0].arguments[1], "not-json");
 });
 
 test("live: request correlates on req_id and resolves the reply", async (_t) => {

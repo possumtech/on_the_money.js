@@ -131,7 +131,12 @@ export default class Live {
 		let msg;
 		try {
 			msg = JSON.parse(raw);
-		} catch {
+		} catch (cause) {
+			const error = new SyntaxError("otm live: malformed JSON frame", {
+				cause,
+			});
+			if (this.#options.onError) this.#options.onError(error, raw);
+			else console.warn(error, raw);
 			return;
 		}
 		const pending = msg?.req_id != null ? this.#pending.get(msg.req_id) : null;
