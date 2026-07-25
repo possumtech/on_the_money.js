@@ -133,6 +133,14 @@ export default class The {
 		// depend on cardinality.
 		const isArrayLeaf = key.endsWith("[]");
 		const parts = key.split(/[\[\]]/).filter(Boolean);
+		const forbidden = parts.find((part) =>
+			["__proto__", "prototype", "constructor"].includes(part),
+		);
+		if (forbidden) {
+			throw new TypeError(
+				`the.form: unsafe field name ${JSON.stringify(key)} contains forbidden path segment ${JSON.stringify(forbidden)}`,
+			);
+		}
 		let current = obj;
 		for (let i = 0; i < parts.length; i++) {
 			const part = parts[i];
@@ -365,9 +373,19 @@ export default class The {
 				localStorage.removeItem(`${The.prefix}${k}`);
 			return;
 		}
-		The.#set(el, k, v);
+		const out = The.#stateValue(k, v);
+		The.#set(el, k, out);
 		if (isGlobal && The.persistKeys.has(k))
-			localStorage.setItem(`${The.prefix}${k}`, v);
+			localStorage.setItem(`${The.prefix}${k}`, out);
+	}
+
+	static #stateValue(key, val) {
+		if (typeof val === "string") return val;
+		if (typeof val === "boolean") return val ? "true" : "false";
+		if (typeof val === "number" && Number.isFinite(val)) return String(val);
+		throw new TypeError(
+			`the(${JSON.stringify(key)}, ...): state value must be a string, finite number, boolean, or null`,
+		);
 	}
 
 	static #get(el, key) {
@@ -375,9 +393,8 @@ export default class The {
 	}
 
 	static #set(el, key, val) {
-		const out = typeof val === "boolean" ? (val ? "true" : "false") : val;
-		el.setAttribute(The.#attr(el, key), out);
-		The.#mirror(el, key, out, false);
+		el.setAttribute(The.#attr(el, key), val);
+		The.#mirror(el, key, val, false);
 	}
 
 	static #delete(el, key) {

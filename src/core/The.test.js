@@ -327,6 +327,27 @@ test("the.form(formEl): skips file inputs", (_t) => {
 	assert.deepStrictEqual(out, { keep: "yes" });
 });
 
+test("the.form(formEl): rejects prototype-polluting field paths", (_t) => {
+	for (const name of [
+		"__proto__[polluted]",
+		"user[__proto__][polluted]",
+		"user[prototype][polluted]",
+		"user[constructor][prototype][polluted]",
+	]) {
+		const { document } = setupDOM(
+			`<form><input name="${name}" value="yes"></form>`,
+		);
+		assert.throws(
+			() => The.form(document.querySelector("form")),
+			(error) =>
+				error instanceof TypeError &&
+				error.message.includes("unsafe field name") &&
+				error.message.includes(name),
+		);
+		assert.strictEqual(Object.prototype.polluted, undefined);
+	}
+});
+
 test("the.form(formEl): skips disabled, unchecked, and submit controls", (_t) => {
 	const { document } = setupDOM(`
 		<form id="f">
@@ -464,6 +485,38 @@ test('the(el, k, boolean): coerces to "true"/"false"', (_t) => {
 	assert.strictEqual(el.getAttribute("aria-checked"), "true");
 	The.the(el, "checked", false);
 	assert.strictEqual(el.getAttribute("aria-checked"), "false");
+});
+
+test("the(el, k, finite number): coerces to its string representation", (_t) => {
+	const { document } = setupDOM('<div id="el"></div>');
+	const el = document.querySelector("#el");
+	The.the(el, "count", 42.5);
+	assert.strictEqual(el.getAttribute("data-count"), "42.5");
+});
+
+test("the(el, k, val): rejects non-state values at runtime", (_t) => {
+	const { document } = setupDOM('<div id="el"></div>');
+	const el = document.querySelector("#el");
+	for (const value of [
+		{},
+		[],
+		() => {},
+		Symbol("x"),
+		1n,
+		Number.NaN,
+		Number.POSITIVE_INFINITY,
+		Number.NEGATIVE_INFINITY,
+	]) {
+		assert.throws(
+			() => The.the(el, "invalid", value),
+			(error) =>
+				error instanceof TypeError &&
+				error.message.includes(
+					"state value must be a string, finite number, boolean, or null",
+				),
+		);
+		assert.strictEqual(el.hasAttribute("data-invalid"), false);
+	}
 });
 
 test("the(el, k, boolean): syncs [data-text] with coerced string", (_t) => {
