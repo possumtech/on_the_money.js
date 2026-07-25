@@ -1,12 +1,12 @@
 {
 	"name": "on_the_money",
-	"version": "0.8.0",
+	"version": "0.8.1",
 	"description": "Opinionated, attribute-driven, standards-oriented modern framework. Native browser APIs only. See README.md for the authoring context.",
 	"type": "module",
 	"main": "src/core/index.js",
 	"module": "src/core/index.js",
 	"bin": {
-		"otm-lint": "./src/linter/main.js"
+		"otm-lint": "src/linter/main.js"
 	},
 	"exports": {
 		".": {

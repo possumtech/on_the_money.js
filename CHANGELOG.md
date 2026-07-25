@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] — 2026-07-25
+
+### Fixed
+
+- Restored the `otm-lint` executable in the npm manifest by using npm 11's normalized bin target path. `0.8.0` omitted the bin during publication.
+
 ## [0.8.0] — 2026-07-25
 
 ### Added
