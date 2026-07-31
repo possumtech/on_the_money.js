@@ -1,167 +1,61 @@
 # Contributing to on_the_money.js
 
-Thank you for your interest in contributing to on_the_money.js! This document provides guidelines and instructions for contributing.
+`on_the_money.js` is developed on the authenticated PossumTech Gitea and
+published downstream to [GitHub](https://github.com/possumtech/on_the_money.js).
+GitHub remains the public source and external issue intake; it is not a
+co-equal development forge.
 
-## Development Philosophy
+## Before changing code
 
-on_the_money.js follows the **Anti-Framework** principles outlined in SPEC.md:
-- DOM is the Database
-- CSS is the UI Engine
-- No String Injection
-- Deterministic Localization
-- Inclusive by Design
+The framework is contract-first. Read the project doctrine in
+[README.md](README.md) and the repository guidance in [AGENTS.md](AGENTS.md).
+Open or locate the owning Gitea issue before ordinary implementation work.
+External contributors should begin with a
+[GitHub issue](https://github.com/possumtech/on_the_money.js/issues) so the
+maintainer can establish the corresponding development work.
 
-All contributions must adhere to these principles.
+## Development setup
 
-## Development Setup
+Requirements:
 
-### Prerequisites
-- Node.js >= 18.0.0
-- npm >= 8.0.0
+- Node.js 24 or newer
+- npm
+- Playwright's Chromium, Firefox, and WebKit browsers
 
-### Installation
-1. Fork and clone the repository:
+Install and verify:
+
 ```bash
-git clone https://github.com/your-username/on_the_money.js.git
-cd on_the_money.js
+npm ci
+npx playwright install chromium firefox webkit
+npm run check
 ```
 
-2. Install dependencies:
-```bash
-npm install
-```
+The full check runs formatting and lint, lints the examples with the shipped
+consumer configs, builds the CDN artifact, runs Node tests and coverage,
+compiles the public type contracts, and exercises browser contracts across all
+three engines.
 
-3. Verify installation:
-```bash
-npm test
-npm run lint
-```
+## Change discipline
 
-## Project Structure
+- Use a Conventional branch name and Conventional Commit subject.
+- Reproduce defects through the real failing path and add regression coverage
+  before changing behavior.
+- Update every contract layer affected by the change: implementation, types,
+  lint rules, examples, README authoring context, and tests.
+- Keep unit tests beside their subject and composed tests under `test/`.
+- Do not add automatic lint fixes. The lint stack reports violations; authors
+  make deliberate repairs.
+- Do not add server infrastructure or product-domain policy to the browser
+  package.
 
-```
-on_the_money.js/
-├── src/                    # Source code
-│   ├── core/              # Core library implementation
-│   ├── linter/            # Linter rules and CLI logic
-│   ├── plugins/           # ESLint plugin implementations
-│   └── utils/             # Shared utilities
-├── test/                  # Test files
-├── dist/                  # Built distribution files
-├── examples/              # Example projects
-├── package.json
-├── README.md
-├── SPEC.md
-└── CONTRIBUTING.md
-```
+PossumTech contributors push working branches only to Gitea `origin`. Accepted
+release state reaches the public GitHub downstream through an explicit
+publication operation.
 
-## Code Style
+## Security reports
 
-### JavaScript
-- Use ES modules (`import`/`export`)
-- Follow the existing code style (2-space indentation, semicolons)
-- Write concise, self-documenting code
-- Avoid defensive coding - let unexpected states crash
-- Use guard conditions instead of deep nesting
+Do not publish exploitable details before a fix is available. Use the contact
+path in [SECURITY.md](SECURITY.md) when a report should not begin in the public
+GitHub issue tracker.
 
-### Comments
-- Only comment when explaining non-obvious, hacky, or exceptional code
-- No JSDoc unless the function signature is complex
-
-### Testing
-- Write tests for all new features
-- Ensure all tests pass before submitting a PR
-- Use Node.js's built-in test runner
-- Tests should be deterministic and fast
-
-## Development Workflow
-
-1. **Create an issue** (if one doesn't exist) describing the bug or feature
-2. **Fork the repository** and create a feature branch:
-```bash
-git checkout -b feature/your-feature-name
-```
-
-3. **Make your changes** following the code style guidelines
-
-4. **Test your changes**:
-```bash
-npm test
-npm run lint
-```
-
-5. **Update documentation** if needed (README.md, SPEC.md, etc.)
-
-6. **Commit your changes** using concise, descriptive commit messages:
-```bash
-git commit -m "Add feature: description of changes"
-```
-
-7. **Push to your fork**:
-```bash
-git push origin feature/your-feature-name
-```
-
-8. **Open a Pull Request** against the main repository's `main` branch
-
-## Linter Development
-
-### Adding New Rules
-1. Add the rule definition in `src/linter/rules/`
-2. Implement the rule logic with appropriate AST traversal
-3. Add tests in `test/linter/rules/`
-4. Update the ESLint plugin in `src/plugins/eslint-plugin/`
-5. Update the CLI to include the new rule
-
-### Rule Structure
-Each rule should:
-- Have a unique ID (OTM-XXX)
-- Include clear error messages
-- Provide fix suggestions when possible
-- Follow the patterns in existing rules
-
-## Testing
-
-### Running Tests
-```bash
-npm test              # Run all tests
-npm test -- --watch   # Run tests in watch mode
-npm test -- --test-name="test name"  # Run specific test
-```
-
-### Test Coverage
-- Aim for high test coverage
-- Tests should be fast and isolated
-- Mock external dependencies when necessary
-
-## Documentation
-
-- Update README.md for user-facing changes
-- Update SPEC.md for architectural changes
-- Add JSDoc comments only for public APIs
-- Include examples for new features
-
-## Release Process
-
-1. **Version Bumping**: Use semantic versioning
-2. **Changelog**: Update CHANGELOG.md with notable changes
-3. **Build**: Run `npm run build` to generate dist files
-4. **Publish**: Maintainers will publish to npm
-
-## Code Review Process
-
-All PRs require:
-1. Passing CI checks (tests, linting)
-2. Review from at least one maintainer
-3. Adherence to project principles
-4. Updated documentation if needed
-
-## Getting Help
-
-- Open an issue for questions
-- Check existing issues and PRs
-- Review SPEC.md for architectural guidance
-
-## License
-
-By contributing, you agree that your contributions will be licensed under the project's MIT License.
+Contributions are licensed under the [MIT License](LICENSE).
