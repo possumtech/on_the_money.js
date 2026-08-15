@@ -186,7 +186,7 @@ Throws on non-object input.
 Importing the module does **nothing**. Call `the.boot()` at the consumer's entry point.
 
 ```javascript
-await the.boot({ signal, locales, dictionary, namespace, defaultLocale, persistKeys });
+await the.boot({ signal, locales, dictionary, namespace, locale, defaultLocale, persistKeys });
 ```
 
 | Option | Type | Behavior |
@@ -195,11 +195,12 @@ await the.boot({ signal, locales, dictionary, namespace, defaultLocale, persistK
 | `locales` | `string` | Override the `<meta name="i18n" content>` path. |
 | `dictionary` | `object` | Inline dictionary. Always loads — even under the locale short-circuit — so programmatic `_t()` works; only the fetch and hydration are skipped. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
+| `locale` | `string` | Explicitly selects the active locale. Takes precedence over query, stored, document, and browser locale values. |
 | `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
-1. Resolve locale: `?lang=` query → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
+1. Resolve locale: explicit `locale` option → `?lang=` query → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
 2. Load the inline `dictionary` if provided. This happens unconditionally.
 3. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 4 and 6. Static HTML already serves the right text.
 4. Fetch dictionary (when no inline one): `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Target selection falls through full → base → `data-fallback`. A failed fetch (network error or non-ok status) warns to the console and retries with the `data-fallback` file before giving up.

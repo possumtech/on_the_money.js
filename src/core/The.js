@@ -439,6 +439,7 @@ export default class The {
 		locales,
 		dictionary,
 		namespace,
+		locale,
 		defaultLocale,
 		persistKeys,
 	} = {}) {
@@ -461,6 +462,7 @@ export default class The {
 			"en";
 
 		The.locale =
+			locale ||
 			params.get("lang") ||
 			localStorage.getItem(`${The.prefix}lang`) ||
 			browserLoc;

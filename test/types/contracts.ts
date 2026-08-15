@@ -19,7 +19,11 @@ void the("theme");
 void the.flat({ user: { name: "Ada" } });
 void the.form(document.querySelector("form") as HTMLFormElement);
 void the.match("/posts/:id");
-void the.boot({ persistKeys: ["theme"], dictionary: { title: "Title" } });
+void the.boot({
+	locale: "en-US",
+	persistKeys: ["theme"],
+	dictionary: { title: "Title" },
+});
 void _t("price", { type: "currency", currency: "EUR", val: 2 });
 
 const off = on(document.body, "click", "[data-action]", (_event, target) => {

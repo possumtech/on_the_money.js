@@ -139,6 +139,32 @@ test("delegated events unsubscribe and localized templates mount", async ({
 	expect(result).toEqual({ clicks: 1, text: "Choose", connected: true });
 });
 
+test("explicit boot locale preserves the server-rendered document", async ({
+	page,
+}) => {
+	await page.goto(`${origin}/?lang=es`);
+	const result = await page.evaluate(async () => {
+		const { the } = await import("/src/core/index.js");
+		document.documentElement.lang = "en";
+		document.body.innerHTML = '<h1 data-i18n="account">Account</h1>';
+		localStorage.setItem("otm:lang", "es");
+		let fetched = false;
+		globalThis.fetch = async () => {
+			fetched = true;
+			return new Response(JSON.stringify({ account: "Cuenta" }));
+		};
+
+		await the.boot({ locale: "en", locales: "/locales" });
+
+		return {
+			locale: the.locale,
+			text: document.querySelector("h1").textContent,
+			fetched,
+		};
+	});
+	expect(result).toEqual({ locale: "en", text: "Account", fetched: false });
+});
+
 test("router navigation, same-URL no-op, and unsubscribe", async ({ page }) => {
 	const result = await page.evaluate(async () => {
 		const { route } = await import("/src/core/index.js");

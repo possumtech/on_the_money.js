@@ -16,6 +16,7 @@ export interface BootOptions {
 	locales?: string;
 	dictionary?: Dictionary;
 	namespace?: string;
+	locale?: string;
 	defaultLocale?: string;
 	persistKeys?: string[];
 }

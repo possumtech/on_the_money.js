@@ -593,6 +593,39 @@ test("the.boot({ defaultLocale }): fetches when resolved locale differs", async 
 	The.persistKeys = new Set();
 });
 
+test("the.boot({ locale }): explicit locale outranks query and storage", async (_t) => {
+	const { document } = setupDOM("", { url: "http://localhost/?lang=es" });
+	document.documentElement.setAttribute("lang", "en");
+	localStorage.setItem("otm:lang", "de");
+	let fetched = false;
+	globalThis.fetch = async () => {
+		fetched = true;
+		return { ok: true, json: async () => ({}) };
+	};
+
+	await The.boot({ locale: "en-US" });
+
+	assert.strictEqual(The.locale, "en-US");
+	assert.strictEqual(fetched, false);
+});
+
+test("the.boot({ locale }): explicit locale selects the dictionary target", async (_t) => {
+	setupDOM('<meta name="i18n" content="/locales" data-available="en,fr">', {
+		url: "http://localhost/?lang=es",
+	});
+	localStorage.setItem("otm:lang", "de");
+	const urls = [];
+	globalThis.fetch = async (url) => {
+		urls.push(url);
+		return { ok: true, json: async () => ({ greeting: "Bonjour" }) };
+	};
+
+	await The.boot({ locale: "fr-CA", defaultLocale: "en" });
+
+	assert.strictEqual(The.locale, "fr-CA");
+	assert.deepStrictEqual(urls, ["/locales/fr.json"]);
+});
+
 test("the.boot(): <html lang> outranks navigator.language in resolution chain", async (_t) => {
 	const { document } = setupDOM();
 	document.documentElement.setAttribute("lang", "es");
