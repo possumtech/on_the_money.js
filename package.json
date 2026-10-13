@@ -57,8 +57,9 @@
 		"test": "node --test --test-concurrency=1 src/core/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"test:browser": "playwright test",
 		"test:types": "tsc --project tsconfig.types.json",
+		"test:package": "node scripts/check-package.js",
 		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
-		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage && npm run test:types && npm run test:browser",
+		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage && npm run test:types && npm run test:browser && npm run test:package",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:examples": "eslint examples/ && stylelint \"examples/**/*.css\"",
 		"lint:fix": "biome check --write ./src ./test ./examples",
@@ -72,6 +73,9 @@
 	"dependencies": {
 				"parse5": "8.0.1",
 		"postcss-selector-parser": "7.1.6"
+	},
+	"overrides": {
+		"braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
 	},
 	"peerDependencies": {
 		"linkedom": ">=0.18",

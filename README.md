@@ -735,6 +735,20 @@ The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your T
 
 Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package.
 
+Stylelint's file-glob dependencies currently reach `braces@3.0.3`, affected by [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). This repository uses an exact npm alias override to the reviewed [depth-guard fork](https://github.com/dieub/braces-depth-guard/tree/305a2e4bfe324bb53c336c1b03387ee1251c926f), with artifact integrity recorded in `package-lock.json`:
+
+```json
+{
+  "overrides": {
+    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
+  }
+}
+```
+
+**Consumers using Stylelint must add this override to their own root `package.json` and commit their regenerated lockfile.** npm does not inherit overrides from installed libraries. This is not needed for the browser runtime, which contains no Stylelint or `braces`. The override preserves the Stylelint integration; it does not bundle a linter into the browser or modify another project's dependencies.
+
+The reviewed fork caps parsing and AST nesting at 100 levels and rejects excessive input with a specific error instead of overflowing the stack. The original MIT license and public entry point are preserved; the published artifact matches the linked commit. Our tests exercise the actual installed Stylelint glob path, ordinary file globs, and the distinction between CSS content and file patterns. This is a scoped repair, not a guarantee against every resource-exhaustion pattern; a renamed package's clean audit is not proof of a fix. Re-review the exact artifact, provenance, compatibility, and security regression tests before changing this pin. Remove it only after the upstream chain provides a verified replacement.
+
 ```bash
 npm install -D stylelint stylelint-config-standard
 ```
@@ -877,6 +891,7 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
 | `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
+| `npm run test:package` | Install the packed package in fresh runtime-only and Stylelint-with-override consumers; verify public imports, lint behavior, the nesting guard, and each full dependency audit. Requires registry access. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
 | `npm run check` | `lint + build + test + coverage`. CI gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |
