@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Security
+
+- Pinned Stylelint's transitive `braces` through an exact npm override to the reviewed `@dieub/braces-depth-guard@3.0.3-pn.3` artifact. Excessively nested file globs now fail at the 100-level parsing bound instead of exhausting the stack. Added regression tests through the actual installed dependency chain. Consumers using the optional Stylelint integration must apply the documented root override themselves; published-library overrides are not inherited. (#7)
+
 ### Fixed
 
 - Boot reads browser storage only for opted-in persistence keys, including `lang`, and never enumerates storage. Documents with persistence disabled initialize when storage is denied. Explicitly requested persistence retains the browser's original failure. (#6)
