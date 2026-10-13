@@ -46,6 +46,140 @@ test.beforeEach(async ({ page }) => {
 	await page.goto(origin);
 });
 
+test("dictionary cascade translates individual messages, head, and clones, then restores source", async ({
+	page,
+}) => {
+	const requests = [];
+	await page.route("**/locales/*.json", async (route) => {
+		const pathname = new URL(route.request().url()).pathname;
+		requests.push(pathname);
+		const dictionaries = {
+			"/locales/fr-CA.json": { title: "Allô" },
+			"/locales/fr.json": { help: "Aide", cloned: "Copie" },
+		};
+		await route.fulfill({ json: dictionaries[pathname] });
+	});
+	const result = await page.evaluate(async () => {
+		const { the, $ } = await import("/src/core/index.js");
+		document.documentElement.lang = "en";
+		document.head.innerHTML =
+			'<meta name="i18n" content="/locales" data-available="fr-CA,fr"><title data-i18n="title">Welcome</title>';
+		document.body.innerHTML =
+			'<h1 data-i18n="title">Welcome</h1><p data-i18n="help">Help</p><p data-i18n="source">Source</p><div id="mount"></div><template id="sample"><p data-i18n="cloned">Copy</p></template>';
+		await the.boot({ locale: "fr-CA", persistKeys: [] });
+		const clone = $.clone("#mount", "#sample");
+		const translated = {
+			locale: the.locale,
+			title: document.title,
+			help: document.querySelector('[data-i18n="help"]').textContent,
+			helpLanguage: document.querySelector('[data-i18n="help"]').lang,
+			sourceEnglish: document
+				.querySelector('[data-i18n="source"]')
+				.matches(":lang(en)"),
+			clone: clone.textContent,
+			cloneLanguage: clone.lang,
+		};
+		await the.boot({ locale: "en" });
+		return {
+			translated,
+			restored: {
+				title: document.title,
+				help: document.querySelector('[data-i18n="help"]').textContent,
+				clone: clone.textContent,
+				cloneEnglish: clone.matches(":lang(en)"),
+			},
+		};
+	});
+	expect(requests).toEqual(["/locales/fr-CA.json", "/locales/fr.json"]);
+	expect(result).toEqual({
+		translated: {
+			locale: "fr-CA",
+			title: "Allô",
+			help: "Aide",
+			helpLanguage: "fr",
+			sourceEnglish: true,
+			clone: "Copie",
+			cloneLanguage: "fr",
+		},
+		restored: {
+			title: "Welcome",
+			help: "Help",
+			clone: "Copy",
+			cloneEnglish: true,
+		},
+	});
+});
+
+test("partial Serbian translations preserve English fallback grammar and language", async ({
+	page,
+}) => {
+	await page.route("**/locales/*.json", async (route) => {
+		const dictionaries = {
+			"/locales/sr-Latn.json": { title: "Dobro došli" },
+			"/locales/en.json": {
+				count: { one: "{qty} item", other: "{qty} items" },
+			},
+		};
+		await route.fulfill({
+			json: dictionaries[new URL(route.request().url()).pathname],
+		});
+	});
+	const result = await page.evaluate(async () => {
+		const { the } = await import("/src/core/index.js");
+		document.documentElement.lang = "de";
+		document.head.innerHTML =
+			'<meta name="i18n" content="/locales" data-available="sr-Latn,en" data-fallback="en">';
+		document.body.innerHTML =
+			'<h1 data-i18n="title">Willkommen</h1><p data-i18n="count" data-i18n-qty="21">21 Einträge</p><p data-i18n="source">Quelle</p>';
+		await the.boot({ locale: "sr-Latn-RS", persistKeys: [] });
+		return {
+			locale: the.locale,
+			title: document.querySelector("h1").textContent,
+			serbian: document.querySelector("h1").matches(":lang(sr-Latn)"),
+			count: document.querySelector('[data-i18n="count"]').textContent,
+			english: document
+				.querySelector('[data-i18n="count"]')
+				.matches(":lang(en)"),
+			german: document
+				.querySelector('[data-i18n="source"]')
+				.matches(":lang(de)"),
+		};
+	});
+	expect(result).toEqual({
+		locale: "sr-Latn-RS",
+		title: "Dobro došli",
+		serbian: true,
+		count: "21 items",
+		english: true,
+		german: true,
+	});
+});
+
+test("failed translations fall back to a declared non-English source without fetching source JSON", async ({
+	page,
+}) => {
+	const requests = [];
+	await page.route("**/locales/*.json", async (route) => {
+		requests.push(new URL(route.request().url()).pathname);
+		await route.fulfill({ status: 503, body: "Unavailable" });
+	});
+	const result = await page.evaluate(async () => {
+		const { the } = await import("/src/core/index.js");
+		document.documentElement.lang = "de";
+		document.head.innerHTML =
+			'<meta name="i18n" content="/locales" data-available="fr">';
+		document.body.innerHTML = '<h1 data-i18n="title">Willkommen</h1>';
+		await the.boot({ locale: "fr", persistKeys: [] });
+		return {
+			locale: the.locale,
+			title: document.querySelector("h1").textContent,
+			german: document.querySelector("h1").matches(":lang(de)"),
+		};
+	});
+	expect(requests).toEqual(["/locales/fr.json"]);
+	expect(result).toEqual({ locale: "de", title: "Willkommen", german: true });
+});
+
 test("state projection, deletion, persistence, and runtime contract", async ({
 	page,
 }) => {

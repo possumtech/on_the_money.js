@@ -582,7 +582,7 @@ test("the.boot({ defaultLocale }): skips fetch when resolved locale matches", as
 	assert.strictEqual(fetched, false);
 });
 
-test("the.boot({ defaultLocale }): fetches when resolved locale differs", async (_t) => {
+test("the.boot({ defaultLocale }): unsupported stored locale uses declared source without fetching it", async (_t) => {
 	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
 	localStorage.setItem("otm:lang", "es-ES");
 	let fetched = false;
@@ -593,7 +593,8 @@ test("the.boot({ defaultLocale }): fetches when resolved locale differs", async 
 	The.dictionary = {};
 	// "lang" needs to persist for boot to read it back from localStorage
 	await The.boot({ defaultLocale: "en", persistKeys: ["lang"] });
-	assert.strictEqual(fetched, true);
+	assert.strictEqual(fetched, false);
+	assert.strictEqual(The.locale, "en");
 	The.persistKeys = new Set();
 });
 
@@ -757,7 +758,8 @@ test("the.boot: stored language requires opt-in in the selected namespace", asyn
 	await the.boot({ namespace: "dashboard", persistKeys: [] });
 	assert.strictEqual(the.locale, "en");
 	await the.boot({ persistKeys: ["lang"] });
-	assert.strictEqual(the.locale, "es");
+	assert.strictEqual(the.locale, "en");
+	assert.strictEqual(localStorage.getItem("dashboard:lang"), "es");
 });
 
 test("the.boot: persistence reads only opted-in keys without enumerating storage", async (t) => {

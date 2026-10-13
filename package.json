@@ -53,6 +53,7 @@
 	],
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
+		"size": "node scripts/measure-bundle.js",
 		"test": "node --test --test-concurrency=1 src/core/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"test:browser": "playwright test",
 		"test:types": "tsc --project tsconfig.types.json",

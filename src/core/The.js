@@ -1,9 +1,23 @@
+import Dictionary from "./Dictionary.js";
+import Locale from "./Locale.js";
+
 export default class The {
-	static dictionary = {};
+	static #dictionaries = [{ dictionary: {}, locale: null }];
+	static #sourceText = new WeakMap();
 	static locale = typeof navigator !== "undefined" ? navigator.language : "en";
 	static prefix = "otm:";
 	// Default: nothing persists. Opt in per key via the.boot({ persistKeys }).
 	static persistKeys = new Set();
+
+	static get dictionary() {
+		return The.#dictionaries[0].dictionary;
+	}
+
+	static set dictionary(value) {
+		The.#dictionaries = [
+			{ dictionary: Dictionary.validate(value), locale: null },
+		];
+	}
 
 	// Normalize keys to kebab-case for DOM attributes and [data-text] lookups.
 	// chapterHasNav → chapter-has-nav. chapter_has_nav → chapter-has-nav.
@@ -166,37 +180,55 @@ export default class The {
 		const isNode =
 			typeof Node !== "undefined" ? key instanceof Node : key?.nodeType;
 		if (isNode) {
-			const elements = key.querySelectorAll
-				? [key, ...key.querySelectorAll("[data-i18n]")]
-				: [key];
-			for (const el of elements) {
-				if (el.hasAttribute?.("data-i18n")) {
-					const k = el.getAttribute("data-i18n");
-					const params = {};
-					for (const attr of el.attributes) {
-						if (
-							attr.name.startsWith("data-i18n-") &&
-							attr.name !== "data-i18n-type"
-						) {
-							const paramName = attr.name.replace("data-i18n-", "");
-							params[paramName] = attr.value;
-						}
-					}
-					const type = el.getAttribute("data-i18n-type");
-					const resolved = The.#resolve(k, { ...params, type });
-					// Miss → preserve the source-language fallback text already inside.
-					if (resolved !== null) el.textContent = resolved;
-				}
-			}
+			The.#translate(key);
 			return key;
 		}
 
 		if (!key) {
-			The._t(document.body);
+			The.#translate(document.documentElement);
 			return "";
 		}
 
-		return The.#resolve(key, options) ?? key;
+		return The.#resolve(key, options)?.text ?? key;
+	}
+
+	static #translate(key, sourceOnly = false) {
+		const elements = key.querySelectorAll
+			? [key, ...key.querySelectorAll("[data-i18n]")]
+			: [key];
+		for (const el of elements) {
+			if (el.hasAttribute?.("data-i18n")) {
+				const k = el.getAttribute("data-i18n");
+				const params = {};
+				for (const attr of el.attributes) {
+					if (
+						attr.name.startsWith("data-i18n-") &&
+						attr.name !== "data-i18n-type"
+					) {
+						const paramName = attr.name.replace("data-i18n-", "");
+						params[paramName] = attr.value;
+					}
+				}
+				const type = el.getAttribute("data-i18n-type");
+				const resolved = sourceOnly
+					? null
+					: The.#resolve(k, { ...params, type });
+				const source = The.#sourceText.get(el);
+				if (resolved !== null) {
+					if (!source)
+						The.#sourceText.set(el, {
+							text: el.textContent,
+							lang: el.getAttribute("lang"),
+						});
+					el.textContent = resolved.text;
+					el.setAttribute("lang", resolved.locale);
+				} else if (source) {
+					el.textContent = source.text;
+					if (source.lang === null) el.removeAttribute("lang");
+					else el.setAttribute("lang", source.lang);
+				}
+			}
+		}
 	}
 
 	// The framework ships Intl plumbing, never a currency choice: no
@@ -211,11 +243,17 @@ export default class The {
 		return options.currency;
 	}
 
-	// Returns the localized string, or null on a true miss (no dictionary
-	// entry and no Intl-only formatting path).
+	// Keep the supplying language with the message, including fallback entries.
 	static #resolve(key, options) {
-		let entry = The.dictionary[key];
-		if (!entry) {
+		const found = The.#dictionaries.find(({ dictionary }) =>
+			Object.hasOwn(dictionary, key),
+		);
+		let entry = found?.dictionary[key];
+		const language = found?.locale ?? The.locale;
+		const formatLocale = Locale.compatible(The.locale, language)
+			? The.locale
+			: language;
+		if (entry === undefined) {
 			if (
 				options.val !== undefined &&
 				(options.type === "currency" || options.type === "date")
@@ -227,20 +265,25 @@ export default class The {
 								currency: The.#currency(options),
 							})
 						: new Intl.DateTimeFormat(The.locale);
-				return options.type === "date"
-					? fmt.format(new Date(options.val))
-					: fmt.format(Number(options.val));
+				const text =
+					options.type === "date"
+						? fmt.format(new Date(options.val))
+						: fmt.format(Number(options.val));
+				return { text, locale: The.locale };
 			}
 			return null;
 		}
 
 		if (typeof entry === "object") {
 			const qty = options.qty !== undefined ? Number(options.qty) : 0;
-			const rule = new Intl.PluralRules(The.locale).select(qty);
-			entry = entry[rule] || entry.other || key;
+			const rule = new Intl.PluralRules(language).select(qty);
+			entry = entry[rule] ?? entry.other ?? key;
 		}
 
-		if (typeof entry !== "string") return key;
+		if (typeof entry !== "string")
+			throw new TypeError(
+				`Invalid i18n dictionary entry ${JSON.stringify(key)}`,
+			);
 
 		let result = entry;
 		for (const [k, v] of Object.entries(options)) {
@@ -249,13 +292,13 @@ export default class The {
 				const num = Number(v);
 				const fmt =
 					options.type === "currency"
-						? new Intl.NumberFormat(The.locale, {
+						? new Intl.NumberFormat(formatLocale, {
 								style: "currency",
 								currency: The.#currency(options),
 							})
 						: options.type === "date"
-							? new Intl.DateTimeFormat(The.locale)
-							: new Intl.NumberFormat(The.locale);
+							? new Intl.DateTimeFormat(formatLocale)
+							: new Intl.NumberFormat(formatLocale);
 				val =
 					options.type === "date" ? fmt.format(new Date(v)) : fmt.format(num);
 			}
@@ -263,7 +306,7 @@ export default class The {
 			result = result.replaceAll(`{${k}}`, () => val);
 		}
 
-		return result;
+		return { text: result, locale: language };
 	}
 
 	static #routeNavigate = null;
@@ -452,68 +495,84 @@ export default class The {
 		const params = new URLSearchParams(search);
 		// <html lang> is the server's deliberate signal about the rendered document's
 		// language. It outranks navigator.language because the server may have
-		// already considered the visitor's preference when choosing it. Static SPAs
-		// that want navigator-driven locale detection should leave <html lang> empty
-		// or omit the attribute — then the chain falls through to navigator.
+		// already considered the visitor's preference when choosing it. Browser-led
+		// selection can be explicit without removing the document's source language.
 		const browserLoc =
 			document.documentElement.lang ||
 			(typeof navigator !== "undefined" ? navigator.language : null) ||
 			"en";
 
-		The.locale =
+		const requested = new Intl.Locale(
 			locale ||
-			params.get("lang") ||
-			(The.persistKeys.has("lang") &&
-				localStorage.getItem(`${The.prefix}lang`)) ||
-			browserLoc;
+				params.get("lang") ||
+				(The.persistKeys.has("lang") &&
+					localStorage.getItem(`${The.prefix}lang`)) ||
+				browserLoc,
+		).toString();
 
 		const sourceLang = defaultLocale || document.documentElement.lang;
-		const localeBase = The.locale.toLowerCase().split("-")[0];
-		const sourceBase = sourceLang?.toLowerCase().split("-")[0];
-		const skipI18n = Boolean(sourceBase) && localeBase === sourceBase;
+		const source = sourceLang ? new Intl.Locale(sourceLang).baseName : null;
+		if (defaultLocale)
+			document.documentElement.lang = new Intl.Locale(defaultLocale).toString();
+		const dictionaries = [];
+		let sourceOnly = false;
 
 		// Inline dictionary always loads — programmatic _t() must work even when
 		// the locale short-circuit skips the fetch and the hydration pass.
-		if (dictionary) {
-			The.dictionary = dictionary;
-		} else if (!skipI18n) {
+		if (dictionary !== undefined) {
+			dictionaries.push({
+				dictionary: Dictionary.validate(dictionary),
+				locale: requested,
+			});
+			sourceOnly = source !== null && Locale.chain(requested).includes(source);
+		} else {
 			const meta = document.querySelector('meta[name="i18n"]');
 			const path = locales || meta?.getAttribute("content");
 			if (path) {
-				const fallback = meta?.getAttribute("data-fallback") || "en";
-				const available = (meta?.getAttribute("data-available") || "")
-					.split(",")
-					.map((s) => s.trim().toLowerCase());
-
-				const full = The.locale.toLowerCase();
-				const base = full.split("-")[0];
-
-				let target = fallback;
-				if (available.includes(full)) target = full;
-				else if (available.includes(base)) target = base;
-
-				const load = async (loc) => {
-					const res = await fetch(`${path}/${loc}.json`, { signal });
-					if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc}.json`);
-					return res.json();
-				};
-
-				try {
-					The.dictionary = await load(target);
-				} catch (e) {
-					if (signal?.aborted) throw e;
-					console.warn(`otm: i18n fetch failed for "${target}"`, e);
-					if (target !== fallback) {
-						try {
-							The.dictionary = await load(fallback);
-						} catch (e2) {
-							if (signal?.aborted) throw e2;
-							console.warn(`otm: i18n fallback "${fallback}" failed`, e2);
-						}
+				const fallback = meta?.getAttribute("data-fallback") || source || "en";
+				const available = new Map(
+					(meta?.getAttribute("data-available") || "")
+						.split(",")
+						.map((s) => s.trim())
+						.filter(Boolean)
+						.map((tag) => [new Intl.Locale(tag).baseName, tag]),
+				);
+				const primary = Locale.chain(requested);
+				if (source && Locale.compatible(requested, source))
+					primary.push(source);
+				const candidates = new Set([
+					...primary,
+					...Locale.chain(fallback),
+					...(source ? [source] : []),
+				]);
+				for (const target of candidates) {
+					if (target === source) break;
+					const file =
+						available.get(target) ??
+						(available.size === 0 &&
+						target === new Intl.Locale(fallback).baseName
+							? fallback
+							: null);
+					if (!file) continue;
+					try {
+						const res = await fetch(`${path}/${file}.json`, { signal });
+						if (!res.ok) throw new Error(`HTTP ${res.status} for ${file}.json`);
+						dictionaries.push({
+							dictionary: Dictionary.validate(await res.json()),
+							locale: target,
+						});
+					} catch (cause) {
+						if (signal?.aborted) throw cause;
+						console.warn(`otm: i18n fetch failed for "${target}"`, cause);
 					}
 				}
 			}
 		}
+		const active = dictionaries[0]?.locale ?? source ?? requested;
+		The.locale = Locale.compatible(requested, active) ? requested : active;
+		The.#dictionaries = dictionaries.length
+			? dictionaries
+			: [{ dictionary: {}, locale: null }];
 
 		for (const key of The.persistKeys) {
 			if (key === "lang") continue;
@@ -521,6 +580,9 @@ export default class The {
 			if (val !== null) The.#set(document.body, key, val);
 		}
 
-		if (!skipI18n) The._t();
+		The.#translate(
+			document.documentElement,
+			sourceOnly || (source !== null && dictionaries.length === 0),
+		);
 	}
 }
