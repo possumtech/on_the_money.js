@@ -58,8 +58,8 @@ ul {
 	border-bottom: 1px solid #eee;
 }
 
-/* REACTIVITY: Visual state driven by ARIA */
-[data-item][aria-checked="true"] [data-text="task"] {
+/* REACTIVITY: Visual state driven by attribute state */
+[data-item][data-done="true"] [data-text="task"] {
 	color: #999;
 	text-decoration: line-through;
 }

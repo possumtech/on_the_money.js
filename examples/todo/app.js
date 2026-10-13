@@ -4,7 +4,7 @@ await the.boot({ locales: "./locales" });
 
 const updateCount = () => {
 	const count = $$("#todo-list [data-item]").filter(
-		(el) => el.getAttribute("aria-checked") === "false",
+		(el) => el.getAttribute("data-done") !== "true",
 	).length;
 	const footer = $('footer [data-i18n="items_left"]');
 	footer.setAttribute("data-i18n-qty", count);
@@ -21,7 +21,7 @@ on("#todo-form", "submit", (e) => {
 });
 
 on("#todo-list", "change", '[data-action="toggle-todo"]', (_e, target) => {
-	the(target.closest("[data-item]"), "checked", String(target.checked));
+	the(target.closest("[data-item]"), "done", String(target.checked));
 	updateCount();
 });
 

@@ -4,31 +4,31 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="i18n" content="./locales" data-available="en" data-fallback="en">
-  <title data-i18n="app_title"></title>
+  <title data-i18n="app_title">onTheMoney • Todo</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <main>
     <header>
-      <h1 data-i18n="app_title"></h1>
+      <h1 data-i18n="app_title">onTheMoney • Todo</h1>
     </header>
 
     <form id="todo-form">
       <input type="text" name="task" id="todo-input" required 
              placeholder="What needs to be done?" 
              aria-label="New Todo Task">
-      <button type="submit" data-i18n="btn_add"></button>
+      <button type="submit" data-i18n="btn_add">Add</button>
     </form>
 
     <ul id="todo-list"></ul>
 
     <footer>
-      <span data-i18n="items_left" data-i18n-qty="0"></span>
+      <span data-i18n="items_left" data-i18n-qty="0">0 items left</span>
     </footer>
   </main>
 
   <template id="todo-item">
-    <li data-item aria-checked="false">
+    <li data-item data-done="false">
       <input type="checkbox" data-action="toggle-todo" aria-label="Toggle Completion">
       <span data-text="task"></span>
       <button type="button" data-action="delete-todo" aria-label="Delete Task"></button>

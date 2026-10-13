@@ -1,8 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
 import { setupDOM } from "../test/index.js";
-import Live, { backoffDelay } from "./Live.js";
 import { live } from "./index.js";
+import Live, { backoffDelay } from "./Live.js";
 
 class FakeSocket {
 	static instances = [];

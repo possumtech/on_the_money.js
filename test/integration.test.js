@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import test from "node:test";
+import { $, on, route, the } from "../src/core/index.js";
 import The from "../src/core/The.js";
-import { $, $$, _t, on, route, the } from "../src/core/index.js";
 import { setupDOM } from "../src/test/index.js";
 
 test("Integration: The Full Lifecycle (Strict Clone)", async (_t_context) => {

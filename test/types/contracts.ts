@@ -1,4 +1,4 @@
-import { $, $$, _t, on, route, the } from "on_the_money";
+import { _t, $, $$, on, route, the } from "on_the_money";
 import { clipboard } from "on_the_money/clipboard";
 import eslintConfig from "on_the_money/eslint-config";
 import eslintPlugin from "on_the_money/eslint-plugin";

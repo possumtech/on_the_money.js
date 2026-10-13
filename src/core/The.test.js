@@ -1,8 +1,8 @@
 import assert from "node:assert";
 import test from "node:test";
 import { setupDOM } from "../test/index.js";
-import The from "./The.js";
 import { the } from "./index.js";
+import The from "./The.js";
 
 test("the(key): reads global state from body", (_t) => {
 	const { document } = setupDOM();

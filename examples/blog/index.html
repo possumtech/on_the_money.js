@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="i18n" content="./locales" data-available="en,es,fr" data-fallback="en">
-  <title data-i18n="app_title"></title>
+  <title data-i18n="app_title">OnTheMoney Blog</title>
   <link rel="stylesheet" href="https://unpkg.com/@picocss/pico@2/css/pico.classless.min.css">
   <link rel="stylesheet" href="./styles.css">
   <script type="module" src="./app.js"></script>
@@ -13,12 +13,12 @@
   <header>
     <nav>
       <ul>
-        <li><a href="#/" data-i18n="nav_home"></a></li>
-        <li><a href="#/about" data-i18n="nav_about"></a></li>
+        <li><a href="#/" data-i18n="nav_home">Home</a></li>
+        <li><a href="#/about" data-i18n="nav_about">About</a></li>
       </ul>
       <ul>
         <li>
-          <label for="lang-select" data-i18n="locale_label"></label>
+          <label for="lang-select" data-i18n="locale_label">Language</label>
           <select id="lang-select" name="lang" aria-label="Switch language">
             <option value="en">English</option>
             <option value="es">Español</option>
@@ -32,8 +32,8 @@
   <main>
     <section data-route="home">
       <hgroup>
-        <h1 data-i18n="home_title"></h1>
-        <p data-i18n="post_count" data-i18n-qty="0"></p>
+        <h1 data-i18n="home_title">Latest Posts</h1>
+        <p data-i18n="post_count" data-i18n-qty="0">0 posts</p>
       </hgroup>
       <ul id="post-list"></ul>
     </section>
@@ -41,18 +41,18 @@
     <section data-route="post">
       <article id="post-view">
         <header>
-          <h1 data-text="title"></h1>
+          <h1 data-text="title">Post title</h1>
           <p data-i18n="posted_at" data-i18n-val="" data-i18n-type="date"></p>
         </header>
         <p data-text="body"></p>
         <footer>
-          <h2 data-i18n="comments_heading"></h2>
-          <p data-i18n="comments_count" data-i18n-qty="0"></p>
+          <h2 data-i18n="comments_heading">Comments</h2>
+          <p data-i18n="comments_count" data-i18n-qty="0">0 comments</p>
           <ul id="comments-list"></ul>
           <form id="comment-form">
-            <label for="comment-input" data-i18n="comment_form_label"></label>
+            <label for="comment-input" data-i18n="comment_form_label">Add a comment</label>
             <textarea id="comment-input" name="text" required aria-label="Comment text"></textarea>
-            <button type="submit" data-i18n="comment_form_submit"></button>
+            <button type="submit" data-i18n="comment_form_submit">Post</button>
           </form>
         </footer>
       </article>
@@ -60,16 +60,16 @@
 
     <section data-route="about">
       <hgroup>
-        <h1 data-i18n="about_title"></h1>
-        <p data-i18n="about_body"></p>
+        <h1 data-i18n="about_title">About</h1>
+        <p data-i18n="about_body">A small demo built with on_the_money.js and Pico Classless.</p>
       </hgroup>
     </section>
   </main>
 
   <template id="post-list-item">
     <li data-item>
-      <a data-bind="href:post-url">
-        <strong data-text="title"></strong>
+      <a href="#/" data-bind="href:post-url">
+        <strong data-text="title">Post title</strong>
       </a>
     </li>
   </template>

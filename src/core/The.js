@@ -132,7 +132,7 @@ export default class The {
 		// name="tags[]" is an array from the first entry — shape must not
 		// depend on cardinality.
 		const isArrayLeaf = key.endsWith("[]");
-		const parts = key.split(/[\[\]]/).filter(Boolean);
+		const parts = key.split(/[[\]]/).filter(Boolean);
 		const forbidden = parts.find((part) =>
 			["__proto__", "prototype", "constructor"].includes(part),
 		);
@@ -290,8 +290,7 @@ export default class The {
 				return;
 			const link = e.target.closest("a");
 			if (
-				!link ||
-				!link.getAttribute("href") ||
+				!link?.getAttribute("href") ||
 				link.hasAttribute("data-external") ||
 				link.hasAttribute("download") ||
 				link.target === "_blank"
