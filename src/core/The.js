@@ -463,7 +463,8 @@ export default class The {
 		The.locale =
 			locale ||
 			params.get("lang") ||
-			localStorage.getItem(`${The.prefix}lang`) ||
+			(The.persistKeys.has("lang") &&
+				localStorage.getItem(`${The.prefix}lang`)) ||
 			browserLoc;
 
 		const sourceLang = defaultLocale || document.documentElement.lang;
@@ -514,15 +515,10 @@ export default class The {
 			}
 		}
 
-		for (let i = 0; i < localStorage.length; i++) {
-			const fullKey = localStorage.key(i);
-			if (fullKey.startsWith(The.prefix)) {
-				const key = fullKey.slice(The.prefix.length);
-				if (key !== "lang" && The.persistKeys.has(key)) {
-					const val = localStorage.getItem(fullKey);
-					The.#set(document.body, key, val);
-				}
-			}
+		for (const key of The.persistKeys) {
+			if (key === "lang") continue;
+			const val = localStorage.getItem(`${The.prefix}${key}`);
+			if (val !== null) The.#set(document.body, key, val);
 		}
 
 		if (!skipI18n) The._t();
