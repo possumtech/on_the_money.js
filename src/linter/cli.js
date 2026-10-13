@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { parseArgs } from "node:util";
+import Dictionary from "../core/Dictionary.js";
 import Linter from "./Linter.js";
 import Markup from "./Markup.js";
 
@@ -7,15 +9,24 @@ export default class Cli {
 	static async run(args = []) {
 		console.log("on_the_money.js Linter (Experimental)");
 
-		if (args.includes("--check")) {
-			const dirIndex = args.indexOf("--check") + 1;
-			const targetDir = args[dirIndex] || ".";
-			try {
-				return await Cli.scan(targetDir);
-			} catch (e) {
-				console.error(`Error scanning ${targetDir}: ${e.message}`);
-				return -1;
-			}
+		try {
+			const { values, positionals } = parseArgs({
+				args,
+				allowPositionals: true,
+				options: {
+					check: { type: "boolean" },
+					"public-root": { type: "string" },
+				},
+			});
+			if (positionals.length > 1)
+				throw new TypeError("--check accepts one directory");
+			if (values.check)
+				return await Cli.scan(positionals[0] ?? ".", {
+					publicRoot: values["public-root"],
+				});
+		} catch (e) {
+			console.error(`Error scanning: ${e.message}`);
+			return -1;
 		}
 		return 0;
 	}
@@ -61,7 +72,7 @@ export default class Cli {
 			.filter((f) => exts.includes(path.extname(f)));
 	}
 
-	static async scan(dir) {
+	static async scan(dir, { publicRoot = dir } = {}) {
 		const allFiles = await Cli.getFiles(dir, [
 			".html",
 			".ejs",
@@ -87,10 +98,14 @@ export default class Cli {
 
 			const metaContent = Cli.#findI18nMeta(file, source);
 			if (metaContent) {
-				const localesDir = path.resolve(
-					path.dirname(file),
-					metaContent.startsWith("/") ? `.${metaContent}` : metaContent,
-				);
+				if (/^[a-z][a-z0-9+.-]*:|^\/\//i.test(metaContent)) {
+					throw new Error(
+						`Cannot validate remote dictionary endpoint ${metaContent} in ${file}; use a local served path`,
+					);
+				}
+				const localesDir = metaContent.startsWith("/")
+					? path.resolve(publicRoot, `.${metaContent}`)
+					: path.resolve(path.dirname(file), metaContent);
 				try {
 					const entries = await fs.readdir(localesDir);
 					availableLocales = entries
@@ -104,13 +119,22 @@ export default class Cli {
 								path.join(localesDir, entry),
 								"utf-8",
 							);
-							dicts.push({ locale, dict: JSON.parse(raw) });
-						} catch {
-							// Skip unparseable locale file
+							dicts.push({
+								locale,
+								dict: Dictionary.validate(JSON.parse(raw)),
+							});
+						} catch (cause) {
+							throw new Error(
+								`Invalid dictionary ${path.join(localesDir, entry)}: ${cause.message}`,
+								{ cause },
+							);
 						}
 					}
-				} catch {
-					// Folder not found or unreadable
+				} catch (cause) {
+					throw new Error(
+						`Cannot validate dictionary directory ${localesDir} declared in ${file}: ${cause.message}`,
+						{ cause },
+					);
 				}
 			}
 

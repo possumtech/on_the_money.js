@@ -22,7 +22,6 @@ A complete two-file app. `index.html` carries semantic structure, `app.js` carri
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="i18n" content="/locales" data-available="en" data-fallback="en">
   <title data-i18n="app_title">My App</title>
   <link rel="stylesheet" href="./substrate.css">
   <script type="module" src="./app.js"></script>
@@ -48,7 +47,7 @@ on("main", "click", '[data-action="greet"]', () => {
 });
 ```
 
-Every text node lives inside a carrier — `data-i18n` for localizable copy, `data-text` for state-projected content — and keeps its source-language text as fallback. With `<html lang="en">` and an English visitor, boot short-circuits: no dictionary fetch, no hydration pass, the static HTML already serves the right text. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
+Every text node lives inside a carrier — `data-i18n` for localizable copy, `data-text` for state-projected content — and keeps its source-language text as fallback. This source-only document needs no translation endpoint or dictionary files, including for visitors requesting another language: the rendered English remains available. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
 
 ## The substrate stylesheet
 
@@ -195,17 +194,21 @@ await the.boot({ signal, locales, dictionary, namespace, locale, defaultLocale, 
 | `locales` | `string` | Override the `<meta name="i18n" content>` path. |
 | `dictionary` | `object` | Inline dictionary. Always loads — even under the locale short-circuit — so programmatic `_t()` works; only the fetch and hydration are skipped. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
-| `locale` | `string` | Explicitly selects the active locale. Takes precedence over query, stored, document, and browser locale values. |
-| `defaultLocale` | `string` | Locale your static HTML is already written in. When the resolved locale base matches this, the dictionary fetch and `_t()` hydration pass are skipped entirely — no network, no FOUC. Auto-detected from `<html lang>` if omitted. |
+| `locale` | `string` | Requested locale. Takes precedence over query, stored, document, and browser values; boot resolves it against available translations and the source document. |
+| `defaultLocale` | `string` | Actual source language of the rendered HTML. Defaults to `<html lang>`; an explicit value also sets that document language. Source text is the terminal fallback, without a dictionary fetch. |
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
-1. Resolve locale: explicit `locale` option → `?lang=` query → `localStorage["${prefix}lang"]` (only when `persistKeys` includes `"lang"`) → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
-2. Load the inline `dictionary` if provided. This happens unconditionally.
-3. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 4 and 6. Static HTML already serves the right text.
-4. Fetch dictionary (when no inline one): `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Target selection falls through full → base → `data-fallback`. A failed fetch (network error or non-ok status) warns to the console and retries with the `data-fallback` file before giving up.
-5. Replay `localStorage` entries in `persistKeys` (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
-6. Run `_t()` to hydrate `[data-i18n]`.
+1. Select the requested locale: explicit `locale` → `?lang=` → opted-in `localStorage["${prefix}lang"]` → `<html lang>` → `navigator.language` → `"en"`. The server's document language outranks the browser's passive preference. To deliberately select the browser's preference, pass `locale: navigator.language` and keep `<html lang>` set to the actual source language.
+2. Load an inline `dictionary` if provided, without fetching. It remains available to programmatic `_t()` even when the document already supplies the requested source language and boot leaves that text unchanged.
+3. Otherwise, when an endpoint is declared, load the available dictionaries in the requested locale's lookup chain, followed by `data-fallback` (default: the declared source language, or `"en"` when undeclared). Lookup uses canonical Unicode locale tags and progressively removes variant/region subtags, retaining script compatibility: `fr-CA → fr`, `sr-Latn-RS → sr-Latn`. A declared source language terminates the chain without fetching its file. A same-language regional dictionary can still override the source when it is a closer match. With no `data-available` manifest, only the fallback file is fetched; list available files to enable regional lookup.
+4. A network, HTTP, JSON, or dictionary-shape failure warns with its original cause and continues through the chain to source text. Aborting rejects boot. Invalid inline dictionaries and locale identifiers reject as authoring errors.
+5. Set `the.locale` to the effective primary locale. Preserve the requested regional settings when compatible with that language and script (`fr-CA` can use `fr.json`); otherwise use the fallback locale. The requested URL/storage preference is not rewritten.
+6. Replay opted-in storage keys (except `lang`), then translate `[data-i18n]` in the document, including the head. Resolve each message through the loaded dictionaries; a miss preserves its original source text. Subsequent boot or `_t()` calls restore that original text on a miss, rather than retaining a previous translation.
+
+English is the convention used by examples and unspecified defaults, not an enforced source language. Declare another source using `<html lang="de">` or `defaultLocale: "de"`; OTM does not require an English dictionary. Always declare the source language to obtain source-aware zero-fetch fallback. Without that declaration, boot cannot know that a dictionary duplicates the document.
+
+This is a documented lookup profile, not full CLDR best-fit matching or transliteration. Native `Intl.Locale` handles canonicalization and likely scripts; OTM does not bundle linguistic tables. Use hyphenated tags (`fr-CA`, not `fr_CA`). Dictionary filenames retain the spelling in `data-available`, while matching is canonical.
 
 Storage access is opt-in for both reads and writes. With no persisted keys configured (or after `persistKeys: []` clears them), boot and state operations never access `localStorage`. Boot reads only opted-in keys; it does not enumerate unrelated storage. When persistence is explicitly enabled, browser storage failures propagate as their original errors from the operation, including boot, writes, and deletion. A failed persisted write may already have updated the DOM; it must not be treated as a successful save.
 
@@ -219,7 +222,9 @@ Storage access is opt-in for both reads and writes. With no persisted keys confi
 <h1 data-i18n="title"></h1>
 ```
 
-The framework preserves existing `textContent` when a dictionary key is missing, so source-language text inside `data-i18n` elements stays visible if `_t()` runs against an empty dictionary (the short-circuit case above, or any environment without the i18n fetch).
+Partial translations are supported. Missing messages retain the source text already in the document; no duplicate source-language JSON is needed. Translated carriers get `lang` for the supplying dictionary; source fallback retains its original language attributes. The document's `lang` continues to describe the source, so untranslated passages inherit it correctly. Keep carriers' source text in place before their first translation; OTM retains it per element for subsequent language changes, not as a second template graph.
+
+Language and direction are separate HTML concerns. Authors supply `dir="rtl"` for right-to-left documents or passages, and `dir="auto"`/`bdi` for appropriate dynamic text. OTM does not infer layout direction from `lang`. See [W3C directionality guidance](https://www.w3.org/International/questions/qa-html-dir).
 
 ### `_t(key, options)` — `Intl` localization
 
@@ -234,7 +239,9 @@ _t(node);                                          // hydrate every [data-i18n] 
 _t();                                              // hydrate document.body
 ```
 
-Missing dictionary keys preserve existing `textContent` during element hydration (SEO fallback); the programmatic string form returns the key. Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
+Missing dictionary keys preserve original source `textContent` during element hydration; the programmatic string form searches the same dictionary chain, then returns the key (it does not search the DOM for a template). Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
+
+Dictionaries map keys to strings (including intentional empty strings) or plural objects with string values under `zero`, `one`, `two`, `few`, `many`, and `other`; `other` is required. Plural selection uses the supplying dictionary's locale. Number/date interpolation retains compatible regional preferences, but does not apply another language's formatting to a fallback message. `the.dictionary` exposes the primary dictionary; assigning it replaces the whole chain and associates that inline dictionary with `the.locale`. Use `_t()` for lookup through fallbacks.
 
 **Formatting vocabulary is Intl's, verbatim.** Directive attributes mirror Intl option names one-to-one — `data-i18n-currency` → `currency` — and OTM defaults none of them: `type: "currency"` without an explicit currency **throws** (the platform itself refuses to infer currency from locale, and it validates ISO 4217 codes with a `RangeError`). The framework ships Intl plumbing, never a currency choice; HTML-025 catches the missing declarative code at lint time.
 
@@ -586,13 +593,11 @@ await the.boot({ persistKeys: ["theme", "lang"] });
 on("nav", "click", "[data-lang]", async (_e, link) => {
   const lang = link.getAttribute("data-lang");
   the("lang", lang);        // persists — boot's resolution chain finds it on reload
-  the.locale = lang;
-  the.dictionary = await (await fetch(`/locales/${lang}.json`)).json();
-  _t();
+  await the.boot({ locale: lang }); // uses the declared dictionary chain and source fallback
 });
 ```
 
-The `the("lang", lang)` write is what makes the choice survive reload: boot resolves `localStorage["otm:lang"]` ahead of `<html lang>`. Without it, the swap reverts on refresh.
+The `the("lang", lang)` write is what makes the preference survive reload: boot reads opted-in `localStorage["otm:lang"]` ahead of `<html lang>`. Without it, the selection reverts on refresh. Declare the translation endpoint and available dictionaries on the document; a source-only document simply retains its source text.
 
 ### Namespaced state
 
@@ -759,11 +764,12 @@ npx otm-lint --check ./src
 | --- | --- | --- |
 | **HTML-004** | Naked text in HTML | Every rendered text node lives inside a carrier — `data-i18n="key"` for localizable copy, `data-text="key"` for state-projected content — and SHOULD keep source-language fallback text in place. |
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
-| **HTML-023** | `data-i18n="..."` without `<meta name="i18n">` | Declare the i18n endpoint. |
+| **HTML-023** | A declared `<meta name="i18n">` has no dictionary path | Provide `content`, or omit the meta entirely for a source-only document. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
 | **HTML-025** | `data-i18n-type="currency"` without `data-i18n-currency` | `_t()` throws at runtime without an explicit ISO 4217 code — declare it on the element. |
+| **HTML-026** | Invalid source, available, or fallback locale identifier | Use Unicode locale tags accepted by `Intl.Locale`, such as `fr-CA` or `sr-Latn`. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
-| **HTML-102** | `data-i18n="K"` references a key not in any locale dictionary | Add the key to your locale files, or fix the typo. Catches the fallback-to-source UX gap at lint time. |
+| **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
 | **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
 | **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
@@ -771,6 +777,8 @@ npx otm-lint --check ./src
 | **HTML-107** | A `data-K-key="V"` reveal span no state-CSS rule references, or a CSS `[data-K-key="V"]` reference no element carries | Pairing is by CSS reference — the state key revealing a span may be named anything (`body[data-form-error="V"] [data-error-key="V"]` is fine). Either half missing means the message silently never shows (or the rule is dead wiring); `data-otm-dynamic` opts a span out of the span→CSS direction. |
 
 `otm-lint` walks `.html`, `.ejs` (cross-file rules only — per-file rules stay `.html`), `.js`, `.css`, and locale `.json` files. HTML files get the per-file rules above (template content included); `.js` files contribute `$.clone` references, `the()` write/read keys, and `data-action` selectors; `.css` files contribute attribute-selector consumption for HTML-106; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is nonzero when error-level violations are found.
+
+Declared dictionary directories and files must be readable, valid JSON, and valid dictionary objects; failures are errors, not skipped validation. Relative endpoints resolve beside the HTML file. Root-relative endpoints resolve beneath the scanned directory by default; use `npx otm-lint --check ./src --public-root ./public` when `/locales` is served from `public/locales`. Remote endpoints cannot be validated by this filesystem scan. No translation declaration means no dictionary files are required.
 
 ### Lint-rule scope
 
@@ -818,7 +826,6 @@ my-app/
 ├── index.html              # substrate link + meta tags + script entry
 ├── app.js                  # await the.boot(); register handlers
 ├── locales/
-│   ├── en.json
 │   ├── es.json
 │   └── fr.json
 ├── styles.css              # attribute-selector-driven custom CSS (optional)
@@ -827,9 +834,11 @@ my-app/
     └── about.html
 ```
 
-`<meta name="i18n" content="/locales" data-available="en,es,fr" data-fallback="en">` directs `the.boot()` to fetch `/locales/{lang}.json` automatically.
+For an English-source document, `<meta name="i18n" content="/locales" data-available="es,fr">` advertises optional Spanish and French dictionaries. English fallback is already in the HTML. Omit both the meta and the `locales/` directory when no translations exist.
 
 ## Repository layout (contributors)
+
+`npm run size` measures the minified and gzipped core and lists its module inputs without writing build output. Translation dictionaries are application resources, not part of that bundle.
 
 ```
 src/

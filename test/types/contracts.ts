@@ -25,6 +25,11 @@ void the.boot({
 	dictionary: { title: "Title" },
 });
 void _t("price", { type: "currency", currency: "EUR", val: 2 });
+the.dictionary = { count: { one: "One", other: "{qty} items" } };
+// @ts-expect-error plural entries require the standard other fallback
+the.dictionary = { count: { one: "One" } };
+// @ts-expect-error plural keys are Intl categories, not arbitrary strings
+the.dictionary = { count: { invalid: "Invalid", other: "Many" } };
 
 const off = on(document.body, "click", "[data-action]", (_event, target) => {
 	void target;

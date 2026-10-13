@@ -13,8 +13,8 @@ export default class Linter {
 
 	static #checkHtmlRules(document, violations, file, availableLocales) {
 		let hasI18nMeta = false;
+		let hasI18nPath = true;
 		let manifestMatches = true;
-		let usesI18n = false;
 		let isFullDocument = false;
 
 		Linter.#traverse(document, (node) => {
@@ -28,9 +28,39 @@ export default class Linter {
 			const attrs = node.attrs
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
+			const localeAttrs =
+				node.nodeName === "html"
+					? ["lang"]
+					: node.nodeName === "meta" && attrs.name === "i18n"
+						? ["data-available", "data-fallback"]
+						: [];
+			for (const attr of localeAttrs) {
+				const values =
+					attr === "data-available"
+						? (attrs[attr] || "").split(",")
+						: [attrs[attr] || ""];
+				for (const tag of values.map((s) => s.trim()).filter(Boolean)) {
+					try {
+						new Intl.Locale(tag);
+					} catch (cause) {
+						const loc = node.sourceCodeLocation?.attrs?.[attr] || {
+							startLine: 1,
+							startCol: 1,
+						};
+						Linter.#addViolation(
+							violations,
+							file,
+							{ line: loc.startLine, column: loc.startCol },
+							"HTML-026",
+							`Invalid locale ${JSON.stringify(tag)} in ${attr}: ${cause.message}. Use Unicode locale tags such as fr-CA or sr-Latn.`,
+						);
+					}
+				}
+			}
 
 			if (node.nodeName === "meta" && attrs.name === "i18n") {
 				hasI18nMeta = true;
+				hasI18nPath = Boolean(attrs.content?.trim());
 				if (availableLocales) {
 					const manifest = (attrs["data-available"] || "")
 						.split(",")
@@ -44,7 +74,6 @@ export default class Linter {
 					}
 				}
 			}
-			if (attrs["data-i18n"]) usesI18n = true;
 
 			if (attrs["data-action"]) {
 				const interactiveTags = [
@@ -117,14 +146,14 @@ export default class Linter {
 			}
 		});
 
-		if (isFullDocument && usesI18n) {
-			if (!hasI18nMeta) {
+		if (isFullDocument && hasI18nMeta) {
+			if (!hasI18nPath) {
 				Linter.#addViolation(
 					violations,
 					file,
 					{ line: 1, column: 1 },
 					"HTML-023",
-					'Localization detected, but missing <meta name=\'i18n\' ...>. Add <meta name="i18n" content="/locales" data-available="en" data-fallback="en"> to <head>.',
+					'A declared <meta name="i18n"> requires a dictionary path in content. Omit the meta for a source-language-only document.',
 				);
 			} else if (!manifestMatches) {
 				Linter.#addViolation(
@@ -220,12 +249,18 @@ export default class Linter {
 
 				const foundIn = dicts.filter((d) => key in d.dict);
 				if (foundIn.length === 0) {
+					// The rendered source text is a valid final fallback, not a missing dictionary.
+					const text = (node) =>
+						node.nodeName === "#text"
+							? node.value
+							: (node.childNodes || []).map(text).join("");
+					if (text(node).trim()) return;
 					Linter.#addViolation(
 						violations,
 						file,
 						where,
 						"HTML-102",
-						`i18n key "${key}" is not declared in any locale dictionary (${dicts.map((d) => d.locale).join(", ")}).`,
+						`i18n key "${key}" has no source text and is not declared in any locale dictionary (${dicts.map((d) => d.locale).join(", ")}).`,
 					);
 					return;
 				}

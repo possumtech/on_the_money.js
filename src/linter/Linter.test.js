@@ -64,12 +64,21 @@ test("Linter.check: HTML-017 allows data-action with role + tabindex", (_t) => {
 	assert.strictEqual(interactive.length, 0);
 });
 
-test("Linter.check: HTML-023 catches data-i18n usage without i18n meta", (_t) => {
+test("Linter.check: source-language documents need no dictionary endpoint", (_t) => {
 	const code =
-		'<!DOCTYPE html><html lang="en"><body><h1 data-i18n="t"></h1></body></html>';
+		'<!DOCTYPE html><html lang="en"><body><h1 data-i18n="t">Hello</h1></body></html>';
 	const violations = Linter.check("test.html", code);
-	const missing = violations.filter((v) => v.ruleId === "HTML-023");
-	assert.strictEqual(missing.length, 1);
+	assert.deepStrictEqual(violations, []);
+});
+
+test("Linter.check: HTML-023 rejects an advertised dictionary without a path", () => {
+	const code =
+		'<!doctype html><html lang="en"><head><meta name="i18n"></head><body><h1 data-i18n="t">Hello</h1></body></html>';
+	const violations = Linter.check("test.html", code);
+	assert.deepStrictEqual(
+		violations.map(({ ruleId }) => ruleId),
+		["HTML-023"],
+	);
 });
 
 test("Linter.check: HTML-023 satisfied when i18n meta present", (_t) => {
@@ -174,6 +183,34 @@ test("Linter.crossCheck: HTML-102 catches data-i18n keys missing from locale dic
 	const missing = violations.filter((v) => v.ruleId === "HTML-102");
 	assert.strictEqual(missing.length, 1);
 	assert.match(missing[0].message, /"missing"/);
+});
+
+test("partial dictionaries may fall back to source text, including non-English source", () => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "index.html",
+				source:
+					'<html lang="de"><body><p data-i18n="title">Willkommen</p><p data-i18n="help">Hilfe</p></body></html>',
+				dicts: [{ locale: "fr", dict: { title: "Bienvenue" } }],
+			},
+		],
+		jsSources: [],
+	});
+	assert.deepStrictEqual(violations, []);
+});
+
+test("invalid source and dictionary locale declarations are lint errors", () => {
+	for (const source of [
+		'<html lang="fr_CA"><body><p data-i18n="title">Hello</p></body></html>',
+		'<html lang="en"><head><meta name="i18n" content="/locales" data-available="fr_CA"></head><body></body></html>',
+		'<html lang="en"><head><meta name="i18n" content="/locales" data-fallback="en_US"></head><body></body></html>',
+	]) {
+		assert.deepStrictEqual(
+			Linter.check("index.html", source).map((v) => v.ruleId),
+			["HTML-026"],
+		);
+	}
 });
 
 test("Linter.crossCheck: HTML-103 catches placeholder token mismatch", (_t) => {

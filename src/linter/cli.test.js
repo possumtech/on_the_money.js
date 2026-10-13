@@ -1,6 +1,87 @@
 import assert from "node:assert";
+import fs from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import Cli from "./cli.js";
+
+const fixture = async (t, files) => {
+	const dir = await fs.mkdtemp(path.join(os.tmpdir(), "otm-i18n-"));
+	t.after(() => fs.rm(dir, { recursive: true, force: true }));
+	for (const [name, content] of Object.entries(files)) {
+		const target = path.join(dir, name);
+		await fs.mkdir(path.dirname(target), { recursive: true });
+		await fs.writeFile(target, content);
+	}
+	return dir;
+};
+
+const localizedDocument = (endpoint) =>
+	`<!doctype html><html lang="en"><head>${endpoint ? `<meta name="i18n" content="${endpoint}" data-available="es">` : ""}</head><body><h1 data-i18n="t">Hello</h1></body></html>`;
+
+test("Cli: source-language HTML passes without dictionary files", async (t) => {
+	quiet(t);
+	const dir = await fixture(t, { "index.html": localizedDocument() });
+	assert.strictEqual(await Cli.run(["--check", dir]), 0);
+});
+
+for (const [name, files] of [
+	["missing directory", {}],
+	["malformed JSON", { "locales/es.json": "{" }],
+	["invalid dictionary shape", { "locales/es.json": "[]" }],
+]) {
+	test(`Cli: ${name} fails declared dictionary validation`, async (t) => {
+		t.mock.method(console, "log", () => {});
+		const errors = t.mock.method(console, "error", () => {});
+		const dir = await fixture(t, {
+			"index.html": localizedDocument("./locales"),
+			...files,
+		});
+		assert.strictEqual(await Cli.run(["--check", dir]), -1);
+		assert.match(errors.mock.calls[0].arguments[0], /dictionary|locales/);
+	});
+}
+
+test("Cli: public-root maps root-relative dictionary URLs independently of HTML location", async (t) => {
+	quiet(t);
+	const dir = await fixture(t, {
+		"pages/index.html": localizedDocument("/locales").replace(">Hello<", "><"),
+		"public/locales/es.json": '{"wrong":"Hola"}',
+	});
+	const args = [
+		"--check",
+		path.join(dir, "pages"),
+		"--public-root",
+		path.join(dir, "public"),
+	];
+	assert.strictEqual(
+		await Cli.run(args),
+		1,
+		"the actual served dictionary must be checked for missing t",
+	);
+	await fs.writeFile(path.join(dir, "public/locales/es.json"), '{"t":"Hola"}');
+	assert.strictEqual(await Cli.run(args), 0);
+});
+
+test("Cli: unreadable dictionary reports the failing file and original error", async (t) => {
+	t.mock.method(console, "log", () => {});
+	const errors = t.mock.method(console, "error", () => {});
+	const dir = await fixture(t, {
+		"index.html": localizedDocument("./locales"),
+		"locales/es.json": '{"t":"Hola"}',
+	});
+	const readFile = fs.readFile;
+	t.mock.method(fs, "readFile", async (file, ...args) => {
+		if (file === path.join(dir, "locales/es.json"))
+			throw new Error("EACCES: permission denied");
+		return readFile(file, ...args);
+	});
+	assert.strictEqual(await Cli.run(["--check", dir]), -1);
+	assert.match(
+		errors.mock.calls[0].arguments[0],
+		/es\.json.*EACCES: permission denied/,
+	);
+});
 
 // The CLI narrates to the console; in tests that chatter rides the test
 // runner's worker IPC channel and has twice triggered the 'Unable to
@@ -15,6 +96,13 @@ test("Cli.run: should return 0 when called with empty args", async (t) => {
 	quiet(t);
 	const result = await Cli.run([]);
 	assert.strictEqual(result, 0);
+});
+
+test("Cli.run: bare --check retains the current-directory default", async (t) => {
+	quiet(t);
+	const scan = t.mock.method(Cli, "scan", async () => 0);
+	assert.strictEqual(await Cli.run(["--check"]), 0);
+	assert.strictEqual(scan.mock.calls[0].arguments[0], ".");
 });
 
 test("Cli.run: should return -1 when scan fails", async (t) => {

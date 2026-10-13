@@ -9,6 +9,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - Boot reads browser storage only for opted-in persistence keys, including `lang`, and never enumerates storage. Documents with persistence disabled initialize when storage is denied. Explicitly requested persistence retains the browser's original failure. (#6)
+- Source-only documents no longer require a translation endpoint or duplicate source dictionary. Partial dictionaries cascade per message, preserve supplying-language metadata and plural rules, and restore original source text when switching languages. Lookup respects script distinctions and regional dictionaries; declared non-English source documents are supported. (#5)
+- Dictionary lint resolves root-relative paths through `--public-root`, reports unreadable/malformed dictionaries, accepts source-text fallback, and diagnoses invalid locale declarations. (#5)
+
+### Changed
+
+- `the.locale` after boot describes the effective primary locale, retaining compatible requested regional settings. Unavailable languages resolve to the declared source/fallback without overwriting the stored preference. `the.dictionary` exposes the primary catalog; assignment replaces the fallback chain. Plural dictionaries require an `other` string. (#5)
 
 ## [0.9.1] — 2026-10-12
 

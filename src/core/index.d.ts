@@ -1,6 +1,9 @@
 export type StateValue = string | number | boolean | null;
 export type State = Record<string, StateValue>;
-export type DictionaryEntry = string | Record<string, string>;
+export type PluralCategory = "zero" | "one" | "two" | "few" | "many" | "other";
+export type DictionaryEntry =
+	| string
+	| ({ other: string } & Partial<Record<PluralCategory, string>>);
 export type Dictionary = Record<string, DictionaryEntry>;
 
 export interface TranslationOptions {
@@ -16,7 +19,9 @@ export interface BootOptions {
 	locales?: string;
 	dictionary?: Dictionary;
 	namespace?: string;
+	/** Requested locale; boot resolves it against dictionaries and the source document. */
 	locale?: string;
+	/** Source language of the rendered HTML; defaults to its lang attribute. */
 	defaultLocale?: string;
 	persistKeys?: string[];
 }
@@ -34,7 +39,9 @@ export interface The {
 	flat(object: object, separator?: string): Record<string, unknown>;
 	match(pattern: string, path?: string): Record<string, string> | null;
 	boot(options?: BootOptions): Promise<void>;
+	/** Primary dictionary. Assignment replaces the complete fallback chain. */
 	dictionary: Dictionary;
+	/** Effective primary locale after boot; individual fallback messages retain their own language. */
 	locale: string;
 }
 
