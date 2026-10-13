@@ -4,6 +4,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] — 2026-10-12
+
+### Security
+
+- Bumped `postcss-selector-parser` from 7.1.1 to 7.1.6 (direct runtime dependency), clearing GHSA-w9m9-85wc-3x92 and GHSA-rj75-hqrm-r3gf. `npm audit --omit=dev` now reports zero vulnerabilities. (#4)
+
+### Changed
+
+- Bumped all dependencies to latest stable, including majors: `parse5` 8.0.1, `@biomejs/biome` 2.5.15 (configuration migrated to the Biome v2 schema), `typescript` 7.0.2, plus `stylelint` 17.16.0, `eslint` 10.12.0, `linkedom` 0.18.13, `@playwright/test` 1.64.0, and `esbuild` 0.28.2. (#4)
+
+### Fixed
+
+- Repaired accessibility defects in the examples that Biome 2's HTML linting surfaced: every `data-i18n`/`data-text` carrier now keeps its source-language fallback text, invalid `aria-checked` on a list item became a plain `data-done` state key, and the blog template anchor gained a valid placeholder `href`. (#4)
+- The router now uses optional chaining when reading the `href` of the closest anchor after a delegated click.
 ## [0.9.0] — 2026-08-15
 
 ### Added
