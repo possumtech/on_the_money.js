@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-10-13
+
+This pre-1.0 minor release makes the locale/fallback and dictionary-validation contract changes explicit. Review the Changed section and the Stylelint consumer override below when upgrading.
+
 ### Security
 
 - Pinned Stylelint's transitive `braces` through an exact npm override to the reviewed `@dieub/braces-depth-guard@3.0.3-pn.3` artifact. Excessively nested file globs now fail at the 100-level parsing bound instead of exhausting the stack. Added regression tests through the actual installed dependency chain. Consumers using the optional Stylelint integration must apply the documented root override themselves; published-library overrides are not inherited. (#7)
@@ -21,6 +25,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - Explicitly advertised source dictionaries now participate in the existing message cascade, and inline dictionaries translate source-language documents. Source text still needs no dictionary and unadvertised source files are never guessed. This refines the overbroad source-language skip so dynamic plural/interpolated messages can have an optional catalog without duplicating static text. (#8)
 - `the.locale` after boot describes the effective primary locale, retaining compatible requested regional settings. Unavailable languages resolve to the declared source/fallback without overwriting the stored preference. `the.dictionary` exposes the primary catalog; assignment replaces the fallback chain. Plural dictionaries require an `other` string. (#5)
+
+### Known verification limitation
+
+- Concurrent headless WebKit instances intermittently crash on the Debian verification host, including against a plain HTML form without OTM. All 45 browser cases pass with one worker; the full check also passed with CPU affinity constrained. Unrestricted parallel stability remains under investigation in [Gitea #9](https://repo.possumtech.com/possumtech/on_the_money.js/issues/9); no retries, skipped tests, or reduced browser coverage were added.
 
 ## [0.9.1] — 2026-10-12
 

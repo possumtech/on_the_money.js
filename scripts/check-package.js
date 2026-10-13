@@ -4,11 +4,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { parseArgs, promisify } from "node:util";
 
 const exec = promisify(execFile);
 const root = fileURLToPath(new URL("..", import.meta.url));
 const pkg = JSON.parse(await fs.readFile(path.join(root, "package.json")));
+const { values } = parseArgs({ options: { package: { type: "string" } } });
 const temporary = await fs.mkdtemp(path.join(os.tmpdir(), "otm-package-"));
 const npm = async (args, cwd) => {
 	const result = await exec("npm", args, {
@@ -22,12 +23,29 @@ const npm = async (args, cwd) => {
 try {
 	const packed = JSON.parse(
 		await npm(
-			["pack", "--ignore-scripts", "--json", "--pack-destination", temporary],
+			[
+				"pack",
+				...(values.package ? [values.package] : []),
+				"--ignore-scripts",
+				"--json",
+				"--pack-destination",
+				temporary,
+			],
 			root,
 		),
 	);
 	const artifacts = Object.values(packed);
 	assert.equal(artifacts.length, 1);
+	assert.equal(
+		artifacts[0].name,
+		pkg.name,
+		"package name must match this release",
+	);
+	assert.equal(
+		artifacts[0].version,
+		pkg.version,
+		"package version must match this release",
+	);
 	const artifact = path.join(temporary, artifacts[0].filename);
 	for (const withStylelint of [false, true]) {
 		const name = withStylelint ? "stylelint-consumer" : "runtime-consumer";

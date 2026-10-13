@@ -893,9 +893,9 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
 | `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
-| `npm run test:package` | Install the packed package in fresh runtime-only and Stylelint-with-override consumers; verify public imports, lint behavior, the nesting guard, and each full dependency audit. Requires registry access. |
+| `npm run test:package` | Install the packed package in fresh runtime-only and Stylelint-with-override consumers; verify public imports, lint behavior, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
-| `npm run check` | `lint + build + test + coverage`. CI gate. |
+| `npm run check` | Formatting/lint, examples, build, Node tests, coverage, types, all three browser engines, and packed consumers. CI/release gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |
 
 ## License
