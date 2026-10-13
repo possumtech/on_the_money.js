@@ -70,7 +70,7 @@
 	},
 	"dependencies": {
 		"parse5": "7.2.1",
-		"postcss-selector-parser": "7.1.1"
+		"postcss-selector-parser": "7.1.6"
 	},
 	"peerDependencies": {
 		"linkedom": ">=0.18",
@@ -90,7 +90,7 @@
 		"esbuild": "0.25.0",
 		"eslint": "10.4.0",
 		"linkedom": "0.18.6",
-		"stylelint": "17.11.1",
+		"stylelint": "17.16.0",
 		"typescript": "5.9.2"
 	},
 	"license": "MIT"
