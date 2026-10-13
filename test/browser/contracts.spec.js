@@ -182,3 +182,28 @@ test("router navigation, same-URL no-op, and unsubscribe", async ({ page }) => {
 		pathname: "/after",
 	});
 });
+
+for (const locale of [undefined, "en"]) {
+	test(`boot and state projection work with storage denied and no persistence (locale=${locale})`, async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async (locale) => {
+			const { the } = await import("/src/core/index.js");
+			document.documentElement.lang = "en";
+			document.body.innerHTML = '<output data-text="status">Ready</output>';
+			Object.defineProperty(window, "localStorage", {
+				configurable: true,
+				get() {
+					throw new DOMException("Storage disabled", "SecurityError");
+				},
+			});
+			await the.boot({ locale, persistKeys: [] });
+			the("status", "Running");
+			return {
+				locale: the.locale,
+				text: document.querySelector("output").textContent,
+			};
+		}, locale);
+		expect(result).toEqual({ locale: "en", text: "Running" });
+	});
+}

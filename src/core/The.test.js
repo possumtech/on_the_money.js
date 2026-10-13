@@ -429,6 +429,10 @@ test("the.boot(): failed dictionary fetch warns and falls back to data-fallback 
 	);
 	The.prefix = "otm:";
 	localStorage.setItem("otm:lang", "es");
+	The.persistKeys = new Set(["lang"]);
+	t.after(() => {
+		The.persistKeys = new Set();
+	});
 	const warn = t.mock.method(console, "warn", () => {});
 	const urls = [];
 	globalThis.fetch = async (url) => {
@@ -717,6 +721,105 @@ test("the.boot({ persistKeys }): replay skips keys absent from allow-list", asyn
 	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
 	The.persistKeys = new Set();
 });
+
+for (const locale of [undefined, "en"]) {
+	test(`the.boot: no persistence avoids a denied storage getter (locale=${locale})`, async (t) => {
+		const { document } = setupDOM('<output data-text="status">Ready</output>');
+		document.documentElement.lang = "en";
+		const descriptor = Object.getOwnPropertyDescriptor(
+			globalThis,
+			"localStorage",
+		);
+		t.after(() =>
+			Object.defineProperty(globalThis, "localStorage", descriptor),
+		);
+		Object.defineProperty(globalThis, "localStorage", {
+			configurable: true,
+			get() {
+				throw new DOMException("Storage disabled", "SecurityError");
+			},
+		});
+		await the.boot({ locale, persistKeys: [] });
+		the("status", "Running");
+		assert.strictEqual(the.locale, "en");
+		assert.strictEqual(document.querySelector("output").textContent, "Running");
+	});
+}
+
+test("the.boot: stored language requires opt-in in the selected namespace", async (t) => {
+	const { document } = setupDOM();
+	document.documentElement.lang = "en";
+	localStorage.setItem("dashboard:lang", "es");
+	t.after(() => {
+		The.prefix = "otm:";
+		The.persistKeys = new Set();
+	});
+	await the.boot({ namespace: "dashboard", persistKeys: [] });
+	assert.strictEqual(the.locale, "en");
+	await the.boot({ persistKeys: ["lang"] });
+	assert.strictEqual(the.locale, "es");
+});
+
+test("the.boot: persistence reads only opted-in keys without enumerating storage", async (t) => {
+	const { document } = setupDOM('<output data-text="theme">light</output>');
+	document.documentElement.lang = "en";
+	localStorage.setItem("otm:theme", "dark");
+	const reads = t.mock.method(localStorage, "getItem");
+	Object.defineProperty(localStorage, "length", {
+		get() {
+			throw new Error("Unrelated storage must not be enumerated");
+		},
+	});
+	t.after(() => {
+		The.persistKeys = new Set();
+	});
+	await the.boot({ persistKeys: ["theme"] });
+	assert.deepStrictEqual(
+		reads.mock.calls.map(({ arguments: args }) => args),
+		[["otm:theme"]],
+	);
+	assert.strictEqual(document.querySelector("output").textContent, "dark");
+});
+
+test("the.boot: opted-in storage failures preserve the original error", async (t) => {
+	setupDOM();
+	const failure = new DOMException("Storage disabled", "SecurityError");
+	t.mock.method(localStorage, "getItem", () => {
+		throw failure;
+	});
+	t.after(() => {
+		The.persistKeys = new Set();
+	});
+	await assert.rejects(
+		the.boot({ locale: "en", persistKeys: ["theme"] }),
+		(error) => error === failure,
+	);
+});
+
+for (const [method, value] of [
+	["setItem", "dark"],
+	["removeItem", null],
+]) {
+	test(`persisted state preserves ${method} failures after DOM projection`, async (t) => {
+		const { document } = setupDOM('<output data-text="theme">light</output>');
+		await the.boot({ locale: "en", persistKeys: ["theme"] });
+		const failure = new DOMException("Storage unavailable", "SecurityError");
+		t.mock.method(localStorage, method, () => {
+			throw failure;
+		});
+		t.after(() => {
+			The.persistKeys = new Set();
+		});
+		assert.throws(
+			() => the("theme", value),
+			(error) => error === failure,
+		);
+		assert.strictEqual(
+			document.querySelector("output").textContent,
+			value ?? "",
+		);
+	});
+}
 
 test("import: index.js has no top-level boot or ready assignment", async (_t) => {
 	const { readFile } = await import("node:fs/promises");

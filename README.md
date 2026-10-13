@@ -200,12 +200,14 @@ await the.boot({ signal, locales, dictionary, namespace, locale, defaultLocale, 
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
-1. Resolve locale: explicit `locale` option → `?lang=` query → `localStorage["${prefix}lang"]` → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
+1. Resolve locale: explicit `locale` option → `?lang=` query → `localStorage["${prefix}lang"]` (only when `persistKeys` includes `"lang"`) → `document.documentElement.lang` → `navigator.language` → `"en"`. Writes `the.locale`. **`<html lang>` outranks `navigator.language`** — the server's deliberate language declaration wins over the browser's passive preference. If you want navigator-driven detection (static SPA with no server-side i18n), leave `<html lang>` empty or omit the attribute and the chain falls through to navigator.
 2. Load the inline `dictionary` if provided. This happens unconditionally.
 3. **Short-circuit check.** If resolved locale base matches `defaultLocale` (or `<html lang>` if not provided), skip steps 4 and 6. Static HTML already serves the right text.
 4. Fetch dictionary (when no inline one): `fetch(${path}/${target}.json)` if `<meta name="i18n">` or `locales` option is present. Target selection falls through full → base → `data-fallback`. A failed fetch (network error or non-ok status) warns to the console and retries with the `data-fallback` file before giving up.
 5. Replay `localStorage` entries in `persistKeys` (except `${prefix}lang`) back onto body `data-*` and `[data-text]`.
 6. Run `_t()` to hydrate `[data-i18n]`.
+
+Storage access is opt-in for both reads and writes. With no persisted keys configured (or after `persistKeys: []` clears them), boot and state operations never access `localStorage`. Boot reads only opted-in keys; it does not enumerate unrelated storage. When persistence is explicitly enabled, browser storage failures propagate as their original errors from the operation, including boot, writes, and deletion. A failed persisted write may already have updated the DOM; it must not be treated as a successful save.
 
 **Writing `data-i18n` elements:** always include the source-language text inside as a fallback:
 
