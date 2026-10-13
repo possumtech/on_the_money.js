@@ -13,8 +13,29 @@ test("prefer-on", () => {
 		valid: [
 			{ code: 'on(document.body, "click", ".btn", fn);' },
 			{ code: 'on.emit(el, "x", {});' },
+			{ code: 'import { on } from "node:events"; on(emitter, "data");' },
+			{ code: "function on() {} on();" },
+			{
+				code: 'import { on as listen } from "on_the_money"; listen(body, "click", "button", fn);',
+			},
 		],
 		invalid: [
+			{
+				code: 'on("#form", "submit", () => {});',
+				errors: [{ messageId: "onSignature" }],
+			},
+			{
+				code: 'import { on as listen } from "on_the_money"; listen("#form", "submit", () => {});',
+				errors: [{ messageId: "onSignature" }],
+			},
+			{
+				code: 'import { on } from "../../src/core/index.js"; on("#form", "submit", () => {});',
+				errors: [{ messageId: "onSignature" }],
+			},
+			{
+				code: 'import otm from "on_the_money"; otm.on("#form", "submit", () => {});',
+				errors: [{ messageId: "onSignature" }],
+			},
 			{
 				code: 'el.addEventListener("click", fn);',
 				errors: [{ messageId: "useOn" }],
@@ -82,7 +103,7 @@ test("flat-state", () => {
 test("prefer-submit", () => {
 	tester.run("prefer-submit", plugin.rules["prefer-submit"], {
 		valid: [
-			{ code: 'on("#form", "submit", (e) => {});' },
+			{ code: 'on("#form", "submit", "form", (e) => {});' },
 			{ code: 'on("#nav", "click", "a", fn);' },
 		],
 		invalid: [

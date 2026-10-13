@@ -23,7 +23,15 @@ test.beforeAll(async () => {
 		}
 		try {
 			const source = await fs.readFile(file);
-			response.writeHead(200, { "content-type": "text/javascript" });
+			const types = {
+				".html": "text/html",
+				".css": "text/css",
+				".js": "text/javascript",
+				".json": "application/json",
+			};
+			response.writeHead(200, {
+				"content-type": types[path.extname(file)] || "application/octet-stream",
+			});
 			response.end(source);
 		} catch {
 			response.writeHead(404).end();
@@ -44,6 +52,178 @@ test.afterAll(async () => {
 
 test.beforeEach(async ({ page }) => {
 	await page.goto(origin);
+});
+
+test.describe("example applications", () => {
+	const errorsByPage = new WeakMap();
+	test.use({ locale: "en-US", timezoneId: "UTC" });
+	test.beforeEach(async ({ page }) => {
+		const errors = [];
+		errorsByPage.set(page, errors);
+		page.on("pageerror", (error) => errors.push(error.message));
+		await page.clock.setFixedTime(new Date("2026-10-19T12:00:00Z"));
+		// Functional flows use the real local CSS; the decorative CDN is not a prerequisite.
+		await page.route("https://unpkg.com/**", (route) =>
+			route.fulfill({ contentType: "text/css", body: "" }),
+		);
+	});
+	test.afterEach(async ({ page }) => {
+		expect(errorsByPage.get(page)).toEqual([]);
+	});
+	const open = async (page, app, search = "") => {
+		await page.goto(`${origin}/examples/${app}/index.html${search}`);
+		await page.evaluate(async (module) => {
+			await import(module);
+		}, `/examples/${app}/app.js`);
+	};
+
+	test("Todo add, toggle, and delete update singular/plural counts without navigating", async ({
+		page,
+	}) => {
+		await open(page, "todo");
+		const count = page.locator('[data-i18n="items_left"]');
+		const items = page.locator("#todo-list [data-item]");
+		expect(await count.textContent()).toBe("0 items left");
+		for (const [task, expected] of [
+			["First task", "1 item left"],
+			["Second task", "2 items left"],
+		]) {
+			await page.getByRole("textbox", { name: "New Todo Task" }).fill(task);
+			await page.getByRole("button", { name: "Add", exact: true }).click();
+			await expect(count).toHaveText(expected);
+		}
+		await expect(items).toHaveCount(2);
+		await expect(items.nth(0).locator('[data-text="task"]')).toHaveText(
+			"First task",
+		);
+		await items.nth(0).getByRole("checkbox").check();
+		await expect(count).toHaveText("1 item left");
+		await expect(items.nth(0)).toHaveAttribute("data-done", "true");
+		await items.nth(0).getByRole("checkbox").uncheck();
+		await expect(count).toHaveText("2 items left");
+		await items.nth(0).getByRole("button", { name: "Delete Task" }).click();
+		await expect(count).toHaveText("1 item left");
+		await items.nth(0).getByRole("button", { name: "Delete Task" }).click();
+		await expect(items).toHaveCount(0);
+		await expect(count).toHaveText("0 items left");
+		await expect(page).toHaveURL(`${origin}/examples/todo/index.html`);
+	});
+
+	test("Blog initializes, navigates posts, and retains submitted comments", async ({
+		page,
+	}) => {
+		await open(page, "blog");
+		await expect(page.locator('[data-i18n="post_count"]')).toHaveText(
+			"3 posts",
+		);
+		await expect(page.locator("#post-list [data-item]")).toHaveCount(3);
+		await page.locator("#post-list a").first().click();
+		await expect(page.locator("#post-view")).toBeVisible();
+		await expect(page.locator("#post-view h1")).toHaveText(
+			"Why state should live in the DOM",
+		);
+		await expect(page.locator('[data-i18n="posted_at"]')).toHaveText(
+			"Posted 10/16/2026",
+		);
+		const count = page.locator('[data-i18n="comments_count"]');
+		await expect(count).toHaveText("0 comments");
+		for (const [text, expected] of [
+			["First comment", "1 comment"],
+			["Second comment", "2 comments"],
+		]) {
+			await page.locator("#comment-input").fill(text);
+			await page.locator('#comment-form button[type="submit"]').click();
+			await expect(count).toHaveText(expected);
+		}
+		await expect(page.locator('#comments-list [data-text="text"]')).toHaveText([
+			"First comment",
+			"Second comment",
+		]);
+		await page.locator('nav a[href="#/"]').click();
+		await expect(page.locator('[data-route="home"]')).toBeVisible();
+		await page.locator("#post-list a").first().click();
+		await expect(count).toHaveText("2 comments");
+		await page.locator('nav a[href="#/"]').click();
+		await page.locator("#post-list a").nth(1).click();
+		await expect(count).toHaveText("0 comments");
+		await expect(page.locator("#comments-list [data-item]")).toHaveCount(0);
+	});
+
+	for (const search of ["", "?lang=fr-CA"]) {
+		test(`Blog language changes preserve live quantities and formatted dates (${search || "source"})`, async ({
+			page,
+		}) => {
+			await open(page, "blog", search);
+			await expect(page.locator('[data-i18n="post_count"]')).toHaveText(
+				search ? "3 articles" : "3 posts",
+			);
+			await page.locator("#post-list a").first().click();
+			for (const [lang, zero, one, two, date] of [
+				[
+					"fr",
+					"0 commentaire",
+					"1 commentaire",
+					"2 commentaires",
+					"Publié le 16/10/2026",
+				],
+				[
+					"es",
+					"0 comentarios",
+					"1 comentario",
+					"2 comentarios",
+					"Publicado 16/10/2026",
+				],
+				["en", "0 comments", "1 comment", "2 comments", "Posted 10/16/2026"],
+			]) {
+				await page.locator("#lang-select").selectOption(lang);
+				await expect(page.locator('[data-i18n="posted_at"]')).toHaveText(date);
+				const count = page.locator('[data-i18n="comments_count"]');
+				if (lang === "fr") {
+					await expect(count).toHaveText(zero);
+					await page.locator("#comment-input").fill("First comment");
+					await page.locator('#comment-form button[type="submit"]').click();
+					await expect(count).toHaveText(one);
+					await page.locator("#comment-input").fill("Second comment");
+					await page.locator('#comment-form button[type="submit"]').click();
+				}
+				await expect(count).toHaveText(two);
+				await expect(count).toHaveAttribute("lang", lang);
+			}
+			await expect(page.locator("#comments-list [data-item]")).toHaveCount(2);
+			await expect(page.locator("html")).toHaveAttribute("lang", "en");
+		});
+	}
+
+	test("Blog partial and failed translations retain dynamic source messages", async ({
+		page,
+	}) => {
+		let fail = false;
+		await page.route("**/examples/blog/locales/fr.json", (route) =>
+			fail
+				? route.fulfill({ status: 503, body: "Unavailable" })
+				: route.fulfill({ json: { nav_home: "Accueil" } }),
+		);
+		await open(page, "blog");
+		await page.locator("#post-list a").first().click();
+		await page.locator("#lang-select").selectOption("fr");
+		await expect(page.locator('[data-i18n="nav_home"]')).toHaveText("Accueil");
+		const count = page.locator('[data-i18n="comments_count"]');
+		await expect(count).toHaveText("0 comments");
+		await expect(count).toHaveAttribute("lang", "en");
+		await page.locator("#comment-input").fill("A comment");
+		await page.locator('#comment-form button[type="submit"]').click();
+		await expect(count).toHaveText("1 comment");
+		await expect(page.locator('[data-i18n="posted_at"]')).toHaveText(
+			"Posted 10/16/2026",
+		);
+		await page.locator("#lang-select").selectOption("es");
+		await expect(count).toHaveText("1 comentario");
+		fail = true;
+		await page.locator("#lang-select").selectOption("fr");
+		await expect(page.locator("#lang-select")).toHaveValue("en");
+		await expect(count).toHaveText("1 comment");
+		await expect(page.locator('[data-i18n="nav_home"]')).toHaveText("Home");
+	});
 });
 
 test("dictionary cascade translates individual messages, head, and clones, then restores source", async ({

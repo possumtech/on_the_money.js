@@ -4,13 +4,13 @@
 	"nav_about": "À propos",
 	"home_title": "Derniers Articles",
 	"post_count": {
-		"one": "1 article",
+		"one": "{qty} article",
 		"other": "{qty} articles"
 	},
 	"posted_at": "Publié le {val}",
 	"comments_heading": "Commentaires",
 	"comments_count": {
-		"one": "1 commentaire",
+		"one": "{qty} commentaire",
 		"other": "{qty} commentaires"
 	},
 	"comment_form_label": "Ajouter un commentaire",

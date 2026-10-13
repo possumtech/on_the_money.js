@@ -2,6 +2,35 @@ import assert from "node:assert";
 import test from "node:test";
 import Linter from "./Linter.js";
 
+test("HTML-027: active date directives require a usable attribute value", () => {
+	for (const value of ["", " ", "not-a-date", "1792411200000"]) {
+		const violations = Linter.check(
+			"date.html",
+			`<p data-i18n="date" data-i18n-type="date" data-i18n-val="${value}">Date</p>`,
+		);
+		assert.equal(
+			violations.filter(({ ruleId }) => ruleId === "HTML-027").length,
+			1,
+		);
+	}
+	assert.equal(
+		Linter.check(
+			"date.html",
+			'<p data-i18n="date" data-i18n-type="date">Date</p>',
+		).filter(({ ruleId }) => ruleId === "HTML-027").length,
+		1,
+	);
+	for (const attributes of [
+		'data-i18n-val=""',
+		'data-i18n-type="date" data-i18n-val="2026-10-16T12:00:00.000Z"',
+	]) {
+		assert.deepEqual(
+			Linter.check("date.html", `<p data-i18n="date" ${attributes}>Date</p>`),
+			[],
+		);
+	}
+});
+
 test("Linter.check: non-HTML files return no violations", (_t) => {
 	assert.strictEqual(Linter.check("x.js", "el.innerHTML = 'x';").length, 0);
 	assert.strictEqual(Linter.check("x.css", "!important;").length, 0);

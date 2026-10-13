@@ -1,5 +1,12 @@
 export default class On {
 	static on(parent, event, selector, fn) {
+		if (
+			typeof selector !== "string" ||
+			!selector.trim() ||
+			typeof fn !== "function"
+		) {
+			throw new TypeError("on(): expected (parent, event, selector, handler)");
+		}
 		const container =
 			typeof parent === "string"
 				? document.querySelector(parent)

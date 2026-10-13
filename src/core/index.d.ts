@@ -17,6 +17,7 @@ export interface TranslationOptions {
 export interface BootOptions {
 	signal?: AbortSignal;
 	locales?: string;
+	/** Explicit catalog for the requested locale; used for DOM and string translation without fetching. */
 	dictionary?: Dictionary;
 	namespace?: string;
 	/** Requested locale; boot resolves it against dictionaries and the source document. */

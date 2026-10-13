@@ -515,16 +515,12 @@ export default class The {
 		if (defaultLocale)
 			document.documentElement.lang = new Intl.Locale(defaultLocale).toString();
 		const dictionaries = [];
-		let sourceOnly = false;
 
-		// Inline dictionary always loads — programmatic _t() must work even when
-		// the locale short-circuit skips the fetch and the hydration pass.
 		if (dictionary !== undefined) {
 			dictionaries.push({
 				dictionary: Dictionary.validate(dictionary),
 				locale: requested,
 			});
-			sourceOnly = source !== null && Locale.chain(requested).includes(source);
 		} else {
 			const meta = document.querySelector('meta[name="i18n"]');
 			const path = locales || meta?.getAttribute("content");
@@ -546,7 +542,7 @@ export default class The {
 					...(source ? [source] : []),
 				]);
 				for (const target of candidates) {
-					if (target === source) break;
+					if (target === source && !available.has(target)) break;
 					const file =
 						available.get(target) ??
 						(available.size === 0 &&
@@ -565,6 +561,7 @@ export default class The {
 						if (signal?.aborted) throw cause;
 						console.warn(`otm: i18n fetch failed for "${target}"`, cause);
 					}
+					if (target === source) break;
 				}
 			}
 		}
@@ -582,7 +579,7 @@ export default class The {
 
 		The.#translate(
 			document.documentElement,
-			sourceOnly || (source !== null && dictionaries.length === 0),
+			source !== null && dictionaries.length === 0,
 		);
 	}
 }

@@ -13,14 +13,52 @@ const preferOn = {
 				"Disallow direct addEventListener; use on() from on_the_money for event delegation.",
 		},
 		messages: {
+			onSignature:
+				"on() requires four arguments: parent, event, selector, handler. For a form's own submit event, use on(form, 'submit', 'form', handler).",
 			useOn:
 				"Direct addEventListener on DOM targets is forbidden — use on() for delegation. Non-DOM EventTargets have no selector to delegate against: sockets get live() from on_the_money/live; Worker/AbortSignal/MediaQueryList get handler properties (worker.onmessage = fn); eslint-disable with a justification for the rare multi-listener case. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
 		},
 		schema: [],
 	},
 	create(context) {
+		const isOn = (node) => {
+			const callee = node.callee;
+			const identifier =
+				callee.type === "Identifier"
+					? callee
+					: callee.type === "MemberExpression" &&
+							!callee.computed &&
+							callee.property.name === "on"
+						? callee.object
+						: null;
+			if (identifier?.type !== "Identifier") return false;
+			const reference = context.sourceCode
+				.getScope(node)
+				.references.find((ref) => ref.identifier === identifier);
+			if (!reference?.resolved)
+				return callee === identifier && identifier.name === "on";
+			const definition = reference.resolved.defs[0];
+			const source = definition?.parent?.source?.value;
+			if (
+				definition?.type !== "ImportBinding" ||
+				!(source === "on_the_money" || source?.endsWith("/src/core/index.js"))
+			)
+				return false;
+			return callee === identifier
+				? definition.node.imported?.name === "on"
+				: ["ImportNamespaceSpecifier", "ImportDefaultSpecifier"].includes(
+						definition.node.type,
+					);
+		};
 		return {
 			CallExpression(node) {
+				if (
+					isOn(node) &&
+					node.arguments.length !== 4 &&
+					!node.arguments.some((arg) => arg.type === "SpreadElement")
+				) {
+					context.report({ node, messageId: "onSignature" });
+				}
 				if (node.callee?.property?.name === "addEventListener") {
 					context.report({ node, messageId: "useOn" });
 				}
