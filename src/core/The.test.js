@@ -405,7 +405,7 @@ test("the.boot({ dictionary }): uses inline dictionary, skips fetch", async (_t)
 	assert.strictEqual(The.dictionary.greeting, "hi");
 });
 
-test("the.boot({ dictionary }): loads inline dictionary under the locale short-circuit; hydration still skipped", async (_t) => {
+test("the.boot({ dictionary }): an explicit source dictionary translates without fetching", async (_t) => {
 	const dom = setupDOM('<h1 data-i18n="app_title">Source text</h1>');
 	dom.document.documentElement.setAttribute("lang", "en");
 	let fetched = false;
@@ -419,7 +419,7 @@ test("the.boot({ dictionary }): loads inline dictionary under the locale short-c
 	assert.strictEqual(fetched, false);
 	assert.strictEqual(
 		dom.document.querySelector("h1").textContent,
-		"Source text",
+		"On The Money",
 	);
 });
 
@@ -569,8 +569,8 @@ test("the.boot({ signal }): aborts the fetch", async (_t) => {
 	await assert.rejects(The.boot({ signal: controller.signal }));
 });
 
-test("the.boot({ defaultLocale }): skips fetch when resolved locale matches", async (_t) => {
-	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
+test("the.boot({ defaultLocale }): never guesses an unadvertised source dictionary", async (_t) => {
+	setupDOM('<meta name="i18n" content="/locales" data-available="fr">');
 	let fetched = false;
 	globalThis.fetch = async () => {
 		fetched = true;
@@ -582,18 +582,19 @@ test("the.boot({ defaultLocale }): skips fetch when resolved locale matches", as
 	assert.strictEqual(fetched, false);
 });
 
-test("the.boot({ defaultLocale }): unsupported stored locale uses declared source without fetching it", async (_t) => {
+test("the.boot({ defaultLocale }): unsupported stored locale uses an advertised source dictionary", async (_t) => {
 	setupDOM('<meta name="i18n" content="/locales" data-available="en">');
 	localStorage.setItem("otm:lang", "es-ES");
 	let fetched = false;
 	globalThis.fetch = async () => {
 		fetched = true;
-		return { ok: true, json: async () => ({ ok: 1 }) };
+		return { ok: true, json: async () => ({ ok: "Source message" }) };
 	};
 	The.dictionary = {};
 	// "lang" needs to persist for boot to read it back from localStorage
 	await The.boot({ defaultLocale: "en", persistKeys: ["lang"] });
-	assert.strictEqual(fetched, false);
+	assert.strictEqual(fetched, true);
+	assert.strictEqual(The._t("ok"), "Source message");
 	assert.strictEqual(The.locale, "en");
 	The.persistKeys = new Set();
 });
@@ -628,7 +629,7 @@ test("the.boot({ locale }): explicit locale selects the dictionary target", asyn
 	await The.boot({ locale: "fr-CA", defaultLocale: "en" });
 
 	assert.strictEqual(The.locale, "fr-CA");
-	assert.deepStrictEqual(urls, ["/locales/fr.json"]);
+	assert.deepStrictEqual(urls, ["/locales/fr.json", "/locales/en.json"]);
 });
 
 test("the.boot(): <html lang> outranks navigator.language in resolution chain", async (_t) => {
@@ -657,7 +658,7 @@ test("the.boot(): empty <html lang> falls through to navigator.language", async 
 
 test("the.boot(): auto-detects <html lang> as default locale", async (_t) => {
 	const { document } = setupDOM(
-		'<meta name="i18n" content="/locales" data-available="en">',
+		'<meta name="i18n" content="/locales" data-available="fr">',
 	);
 	document.documentElement.setAttribute("lang", "en");
 	let fetched = false;

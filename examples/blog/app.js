@@ -25,7 +25,6 @@ const comments = new Map();
 
 await the.boot({
 	namespace: "blog",
-	locales: "./locales",
 });
 
 const langSelect = $("#lang-select");
@@ -48,10 +47,9 @@ const renderPostView = (id) => {
 	}
 	the("post", post.id);
 	the($("#post-view"), { title: post.title, body: post.body });
-	$('#post-view [data-i18n="posted_at"]').setAttribute(
-		"data-i18n-val",
-		post.created_at,
-	);
+	const date = $('#post-view [data-i18n="posted_at"]');
+	date.setAttribute("data-i18n-val", new Date(post.created_at).toISOString());
+	date.setAttribute("data-i18n-type", "date");
 	const list = $("#comments-list");
 	list.replaceChildren();
 	const postComments = comments.get(id) || [];
@@ -79,7 +77,7 @@ the.route((_pathname, _search, hash) => {
 	}
 });
 
-on("#comment-form", "submit", (e) => {
+on("#comment-form", "submit", "form", (e) => {
 	e.preventDefault();
 	const { text } = the.form(e.target);
 	if (!text?.trim()) return;
@@ -93,8 +91,6 @@ on("#comment-form", "submit", (e) => {
 
 on(document.body, "change", "#lang-select", async (_e, select) => {
 	const lang = select.value;
-	the.locale = lang;
-	const res = await fetch(`./locales/${lang}.json`);
-	the.dictionary = await res.json();
-	the.t();
+	await the.boot({ locale: lang });
+	select.value = the.locale.split("-")[0];
 });

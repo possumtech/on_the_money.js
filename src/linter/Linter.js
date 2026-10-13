@@ -115,6 +115,24 @@ export default class Linter {
 				);
 			}
 
+			if (
+				attrs["data-i18n-type"] === "date" &&
+				(!attrs["data-i18n-val"]?.trim() ||
+					Number.isNaN(Date.parse(attrs["data-i18n-val"])))
+			) {
+				const loc = node.sourceCodeLocation?.attrs?.["data-i18n-type"] || {
+					startLine: 1,
+					startCol: 1,
+				};
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-027",
+					'Date formatting requires a valid data-i18n-val. Use ISO date text and set data-i18n-type="date" only after its value is available.',
+				);
+			}
+
 			if (node.nodeName === "#text") {
 				const parent = node.parentNode;
 				const parentName = parent?.nodeName;

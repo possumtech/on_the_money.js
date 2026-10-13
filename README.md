@@ -95,7 +95,7 @@ For tests: `import { setupDOM } from "on_the_money/test"` (see [Testing your app
 | `selector` | `string` | CSS selector matched via `event.target.closest(selector)`. |
 | `fn` | `(event, target) => void` | `target` is the element the selector matched. |
 
-Returns an `() => void` unsubscribe function.
+Returns an `() => void` unsubscribe function. All four arguments are required; for a form's own submission, use `on(form, "submit", "form", handler)`. A missing selector or handler fails at registration, and `otm/prefer-on` diagnoses incomplete calls.
 
 ```javascript
 const off = on("#list", "click", "[data-action='delete']", (e, target) => {
@@ -192,21 +192,21 @@ await the.boot({ signal, locales, dictionary, namespace, locale, defaultLocale, 
 | --- | --- | --- |
 | `signal` | `AbortSignal` | Aborts the i18n fetch. |
 | `locales` | `string` | Override the `<meta name="i18n" content>` path. |
-| `dictionary` | `object` | Inline dictionary. Always loads — even under the locale short-circuit — so programmatic `_t()` works; only the fetch and hydration are skipped. |
+| `dictionary` | `object` | Inline dictionary used for DOM and programmatic translation, including in the source language. Skips fetching. |
 | `namespace` | `string` | Sets `localStorage` prefix to `${namespace}:` (default `otm:`). Must be set before any state ops. |
 | `locale` | `string` | Requested locale. Takes precedence over query, stored, document, and browser values; boot resolves it against available translations and the source document. |
-| `defaultLocale` | `string` | Actual source language of the rendered HTML. Defaults to `<html lang>`; an explicit value also sets that document language. Source text is the terminal fallback, without a dictionary fetch. |
+| `defaultLocale` | `string` | Actual source language of the rendered HTML. Defaults to `<html lang>`; an explicit value also sets that document language. Source text is the terminal fallback; no source dictionary is required. |
 | `persistKeys` | `string[]` | Global state keys that **should** persist to `localStorage`. Default: empty — nothing persists. Writes still update the body attribute and any `[data-text]` mirrors regardless. Boot replay rehydrates only these keys. Use for stable preferences: `["theme", "lang"]`. Scoped state (`the(el, ...)`) never persists regardless. |
 
 Boot sequence:
 1. Select the requested locale: explicit `locale` → `?lang=` → opted-in `localStorage["${prefix}lang"]` → `<html lang>` → `navigator.language` → `"en"`. The server's document language outranks the browser's passive preference. To deliberately select the browser's preference, pass `locale: navigator.language` and keep `<html lang>` set to the actual source language.
-2. Load an inline `dictionary` if provided, without fetching. It remains available to programmatic `_t()` even when the document already supplies the requested source language and boot leaves that text unchanged.
-3. Otherwise, when an endpoint is declared, load the available dictionaries in the requested locale's lookup chain, followed by `data-fallback` (default: the declared source language, or `"en"` when undeclared). Lookup uses canonical Unicode locale tags and progressively removes variant/region subtags, retaining script compatibility: `fr-CA → fr`, `sr-Latn-RS → sr-Latn`. A declared source language terminates the chain without fetching its file. A same-language regional dictionary can still override the source when it is a closer match. With no `data-available` manifest, only the fallback file is fetched; list available files to enable regional lookup.
+2. Load an inline `dictionary` if provided, without fetching. An explicitly supplied dictionary is used for both DOM and programmatic translation, including in the source language.
+3. Otherwise, when an endpoint is declared, load the available dictionaries in the requested locale's lookup chain, followed by `data-fallback` (default: the declared source language, or `"en"` when undeclared). Lookup uses canonical Unicode locale tags and progressively removes variant/region subtags, retaining script compatibility: `fr-CA → fr`, `sr-Latn-RS → sr-Latn`. At the source language, load its dictionary only if explicitly listed in `data-available`, then terminate the chain. Otherwise use source text without fetching a source file. A same-language regional dictionary can still override the source when it is a closer match. With no `data-available` manifest, only a non-source fallback file is fetched; list available files to enable regional lookup.
 4. A network, HTTP, JSON, or dictionary-shape failure warns with its original cause and continues through the chain to source text. Aborting rejects boot. Invalid inline dictionaries and locale identifiers reject as authoring errors.
 5. Set `the.locale` to the effective primary locale. Preserve the requested regional settings when compatible with that language and script (`fr-CA` can use `fr.json`); otherwise use the fallback locale. The requested URL/storage preference is not rewritten.
 6. Replay opted-in storage keys (except `lang`), then translate `[data-i18n]` in the document, including the head. Resolve each message through the loaded dictionaries; a miss preserves its original source text. Subsequent boot or `_t()` calls restore that original text on a miss, rather than retaining a previous translation.
 
-English is the convention used by examples and unspecified defaults, not an enforced source language. Declare another source using `<html lang="de">` or `defaultLocale: "de"`; OTM does not require an English dictionary. Always declare the source language to obtain source-aware zero-fetch fallback. Without that declaration, boot cannot know that a dictionary duplicates the document.
+English is the convention used by examples and unspecified defaults, not an enforced source language. Declare another source using `<html lang="de">` or `defaultLocale: "de"`; OTM does not require an English dictionary. Declaring the source language prevents a guessed source-file fetch. An explicitly advertised source catalog remains useful for dynamic messages; without a source declaration, boot cannot distinguish it from other dictionaries.
 
 This is a documented lookup profile, not full CLDR best-fit matching or transliteration. Native `Intl.Locale` handles canonicalization and likely scripts; OTM does not bundle linguistic tables. Use hyphenated tags (`fr-CA`, not `fr_CA`). Dictionary filenames retain the spelling in `data-available`, while matching is canonical.
 
@@ -224,6 +224,8 @@ Storage access is opt-in for both reads and writes. With no persisted keys confi
 
 Partial translations are supported. Missing messages retain the source text already in the document; no duplicate source-language JSON is needed. Translated carriers get `lang` for the supplying dictionary; source fallback retains its original language attributes. The document's `lang` continues to describe the source, so untranslated passages inherit it correctly. Keep carriers' source text in place before their first translation; OTM retains it per element for subsequent language changes, not as a second template graph.
 
+Static fallback text is not an interpolation template: `0 comments` cannot describe a later count of one or two. For changing plural/interpolated messages, provide a real source-language catalog and advertise it in `data-available` (or supply an inline `dictionary`). That catalog may contain only the dynamic messages; duplicating all static source text is unnecessary. The same per-message cascade uses it after partial translations. Source-only pages without dynamic messages still need no endpoint or catalog.
+
 Language and direction are separate HTML concerns. Authors supply `dir="rtl"` for right-to-left documents or passages, and `dir="auto"`/`bdi` for appropriate dynamic text. OTM does not infer layout direction from `lang`. See [W3C directionality guidance](https://www.w3.org/International/questions/qa-html-dir).
 
 ### `_t(key, options)` — `Intl` localization
@@ -236,12 +238,14 @@ _t("price", { val: 9.99, type: "currency", currency: "EUR" });  // Intl.NumberFo
 _t("when", { val: Date.now(), type: "date" });     // Intl.DateTimeFormat
 
 _t(node);                                          // hydrate every [data-i18n] inside node
-_t();                                              // hydrate document.body
+_t();                                              // hydrate the document, including the head
 ```
 
 Missing dictionary keys preserve original source `textContent` during element hydration; the programmatic string form searches the same dictionary chain, then returns the key (it does not search the DOM for a template). Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
 
 Dictionaries map keys to strings (including intentional empty strings) or plural objects with string values under `zero`, `one`, `two`, `few`, `many`, and `other`; `other` is required. Plural selection uses the supplying dictionary's locale. Number/date interpolation retains compatible regional preferences, but does not apply another language's formatting to a fallback message. `the.dictionary` exposes the primary dictionary; assigning it replaces the whole chain and associates that inline dictionary with `the.locale`. Use `_t()` for lookup through fallbacks.
+
+Plural categories are grammatical categories, not exact quantities: French `one` includes zero, so write `"{qty} commentaire"`, not `"1 commentaire"`. Attribute values are strings; use ISO date text in `data-i18n-val`, not a stringified millisecond timestamp. Supply the value before activating `data-i18n-type="date"`; empty or invalid active date values are lint errors (HTML-027), and invalid dates still fail at runtime.
 
 **Formatting vocabulary is Intl's, verbatim.** Directive attributes mirror Intl option names one-to-one — `data-i18n-currency` → `currency` — and OTM defaults none of them: `type: "currency"` without an explicit currency **throws** (the platform itself refuses to infer currency from locale, and it validates ISO 4217 codes with a `RangeError`). The framework ships Intl plumbing, never a currency choice; HTML-025 catches the missing declarative code at lint time.
 
@@ -269,7 +273,7 @@ Returns an unsubscribe function. One router at a time: calling `route()` while a
 ### `route.go(path)` — programmatic navigation
 
 ```javascript
-on("#login-form", "submit", async (e) => {
+on("#login-form", "submit", "form", async (e) => {
   e.preventDefault();
   await submitLogin(the.form(e.target));
   route.go("/dashboard");
@@ -450,7 +454,7 @@ No JS step between the `the()` write and the visual update. The CSS rule **is** 
 For one-off platform side effects (`dialog.showModal()`, `el.focus()`, `el.scrollIntoView()`, media `.play()`, animation triggers), the imperative call lives in the same `on()` handler that wrote the state.
 
 ```javascript
-on("button.open", "click", () => {
+on(document.body, "click", '[data-action="open-modal"]', () => {
   the("modal", "session-expired");
   $("#session-expired-modal").showModal();
 });
@@ -542,7 +546,7 @@ If you're searching online for "how to subscribe to OTM state changes" or "OTM r
 ### Form intake
 
 ```javascript
-on("#todo-form", "submit", (e) => {
+on("#todo-form", "submit", "form", (e) => {
   e.preventDefault();
   const data = the.form(e.target);                          // { task, tags: [...] }
   the($.clone("#todo-list", "#todo-item"), the.flat(data)); // task, tags_0, tags_1 → attrs
@@ -565,7 +569,9 @@ on("#todo-form", "submit", (e) => {
 for (const post of posts) {
   const el = $.clone("#posts", "#post-card");
   the(el, { title: post.title });
-  $(el, '[data-i18n="posted_at"]').setAttribute("data-i18n-val", post.created_at);
+  const date = $(el, '[data-i18n="posted_at"]');
+  date.setAttribute("data-i18n-val", new Date(post.created_at).toISOString());
+  date.setAttribute("data-i18n-type", "date");
 }
 _t();
 ```
@@ -659,21 +665,16 @@ new MutationObserver(() => {
 
 **Before reaching for this pattern, check whether CSS can do the job.** If the response is purely visual (show/hide, color, layout), the CSS attribute selector is the right tool and the observer is overhead. Reserve `MutationObserver` for imperative APIs CSS can't express (`showModal`, `focus`, `scrollIntoView`, media controls, animation triggers).
 
-### Working around `_t()` with an empty dictionary
+### Dynamic messages in the source language
 
-When the locale short-circuit skips the dictionary fetch and no inline `dictionary` was passed, programmatic `_t(key, options)` calls return the key (no template to interpolate against). Prefer passing an inline `dictionary` to `the.boot()` — it loads even under the short-circuit. Otherwise use template literals or a small wrapper:
+Programmatic `_t(key, options)` returns the key when no loaded catalog supplies it; static DOM text is not a programmatic message template. Advertise a source-language catalog in `data-available`, or supply an inline dictionary when the application owns that catalog directly:
 
 ```javascript
-// Template literal — the platform's interpolation primitive
-const greeting = `Hello, ${name}!`;
-
-// Or wrap once for callers that need a uniform API across locales
-function greet(name) {
-  return the.dictionary.greeting
-    ? _t("greeting", { name })
-    : `Hello, ${name}!`;
-}
+await the.boot({ locale: "en", dictionary: { greeting: "Hello, {name}!" } });
+const greeting = _t("greeting", { name: "Alice" }); // "Hello, Alice!"
 ```
+
+Use `_t()` to search the complete dictionary cascade; `the.dictionary` exposes only the primary catalog, so checking it at call sites bypasses fallback messages.
 
 ### Server-side rendering (no extra API)
 
@@ -719,7 +720,7 @@ export default [
 
 | Rule | Source | Behavior |
 | --- | --- | --- |
-| `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; use `on()`. |
+| `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; require `on(parent, event, selector, handler)`. |
 | `otm/prefer-the-set` | bundled in `on_the_money` | Ban `textContent`/`innerText`/`nodeValue` assignment. |
 | `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
 | `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
@@ -782,6 +783,7 @@ npx otm-lint --check ./src
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
 | **HTML-025** | `data-i18n-type="currency"` without `data-i18n-currency` | `_t()` throws at runtime without an explicit ISO 4217 code — declare it on the element. |
 | **HTML-026** | Invalid source, available, or fallback locale identifier | Use Unicode locale tags accepted by `Intl.Locale`, such as `fr-CA` or `sr-Latn`. |
+| **HTML-027** | Active date formatting has a missing or invalid value | Supply ISO date text in `data-i18n-val` before activating `data-i18n-type="date"`. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |

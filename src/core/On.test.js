@@ -3,6 +3,29 @@ import test from "node:test";
 import { setupDOM } from "../test/index.js";
 import On from "./On.js";
 
+test("On.on: rejects missing or invalid selector/handler at registration", () => {
+	const { document } = setupDOM('<form id="form"></form>');
+	for (const args of [
+		["#form", "submit", () => {}],
+		["#form", "submit", "", () => {}],
+		["#form", "submit", "form", null],
+	]) {
+		assert.throws(() => On.on(...args), {
+			name: "TypeError",
+			message: "on(): expected (parent, event, selector, handler)",
+		});
+	}
+	let submitted = false;
+	On.on("#form", "submit", "form", (event) => {
+		event.preventDefault();
+		submitted = true;
+	});
+	document
+		.querySelector("form")
+		.dispatchEvent(new CustomEvent("submit", { bubbles: true }));
+	assert.equal(submitted, true);
+});
+
 test("On.on: should delegate events to the selector", (_t) => {
 	const { document: dom } = setupDOM('<button class="test">Click Me</button>');
 	const btn = dom.querySelector(".test");

@@ -1,6 +1,6 @@
 import { $, $$, on, the } from "../../src/core/index.js";
 
-await the.boot({ locales: "./locales" });
+await the.boot();
 
 const updateCount = () => {
 	const count = $$("#todo-list [data-item]").filter(
@@ -11,7 +11,7 @@ const updateCount = () => {
 	the.t();
 };
 
-on("#todo-form", "submit", (e) => {
+on("#todo-form", "submit", "form", (e) => {
 	e.preventDefault();
 	const { task } = the.form(e.target);
 	if (!task?.trim()) return;

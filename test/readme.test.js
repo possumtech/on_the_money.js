@@ -6,6 +6,8 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
+import { Linter as ESLint } from "eslint";
+import plugin from "../src/eslint/plugin.js";
 import Linter from "../src/linter/Linter.js";
 import { setupDOM } from "../src/test/index.js";
 
@@ -20,6 +22,20 @@ const blocks = [...md.matchAll(/```(\w+)\n([\s\S]*?)```/g)].map(
 const htmlBlocks = blocks.filter((b) => b.lang === "html");
 const jsBlocks = blocks.filter((b) => b.lang === "javascript");
 const cssBlocks = blocks.filter((b) => b.lang === "css");
+
+test("README: every JavaScript block honors the event-delegation contract", () => {
+	const linter = new ESLint();
+	for (const { code, i } of jsBlocks) {
+		const messages = linter.verify(code, [
+			{ plugins: { otm: plugin }, rules: { "otm/prefer-on": "error" } },
+		]);
+		assert.deepStrictEqual(
+			messages,
+			[],
+			`JavaScript block #${i}: ${JSON.stringify(messages)}`,
+		);
+	}
+});
 
 test("README: contains html, javascript, and css blocks", (_t) => {
 	assert.ok(htmlBlocks.length > 0);

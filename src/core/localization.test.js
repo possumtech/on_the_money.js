@@ -47,10 +47,15 @@ test("dictionary lookup cascades per message and retains regional preference", a
 		dictionaries: {
 			"/locales/fr-CA.json": { title: "Allô" },
 			"/locales/fr.json": { title: "Bonjour", help: "Aide" },
+			"/locales/en.json": { extra: "Extra" },
 		},
 	});
 	await the.boot({ locale: "fr-CA", persistKeys: [] });
-	assert.deepEqual(urls, ["/locales/fr-CA.json", "/locales/fr.json"]);
+	assert.deepEqual(urls, [
+		"/locales/fr-CA.json",
+		"/locales/fr.json",
+		"/locales/en.json",
+	]);
 	assert.equal(the.locale, "fr-CA");
 	assert.deepEqual(
 		[...document.querySelectorAll("[data-i18n]")].map((el) => [
@@ -64,6 +69,75 @@ test("dictionary lookup cascades per message and retains regional preference", a
 		],
 	);
 	assert.equal(_t("help"), "Aide");
+	assert.equal(_t("extra"), "Extra");
+});
+
+test("an explicitly advertised source catalog supplies changing plural messages", async (t) => {
+	const { document, urls } = setup(t, {
+		available: "en",
+		body: '<p data-i18n="count" data-i18n-qty="0">0 items</p>',
+		dictionaries: {
+			"/locales/en.json": {
+				count: { one: "{qty} item", other: "{qty} items" },
+			},
+		},
+	});
+	await the.boot({ locale: "en", persistKeys: [] });
+	const count = document.querySelector("p");
+	for (const [qty, text] of [
+		[1, "1 item"],
+		[2, "2 items"],
+		[0, "0 items"],
+	]) {
+		count.setAttribute("data-i18n-qty", qty);
+		_t(count);
+		assert.equal(count.textContent, text);
+		assert.equal(count.lang, "en");
+	}
+	assert.deepEqual(urls, ["/locales/en.json"]);
+});
+
+test("partial translations fall through to an advertised source catalog before static text", async (t) => {
+	const { document, urls } = setup(t, {
+		available: "fr,en",
+		body: '<h1 data-i18n="title">Welcome</h1><p data-i18n="count" data-i18n-qty="0">0 items</p><p data-i18n="source">Source</p>',
+		dictionaries: {
+			"/locales/fr.json": { title: "Bonjour" },
+			"/locales/en.json": {
+				count: { one: "{qty} item", other: "{qty} items" },
+			},
+		},
+	});
+	await the.boot({ locale: "fr", persistKeys: [] });
+	assert.deepEqual(urls, ["/locales/fr.json", "/locales/en.json"]);
+	assert.equal(document.querySelector("h1").textContent, "Bonjour");
+	assert.equal(document.querySelector("p").textContent, "0 items");
+	assert.equal(document.querySelector("p").lang, "en");
+	assert.equal(
+		document.querySelector('[data-i18n="source"]').textContent,
+		"Source",
+	);
+});
+
+test("a failed advertised source catalog preserves source text with its cause", async (t) => {
+	const cause = new Error("Source catalog unavailable");
+	const { document, urls } = setup(t, {
+		available: "en",
+		dictionaries: { "/locales/en.json": cause },
+	});
+	const warnings = t.mock.method(console, "warn", () => {});
+	await the.boot({ locale: "de", persistKeys: [] });
+	assert.deepEqual(urls, ["/locales/en.json"]);
+	assert.equal(warnings.mock.calls[0].arguments[1], cause);
+	assert.equal(document.querySelector("h1").textContent, "Welcome");
+	assert.equal(the.locale, "en");
+});
+
+test("an undeclared source catalog is never guessed from a bare endpoint", async (t) => {
+	const { document, urls } = setup(t);
+	await the.boot({ locale: "en", locales: "/locales", persistKeys: [] });
+	assert.deepEqual(urls, []);
+	assert.equal(document.querySelector("h1").textContent, "Welcome");
 });
 
 test("non-English source is the final fallback without an English request", async (t) => {

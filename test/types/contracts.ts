@@ -35,6 +35,8 @@ const off = on(document.body, "click", "[data-action]", (_event, target) => {
 	void target;
 });
 off();
+// @ts-expect-error selector is mandatory, including for form submissions
+on(document.body, "submit", () => {});
 const stopRouter = route(() => {}, { match: "[data-route]" });
 stopRouter?.();
 route.go("/next");

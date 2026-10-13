@@ -12,12 +12,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- Todo and Blog now exercise real application flows: valid delegated form handlers, changing source-language counts, ISO date values activated only when available, French zero-count grammar, and language switching through the shared dictionary cascade. Browser coverage includes navigation, comments, partial/failing translations, and all three engines. Lint/doctests catch malformed event registrations and invalid active date directives. (#8)
 - Boot reads browser storage only for opted-in persistence keys, including `lang`, and never enumerates storage. Documents with persistence disabled initialize when storage is denied. Explicitly requested persistence retains the browser's original failure. (#6)
 - Source-only documents no longer require a translation endpoint or duplicate source dictionary. Partial dictionaries cascade per message, preserve supplying-language metadata and plural rules, and restore original source text when switching languages. Lookup respects script distinctions and regional dictionaries; declared non-English source documents are supported. (#5)
 - Dictionary lint resolves root-relative paths through `--public-root`, reports unreadable/malformed dictionaries, accepts source-text fallback, and diagnoses invalid locale declarations. (#5)
 
 ### Changed
 
+- Explicitly advertised source dictionaries now participate in the existing message cascade, and inline dictionaries translate source-language documents. Source text still needs no dictionary and unadvertised source files are never guessed. This refines the overbroad source-language skip so dynamic plural/interpolated messages can have an optional catalog without duplicating static text. (#8)
 - `the.locale` after boot describes the effective primary locale, retaining compatible requested regional settings. Unavailable languages resolve to the declared source/fallback without overwriting the stored preference. `the.dictionary` exposes the primary catalog; assignment replaces the fallback chain. Plural dictionaries require an `other` string. (#5)
 
 ## [0.9.1] — 2026-10-12
