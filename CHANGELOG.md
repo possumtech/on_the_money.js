@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- Scalar projection now compares each live target before writing. Repeated global, scoped, and self-targeted `the()` writes preserve text-node identity and native partial selection, including inside `<pre><code>`. Localization uses the same rule, including source restoration and equal text with a different supplying language. New or externally changed bindings still hydrate; changed values, deletion, scalar validation, and opted-in storage behavior are preserved. Regression coverage exercises Chromium, Firefox, and WebKit. (#11)
+
+### Changed
+
+- Equal state, scoped ARIA, bound, and localization language attributes are no longer rewritten, so repeated writes no longer generate redundant `MutationObserver` records or custom-element attribute callbacks. Consumers needing a repeated action without a state change should call the imperative API or dispatch an explicit event, rather than use same-value state writes as commands. (#11)
+
 ## [0.10.0] — 2026-10-13
 
 This pre-1.0 minor release makes the locale/fallback and dictionary-validation contract changes explicit. Review the Changed section and the Stylelint consumer override below when upgrading.
