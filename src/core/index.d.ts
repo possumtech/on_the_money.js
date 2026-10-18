@@ -27,6 +27,11 @@ export interface BootOptions {
 	persistKeys?: string[];
 }
 
+/**
+ * Writes visit every live binding and change only differing text/attributes.
+ * Equal text preserves nodes and selection; equal attributes do not notify observers.
+ * Opted-in persistence still runs on repeated writes and propagates storage errors.
+ */
 export interface The {
 	(key: string): string | null;
 	(key: string, value: StateValue): HTMLElement;
@@ -89,7 +94,9 @@ export interface On {
 }
 
 export function _t(key: string, options?: TranslationOptions): string;
+/** Translate live carriers without replacing equal text or rewriting equal language attributes. */
 export function _t<T extends Node>(node: T): T;
+/** Translate the document with the same per-target idempotence as element hydration. */
 export function _t(): string;
 
 export const the: The;

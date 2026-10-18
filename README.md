@@ -128,6 +128,7 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 | `the(el, { k: v, ... })` | Batch scoped write; `null` values delete. | `el` |
 
 - **Key naming.** Keys auto-convert to kebab-case for attribute writes and `[data-text]` lookups. `the("chapterHasNav", x)` writes `data-chapter-has-nav`. snake_case (`chapter_has_nav`) normalizes to kebab too. Single-word keys (`theme`, `user`) pass through unchanged. Round-trips via the platform's `dataset` API: `el.dataset.chapterHasNav` reads the same attribute. CSS selectors and `[data-text="..."]` slot values must use kebab-case to match what JS writes.
+- **Projection is idempotent per target.** Every write visits its live bindings, but changes text or an attribute only when that target's current value differs from the normalized output. Equal `[data-text]` content retains its existing nodes and native selection; new or externally changed bindings still hydrate even when the owner's state is unchanged. Empty strings remain distinct from `null` deletion. Opted-in storage writes and their errors are unaffected. This is scalar projection, not subtree reconciliation or selection preservation across changed text or `$.cloneEach` replacement.
 - **Persistence is opt-in.** Default behavior writes attributes only — nothing persists to `localStorage`. Declare `the.boot({ persistKeys: ["theme", "lang"] })` to opt specific keys in. The boot replay loads only those keys back. Common persistKeys for an i18n + theme app: `["theme", "lang"]`.
 - **Deletion is `null`.** `the(key, null)` removes the attribute, clears every `[data-text="key"]` mirror to empty, and removes the persisted `localStorage` entry if the key is in `persistKeys`. `undefined` still throws — a missing value is a bug, an explicit `null` is a delete.
 - **ARIA mapping is element-scoped only** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Global writes always produce `data-*` — `the("hidden", true)` writes `data-hidden` on body, never `aria-hidden` (which would hide the whole app from screen readers). Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute.
@@ -242,6 +243,8 @@ _t();                                              // hydrate the document, incl
 ```
 
 Missing dictionary keys preserve original source `textContent` during element hydration; the programmatic string form searches the same dictionary chain, then returns the key (it does not search the DOM for a template). Interpolation replaces **every** occurrence of a `{token}`, and `$`-characters in values are inert. When `options.type` is `"currency"` or `"date"`, `Intl` formatting of `options.val` runs regardless of whether the dictionary has an entry — useful in default-locale apps that skip the fetch.
+
+DOM translation follows the same per-target projection contract as `the()`: unchanged final text preserves existing nodes and native selection, including during source restoration. Language attributes update independently when the supplying language changes, even if the text stays identical; unchanged language attributes are not rewritten.
 
 Dictionaries map keys to strings (including intentional empty strings) or plural objects with string values under `zero`, `one`, `two`, `few`, `many`, and `other`; `other` is required. Plural selection uses the supplying dictionary's locale. Number/date interpolation retains compatible regional preferences, but does not apply another language's formatting to a fallback message. `the.dictionary` exposes the primary dictionary; assigning it replaces the whole chain and associates that inline dictionary with `the.locale`. Use `_t()` for lookup through fallbacks.
 
@@ -476,7 +479,7 @@ new MutationObserver(() => {
 }).observe(document.body, { attributes: true, attributeFilter: ["data-modal"] });
 ```
 
-The observer doesn't enable reactivity — it deduplicates the imperative response. Any place in the codebase that writes `data-modal` gets the same dispatch logic without copy-pasting.
+The observer doesn't enable reactivity — it deduplicates the imperative response. Any place in the codebase that changes `data-modal` gets the same dispatch logic without copy-pasting. OTM state attributes, scoped ARIA attributes, `data-bind` targets, and localization `lang` attributes are not rewritten when their values already match: these no-ops produce neither mutation records nor custom-element attribute callbacks. State records a value; it is not a repeatable command channel. For an action that must run again without a state change, call the imperative API or dispatch an explicit event with `on.emit`.
 
 ### When `MutationObserver` is right vs wrong
 

@@ -220,12 +220,11 @@ export default class The {
 							text: el.textContent,
 							lang: el.getAttribute("lang"),
 						});
-					el.textContent = resolved.text;
-					el.setAttribute("lang", resolved.locale);
+					The.#projectText(el, resolved.text);
+					The.#projectAttribute(el, "lang", resolved.locale);
 				} else if (source) {
-					el.textContent = source.text;
-					if (source.lang === null) el.removeAttribute("lang");
-					else el.setAttribute("lang", source.lang);
+					The.#projectText(el, source.text);
+					The.#projectAttribute(el, "lang", source.lang);
 				}
 			}
 		}
@@ -434,13 +433,23 @@ export default class The {
 		return el.getAttribute(The.#attr(el, key));
 	}
 
+	static #projectText(el, value) {
+		if (el.textContent !== value) el.textContent = value;
+	}
+
+	static #projectAttribute(el, name, value) {
+		if (el.getAttribute(name) === value) return;
+		if (value === null) el.removeAttribute(name);
+		else el.setAttribute(name, value);
+	}
+
 	static #set(el, key, val) {
-		el.setAttribute(The.#attr(el, key), val);
+		The.#projectAttribute(el, The.#attr(el, key), val);
 		The.#mirror(el, key, val, false);
 	}
 
 	static #delete(el, key) {
-		el.removeAttribute(The.#attr(el, key));
+		The.#projectAttribute(el, The.#attr(el, key), null);
 		The.#mirror(el, key, "", true);
 	}
 
@@ -454,13 +463,13 @@ export default class The {
 				: el;
 		if (root.querySelectorAll) {
 			for (const item of root.querySelectorAll(`[data-text="${key}"]`))
-				item.textContent = out;
+				The.#projectText(item, out);
 			// data-bind="attr:key attr2:key2" — attribute projection. The *=
 			// selector over-matches on substrings; #bindApply parse-verifies.
 			for (const item of root.querySelectorAll(`[data-bind*="${key}"]`))
 				The.#bindApply(item, key, out, removed);
 		}
-		if (el.getAttribute?.("data-text") === key) el.textContent = out;
+		if (el.getAttribute?.("data-text") === key) The.#projectText(el, out);
 		The.#bindApply(el, key, out, removed);
 	}
 
@@ -471,8 +480,7 @@ export default class The {
 			const i = pair.indexOf(":");
 			if (i < 1 || pair.slice(i + 1) !== key) continue;
 			const attr = pair.slice(0, i);
-			if (removed) item.removeAttribute(attr);
-			else item.setAttribute(attr, out);
+			The.#projectAttribute(item, attr, removed ? null : out);
 		}
 	}
 
@@ -513,7 +521,11 @@ export default class The {
 		const sourceLang = defaultLocale || document.documentElement.lang;
 		const source = sourceLang ? new Intl.Locale(sourceLang).baseName : null;
 		if (defaultLocale)
-			document.documentElement.lang = new Intl.Locale(defaultLocale).toString();
+			The.#projectAttribute(
+				document.documentElement,
+				"lang",
+				new Intl.Locale(defaultLocale).toString(),
+			);
 		const dictionaries = [];
 
 		if (dictionary !== undefined) {

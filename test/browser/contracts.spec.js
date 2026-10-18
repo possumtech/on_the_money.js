@@ -54,6 +54,305 @@ test.beforeEach(async ({ page }) => {
 	await page.goto(origin);
 });
 
+test.describe("idempotent projection", () => {
+	for (const scope of ["global", "scoped", "self"]) {
+		test(`unchanged text retains native partial selection and nodes (${scope})`, async ({
+			page,
+		}) => {
+			const results = await page.evaluate(async (scope) => {
+				const { the, $ } = await import("/src/core/index.js");
+				document.documentElement.lang = "en";
+				document.body.innerHTML = `
+					<main id="rows"></main>
+					<template id="message"><article>
+						<strong data-text="label" data-bind="title:label">Message</strong>
+						<pre><code data-text="arguments" data-bind="title:arguments">Arguments</code></pre>
+					</article></template>`;
+				await the.boot({ locale: "en", persistKeys: [] });
+				const row = $.clone("#rows", "#message");
+				return [
+					["label", "Assistant"],
+					["arguments", '{"path":"README.md"}'],
+				].map(([key, value]) => {
+					const target = row.querySelector(`[data-text="${key}"]`);
+					const write = () =>
+						scope === "global"
+							? the({ [key]: value })
+							: the(scope === "self" ? target : row, { [key]: value });
+					write();
+					const first = target.firstChild;
+					const last = first.splitText(Math.floor(value.length / 2));
+					const range = document.createRange();
+					range.setStart(first, 1);
+					range.setEnd(last, last.length - 1);
+					const selection = getSelection();
+					selection.removeAllRanges();
+					selection.addRange(range);
+					const before = selection.toString();
+					const observer = new MutationObserver(() => {});
+					observer.observe(document.documentElement, {
+						attributes: true,
+						childList: true,
+						characterData: true,
+						subtree: true,
+					});
+					write();
+					const mutations = observer.takeRecords().map(({ type }) => type);
+					observer.disconnect();
+					return {
+						key,
+						before,
+						after: selection.toString(),
+						nodesPreserved:
+							target.firstChild === first && target.lastChild === last,
+						endpointsPreserved:
+							selection.anchorNode === first &&
+							selection.anchorOffset === 1 &&
+							selection.focusNode === last &&
+							selection.focusOffset === last.length - 1,
+						mutations,
+					};
+				});
+			}, scope);
+			expect(results).toEqual([
+				{
+					key: "label",
+					before: "ssistan",
+					after: "ssistan",
+					nodesPreserved: true,
+					endpointsPreserved: true,
+					mutations: [],
+				},
+				{
+					key: "arguments",
+					before: '"path":"README.md"',
+					after: '"path":"README.md"',
+					nodesPreserved: true,
+					endpointsPreserved: true,
+					mutations: [],
+				},
+			]);
+		});
+	}
+
+	test("attributes notify only on changes while new bindings hydrate and deletions repair drift", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { the } = await import("/src/core/index.js");
+			const callbacks = [];
+			customElements.define(
+				"projection-probe",
+				class extends HTMLElement {
+					static observedAttributes = ["data-label", "title", "aria-expanded"];
+					attributeChangedCallback(name, oldValue, value) {
+						callbacks.push([name, oldValue, value]);
+					}
+				},
+			);
+			document.body.innerHTML =
+				'<projection-probe data-bind="title:label"><span data-text="label">Source</span></projection-probe>';
+			const owner = document.querySelector("projection-probe");
+			the(owner, { label: "Assistant", expanded: true });
+			const initialCallbacks = callbacks
+				.splice(0)
+				.map(([name]) => name)
+				.sort();
+			const observer = new MutationObserver(() => {});
+			observer.observe(owner, {
+				attributes: true,
+				childList: true,
+				subtree: true,
+			});
+			the(owner, { label: "Assistant", expanded: true });
+			const unchanged = {
+				records: observer.takeRecords().length,
+				callbacks: callbacks.splice(0),
+			};
+			const fresh = document.createElement("a");
+			fresh.setAttribute("data-bind", "title:label");
+			fresh.setAttribute("data-text", "label");
+			owner.append(fresh);
+			observer.takeRecords();
+			the(owner, "label", "Assistant");
+			const inserted = [fresh.textContent, fresh.getAttribute("title")];
+			fresh.textContent = "Drift";
+			fresh.setAttribute("title", "Drift");
+			the(owner, "label", "Assistant");
+			const repaired = [fresh.textContent, fresh.getAttribute("title")];
+			observer.takeRecords();
+			the(owner, { label: "User", expanded: false });
+			const changed = {
+				text: fresh.textContent,
+				title: fresh.getAttribute("title"),
+				expanded: owner.getAttribute("aria-expanded"),
+				callbacks: callbacks.splice(0),
+				records: observer
+					.takeRecords()
+					.map(({ type, attributeName }) => [type, attributeName]),
+			};
+			the(owner, { label: null, expanded: null });
+			const removed = [
+				the(owner, "label"),
+				owner.getAttribute("title"),
+				fresh.getAttribute("title"),
+				fresh.textContent,
+				owner.getAttribute("aria-expanded"),
+			];
+			callbacks.splice(0);
+			observer.takeRecords();
+			the(owner, { label: null, expanded: null });
+			const repeatedDelete = {
+				records: observer.takeRecords().length,
+				callbacks: callbacks.splice(0),
+			};
+			fresh.textContent = "Late source";
+			fresh.setAttribute("title", "Late source");
+			the(owner, "label", null);
+			const repairedDelete = [fresh.textContent, fresh.getAttribute("title")];
+			the(owner, "label", "");
+			const empty = [
+				the(owner, "label"),
+				owner.getAttribute("title"),
+				fresh.getAttribute("title"),
+			];
+			observer.disconnect();
+			return {
+				initialCallbacks,
+				unchanged,
+				inserted,
+				repaired,
+				changed,
+				removed,
+				repeatedDelete,
+				repairedDelete,
+				empty,
+			};
+		});
+		expect(result.initialCallbacks).toEqual([
+			"aria-expanded",
+			"data-label",
+			"title",
+		]);
+		expect(result.unchanged).toEqual({ records: 0, callbacks: [] });
+		expect(result.inserted).toEqual(["Assistant", "Assistant"]);
+		expect(result.repaired).toEqual(["Assistant", "Assistant"]);
+		expect(result.changed).toEqual({
+			text: "User",
+			title: "User",
+			expanded: "false",
+			callbacks: [
+				["data-label", "Assistant", "User"],
+				["title", "Assistant", "User"],
+				["aria-expanded", "true", "false"],
+			],
+			records: [
+				["attributes", "data-label"],
+				["childList", null],
+				["childList", null],
+				["attributes", "title"],
+				["attributes", "title"],
+				["attributes", "aria-expanded"],
+			],
+		});
+		expect(result.removed).toEqual([null, null, null, "", null]);
+		expect(result.repeatedDelete).toEqual({ records: 0, callbacks: [] });
+		expect(result.repairedDelete).toEqual(["", null]);
+		expect(result.empty).toEqual(["", "", ""]);
+	});
+
+	test("localization preserves selection across equal text, language changes, and source restoration", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async () => {
+			const { the, _t } = await import("/src/core/index.js");
+			document.documentElement.lang = "en";
+			document.body.innerHTML =
+				'<strong data-i18n="label" lang="en-GB">Assistant</strong>';
+			const target = document.querySelector("strong");
+			const node = target.firstChild;
+			const selection = getSelection();
+			const range = document.createRange();
+			range.setStart(node, 1);
+			range.setEnd(node, 8);
+			selection.removeAllRanges();
+			selection.addRange(range);
+			const states = [];
+			const snapshot = () =>
+				states.push({
+					text: target.textContent,
+					selected: selection.toString(),
+					sameNode: target.firstChild === node,
+					lang: target.lang,
+				});
+			await the.boot({
+				locale: "fr",
+				defaultLocale: "en",
+				dictionary: { label: "Assistant" },
+				persistKeys: [],
+			});
+			snapshot();
+			const delivered = [];
+			const observer = new MutationObserver((records) =>
+				delivered.push(...records),
+			);
+			const takeMutations = () => {
+				delivered.push(...observer.takeRecords());
+				return delivered.splice(0).map(({ type }) => type);
+			};
+			observer.observe(document.documentElement, {
+				attributes: true,
+				childList: true,
+				characterData: true,
+				subtree: true,
+			});
+			_t(target);
+			_t();
+			await the.boot({
+				locale: "fr",
+				defaultLocale: "en",
+				dictionary: { label: "Assistant" },
+				persistKeys: [],
+			});
+			const unchanged = takeMutations();
+			snapshot();
+			await the.boot({
+				locale: "de",
+				dictionary: { label: "Assistant" },
+				persistKeys: [],
+			});
+			snapshot();
+			the.dictionary = {};
+			_t();
+			snapshot();
+			takeMutations();
+			_t();
+			const repeatedRestore = takeMutations();
+			snapshot();
+			the.dictionary = { label: "Changed" };
+			_t();
+			const changed = [target.textContent, target.lang];
+			the.dictionary = {};
+			_t();
+			const restored = [target.textContent, target.lang];
+			observer.disconnect();
+			return { states, unchanged, repeatedRestore, changed, restored };
+		});
+		expect(result.states).toEqual(
+			["fr", "fr", "de", "en-GB", "en-GB"].map((lang) => ({
+				text: "Assistant",
+				selected: "ssistan",
+				sameNode: true,
+				lang,
+			})),
+		);
+		expect(result.unchanged).toEqual([]);
+		expect(result.repeatedRestore).toEqual([]);
+		expect(result.changed).toEqual(["Changed", "de"]);
+		expect(result.restored).toEqual(["Assistant", "en-GB"]);
+	});
+});
+
 test.describe("example applications", () => {
 	const errorsByPage = new WeakMap();
 	test.use({ locale: "en-US", timezoneId: "UTC" });
