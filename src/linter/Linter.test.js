@@ -36,40 +36,34 @@ test("Linter.check: non-HTML files return no violations", (_t) => {
 	assert.strictEqual(Linter.check("x.css", "!important;").length, 0);
 });
 
-test("Linter.check: HTML-004 catches naked strings", (_t) => {
-	const code = "<div>hello</div>";
-	const violations = Linter.check("test.html", code);
-	const naked = violations.filter((v) => v.ruleId === "HTML-004");
-	assert.ok(naked.length >= 1);
+test("Linter.check: ordinary document content requires no state or translation carrier", () => {
+	for (const source of [
+		"<article><h1>A document</h1><p>Ordinary prose.</p></article>",
+		'<pre id="document-body">&lt;script&gt;literal&lt;/script&gt; &amp; entities</pre>',
+		"<template><article><pre>Previously rendered content.</pre></article></template>",
+		'<h1 data-i18n="title">Document</h1><span data-text="status">Ready</span><pre>Body</pre>',
+	]) {
+		assert.deepEqual(Linter.check("content.html", source), [], source);
+	}
 });
 
-test("Linter.check: HTML-004 allows data-i18n", (_t) => {
+test("Linter.check: allows data-i18n with source fallback", (_t) => {
 	const code = '<span data-i18n="key">fallback</span>';
 	const violations = Linter.check("test.html", code);
-	const naked = violations.filter((v) => v.ruleId === "HTML-004");
-	assert.strictEqual(naked.length, 0);
+	assert.deepStrictEqual(violations, []);
 });
 
-test("Linter.check: HTML-004 allows data-text carriers with fallback text", (_t) => {
+test("Linter.check: allows data-text carriers with fallback text", (_t) => {
 	const code = '<strong data-text="user">friend</strong>';
 	const violations = Linter.check("test.html", code);
-	const naked = violations.filter((v) => v.ruleId === "HTML-004");
-	assert.strictEqual(naked.length, 0);
+	assert.deepStrictEqual(violations, []);
 });
 
-test("Linter.check: HTML-004 message names both carriers", (_t) => {
-	const violations = Linter.check("test.html", "<div>hello</div>");
-	const naked = violations.filter((v) => v.ruleId === "HTML-004");
-	assert.match(naked[0].message, /data-i18n="key"/);
-	assert.match(naked[0].message, /data-text="key"/);
-});
-
-test("Linter.check: HTML-004 allows leaf-text elements (option, textarea, title)", (_t) => {
+test("Linter.check: allows leaf-text elements (option, textarea, title)", (_t) => {
 	const code =
 		"<select><option>English</option></select><textarea>x</textarea><title>X</title>";
 	const violations = Linter.check("test.html", code);
-	const naked = violations.filter((v) => v.ruleId === "HTML-004");
-	assert.strictEqual(naked.length, 0);
+	assert.deepStrictEqual(violations, []);
 });
 
 test("Linter.check: HTML-017 catches data-action on non-semantic element without role", (_t) => {

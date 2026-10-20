@@ -67,34 +67,6 @@ const preferOn = {
 	},
 };
 
-const preferTheSet = {
-	meta: {
-		type: "problem",
-		docs: {
-			description:
-				"Disallow direct assignment to textContent/innerText/nodeValue; use the() instead.",
-		},
-		messages: {
-			useThe:
-				"Direct text manipulation is forbidden. Use the(el, key, val) with a [data-text] slot for content, or el.replaceChildren() to clear a container. Common LLM mistake: doing this server-side via linkedom/jsdom — same fix, emit JSON and let the OTM client render. See README §The Discipline.",
-		},
-		schema: [],
-	},
-	create(context) {
-		const banned = new Set(["textContent", "innerText", "nodeValue"]);
-		return {
-			AssignmentExpression(node) {
-				if (
-					node.left?.type === "MemberExpression" &&
-					banned.has(node.left.property?.name)
-				) {
-					context.report({ node, messageId: "useThe" });
-				}
-			},
-		};
-	},
-};
-
 const flatState = {
 	meta: {
 		type: "problem",
@@ -346,7 +318,6 @@ const noRawWebsocket = {
 
 const rules = {
 	"prefer-on": preferOn,
-	"prefer-the-set": preferTheSet,
 	"flat-state": flatState,
 	"prefer-submit": preferSubmit,
 	"no-style-mutation": noStyleMutation,
@@ -365,7 +336,6 @@ plugin.configs = {
 		plugins: { otm: plugin },
 		rules: {
 			"otm/prefer-on": "error",
-			"otm/prefer-the-set": "error",
 			"otm/flat-state": "error",
 			"otm/prefer-submit": "warn",
 			"otm/no-style-mutation": "error",

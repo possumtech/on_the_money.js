@@ -118,9 +118,18 @@ test("Cli.run: should return 0 when scanning good fixtures", async (t) => {
 });
 
 test("Cli.run: should return violation count when scanning bad fixtures", async (t) => {
-	quiet(t);
+	const log = t.mock.method(console, "log", () => {});
+	t.mock.method(console, "error", () => {});
 	const result = await Cli.run(["--check", "./fixtures/bad"]);
-	assert.ok(result > 0);
+	assert.strictEqual(result, 2);
+	const output = log.mock.calls
+		.flatMap(({ arguments: args }) => args)
+		.join("\n");
+	assert.match(output, /\[HTML-017\].*Non-semantic interactive element/);
+	assert.match(
+		output,
+		/\[HTML-105\].*data-action="open" has no on\(\) handler/,
+	);
 });
 
 test("Cli.scan: detects <meta name=i18n> regardless of attribute order", async (t) => {

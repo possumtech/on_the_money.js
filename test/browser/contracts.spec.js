@@ -3,8 +3,12 @@ import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "@playwright/test";
+import contentExample from "../content-example.js";
 
 const root = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
+const content = contentExample(
+	await fs.readFile(path.join(root, "README.md"), "utf8"),
+);
 let origin;
 let server;
 
@@ -52,6 +56,178 @@ test.afterAll(async () => {
 
 test.beforeEach(async ({ page }) => {
 	await page.goto(origin);
+});
+
+test.describe("README native document content", () => {
+	test("literal bodies remain exact and only replace their outlet", async ({
+		page,
+	}) => {
+		const bodies = [
+			"</pre><script>globalThis.contentExecuted = true</script><pre>",
+			'<img src=x onerror="globalThis.contentExecuted = true"> &amp; &#x1F600;',
+			"# Heading\n**literal Markdown**\r\nСрпски — 日本語 — 😀 e\u0301",
+			"Large document <&>\n".repeat(10000),
+			"",
+		];
+		const result = await page.evaluate(
+			async ({ content, bodies }) => {
+				const { $ } = await import("/src/core/index.js");
+				document.body.innerHTML = content.html;
+				const insert = new Function("$", "body", content.javascript);
+				const article = $("#document");
+				const heading = $("h2");
+				const status = $("[data-text]");
+				const outlet = $("#document-body");
+				const attributes = (element) =>
+					Array.from(element.attributes, ({ name, value }) => [name, value]);
+				const before = Array.from(
+					document.body.querySelectorAll("*"),
+					attributes,
+				);
+				const texts = bodies.map((body) => {
+					insert($, body);
+					return {
+						text: outlet.textContent,
+						elements: outlet.childElementCount,
+						nodes: outlet.childNodes.length,
+					};
+				});
+				return {
+					texts,
+					executed: globalThis.contentExecuted === true,
+					outsidePreserved:
+						$("#document") === article &&
+						$("h2") === heading &&
+						$("[data-text]") === status &&
+						$("#document-body") === outlet,
+					outsideText: [heading.textContent, status.textContent],
+					attributesUnchanged:
+						JSON.stringify(before) ===
+						JSON.stringify(
+							Array.from(document.body.querySelectorAll("*"), attributes),
+						),
+					bodyAttributes: attributes(document.body),
+				};
+			},
+			{ content, bodies },
+		);
+		expect(result).toEqual({
+			texts: bodies.map((text) => ({ text, elements: 0, nodes: text ? 1 : 0 })),
+			executed: false,
+			outsidePreserved: true,
+			outsideText: ["Document", "Ready"],
+			attributesUnchanged: true,
+			bodyAttributes: [],
+		});
+	});
+
+	test("unchanged bodies preserve split text nodes and native partial selection", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async (content) => {
+			const { $ } = await import("/src/core/index.js");
+			document.body.innerHTML = content.html;
+			const insert = new Function("$", "body", content.javascript);
+			const body = "Literal document body";
+			insert($, body);
+			const outlet = $("#document-body");
+			const first = outlet.firstChild;
+			const last = first.splitText(8);
+			const range = document.createRange();
+			range.setStart(first, 1);
+			range.setEnd(last, last.length - 1);
+			const selection = getSelection();
+			selection.removeAllRanges();
+			selection.addRange(range);
+			const observer = new MutationObserver(() => {});
+			observer.observe(document.body, {
+				attributes: true,
+				childList: true,
+				characterData: true,
+				subtree: true,
+			});
+			insert($, body);
+			const result = {
+				text: outlet.textContent,
+				selection: selection.toString(),
+				nodesPreserved:
+					outlet.firstChild === first && outlet.lastChild === last,
+				endpointsPreserved:
+					selection.anchorNode === first &&
+					selection.anchorOffset === 1 &&
+					selection.focusNode === last &&
+					selection.focusOffset === last.length - 1,
+				mutations: observer.takeRecords().length,
+			};
+			observer.disconnect();
+			return result;
+		}, content);
+		expect(result).toEqual({
+			text: "Literal document body",
+			selection: "iteral document bod",
+			nodesPreserved: true,
+			endpointsPreserved: true,
+			mutations: 0,
+		});
+	});
+
+	test("document content coexists with localization and UI state", async ({
+		page,
+	}) => {
+		const result = await page.evaluate(async (content) => {
+			const { $, the } = await import("/src/core/index.js");
+			document.documentElement.lang = "en";
+			document.body.innerHTML = content.html;
+			await the.boot({ locale: "en", persistKeys: [] });
+			const insert = new Function("$", "body", content.javascript);
+			insert($, "Document body — not interface copy");
+			const outlet = $("#document-body");
+			const node = outlet.firstChild;
+			const records = [];
+			const observer = new MutationObserver((mutations) =>
+				records.push(...mutations),
+			);
+			observer.observe(outlet, {
+				attributes: true,
+				childList: true,
+				characterData: true,
+				subtree: true,
+			});
+			await the.boot({
+				locale: "sr",
+				dictionary: { document_title: "Документ" },
+				persistKeys: [],
+			});
+			the("document-status", "Updated");
+			const translated = [
+				$("h2").textContent,
+				$("h2").lang,
+				$("[data-text]").textContent,
+			];
+			await the.boot({ locale: "en", persistKeys: [] });
+			await Promise.resolve();
+			records.push(...observer.takeRecords());
+			observer.disconnect();
+			return {
+				translated,
+				restored: [$("h2").textContent, $("h2").lang],
+				text: outlet.textContent,
+				nodePreserved: outlet.firstChild === node,
+				attributes: outlet.getAttributeNames(),
+				stateKeys: document.body.getAttributeNames(),
+				mutations: records.length,
+			};
+		}, content);
+		expect(result).toEqual({
+			translated: ["Документ", "sr", "Updated"],
+			restored: ["Document", ""],
+			text: "Document body — not interface copy",
+			nodePreserved: true,
+			attributes: ["id"],
+			stateKeys: ["data-document-status"],
+			mutations: 0,
+		});
+	});
 });
 
 test.describe("idempotent projection", () => {

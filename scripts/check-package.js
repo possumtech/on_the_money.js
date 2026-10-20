@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs, promisify } from "node:util";
+import contentExample from "../test/content-example.js";
 
 const exec = promisify(execFile);
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -47,8 +48,13 @@ try {
 		"package version must match this release",
 	);
 	const artifact = path.join(temporary, artifacts[0].filename);
-	for (const withStylelint of [false, true]) {
-		const name = withStylelint ? "stylelint-consumer" : "runtime-consumer";
+	for (const name of [
+		"runtime-consumer",
+		"stylelint-consumer",
+		"eslint-consumer",
+	]) {
+		const withStylelint = name === "stylelint-consumer";
+		const withESLint = name === "eslint-consumer";
 		const cwd = path.join(temporary, name);
 		await fs.mkdir(cwd);
 		await fs.writeFile(
@@ -62,6 +68,7 @@ try {
 					...(withStylelint
 						? { stylelint: pkg.devDependencies.stylelint }
 						: {}),
+					...(withESLint ? { eslint: pkg.devDependencies.eslint } : {}),
 				},
 				...(withStylelint ? { overrides: pkg.overrides } : {}),
 			}),
@@ -69,6 +76,12 @@ try {
 		await npm(["install", "--ignore-scripts", "--fund=false"], cwd);
 		const audit = JSON.parse(await npm(["audit", "--json"], cwd));
 		assert.equal(audit.metadata.vulnerabilities.total, 0);
+		const installed = path.join(cwd, "node_modules", pkg.name);
+		const example = withESLint
+			? contentExample(
+					await fs.readFile(path.join(installed, "README.md"), "utf8"),
+				)
+			: null;
 		const source = withStylelint
 			? `
 				import assert from "node:assert/strict";
@@ -84,7 +97,28 @@ try {
 					name: "SyntaxError", message: "Input depth (101), exceeds max depth (100)"
 				});
 			`
-			: `
+			: withESLint
+				? `
+				import assert from "node:assert/strict";
+				import {Linter} from "eslint";
+				import config from "on_the_money/eslint-config";
+				import plugin from "on_the_money/eslint-plugin";
+				assert.equal(Object.hasOwn(plugin.rules, "prefer-the-set"), false);
+				const linter = new Linter();
+				for (const rules of [config, [plugin.configs.recommended]]) {
+					assert.deepEqual(linter.verify(${JSON.stringify(example?.javascript)}, rules), []);
+					assert.deepEqual(linter.verify("outlet.replaceChildren(sanitizedFragment);", rules), []);
+					for (const [code, ruleId, messageId] of [
+						['the("body", {nested: "document"});', "otm/flat-state", "notFlat"],
+						['outlet.style.color = "red";', "otm/no-style-mutation", "noStyle"],
+						['import {parseHTML} from "linkedom";', "otm/no-server-dom", "noServerDom"],
+					]) {
+						assert.deepEqual(linter.verify(code, rules).map(({ruleId, messageId}) => ({ruleId, messageId})),
+							[{ruleId, messageId}]);
+					}
+				}
+			`
+				: `
 				import assert from "node:assert/strict";
 				import {createRequire} from "node:module";
 				import {the} from "on_the_money";
@@ -97,6 +131,23 @@ try {
 			cwd,
 			timeout: 10000,
 		});
+		if (withESLint) {
+			const fixture = path.join(cwd, "content");
+			await fs.mkdir(fixture);
+			await fs.writeFile(path.join(fixture, "index.html"), example.html);
+			await fs.writeFile(path.join(fixture, "content.js"), example.javascript);
+			const manifest = JSON.parse(
+				await fs.readFile(path.join(installed, "package.json")),
+			);
+			await exec(
+				process.execPath,
+				[path.join(installed, manifest.bin["otm-lint"]), "--check", fixture],
+				{
+					cwd,
+					timeout: 10000,
+				},
+			);
+		}
 		console.log(
 			`${name}: packed imports, public contracts, and full audit passed`,
 		);

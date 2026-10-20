@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- Ordinary document content uses native DOM insertion without a state mirror, mandatory marker, or new runtime API. The README's guarded `textContent` example is exercised through both public ESLint configurations, the HTML linter, real-browser literal text and selection tests, and a fresh packed-package consumer. Localizable interface copy and UI state retain their existing `data-i18n` and `data-text` contracts. (#12)
+
+### Removed
+
+- **Lint configuration migration:** retired `otm/prefer-the-set` and HTML-004's universal text-carrier requirement. Remove `otm/prefer-the-set` from hand-written ESLint rule configurations; the shipped configurations are already updated. State, styling, and server-DOM enforcement remain unchanged. (#12)
+
 ## [0.10.1] — 2026-10-17
 
 ### Fixed
