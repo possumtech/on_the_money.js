@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-10-20
+
+This pre-1.0 minor release removes a public ESLint rule. Consumers explicitly configuring `otm/prefer-the-set` must remove that entry; the shipped configurations need no manual change. There is no new runtime API or bundle growth.
+
 ### Changed
 
 - Ordinary document content uses native DOM insertion without a state mirror, mandatory marker, or new runtime API. The README's guarded `textContent` example is exercised through both public ESLint configurations, the HTML linter, real-browser literal text and selection tests, and a fresh packed-package consumer. Localizable interface copy and UI state retain their existing `data-i18n` and `data-text` contracts. (#12)
