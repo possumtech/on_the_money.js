@@ -47,7 +47,7 @@ on("main", "click", '[data-action="greet"]', () => {
 });
 ```
 
-Every text node lives inside a carrier — `data-i18n` for localizable copy, `data-text` for state-projected content — and keeps its source-language text as fallback. This source-only document needs no translation endpoint or dictionary files, including for visitors requesting another language: the rendered English remains available. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
+Localizable interface copy uses `data-i18n`; UI state mirrors use `data-text`, with source-language fallback text when practical. Ordinary document content needs neither marker nor attribute mirror (see [Literal document content](#literal-document-content)). This source-only document needs no translation endpoint or dictionary files, including for visitors requesting another language: the rendered English remains available. On boot, keys opted in via `persistKeys` replay from `localStorage` onto body `data-*` and `[data-text]` mirrors; by default nothing persists.
 
 ## The substrate stylesheet
 
@@ -393,20 +393,21 @@ The platform's `EventSource` already owns reconnection, `retry:` hints, and `Las
 ```javascript
 import { sse } from "on_the_money/live";
 
+const outlet = $("#answer");
 let answer = "";
 sse("/stream/answer", {
   types: ["token", "done"],
   onMessage(type, chunk) {
     if (type === "done") return the("answering", null);
     answer += chunk;
-    the("answer", answer);        // the [data-text="answer"] slot grows in place
+    if (outlet.textContent !== answer) outlet.textContent = answer;
   },
   onDown() { the("answering", null); },
   signal: controller.signal,
 });
 ```
 
-**Streaming into a slot:** accumulate in JS, project the whole value through `the()` each chunk. Replace-semantics projection is idempotent, so a platform reconnect replaying from `Last-Event-ID` re-renders correctly instead of duplicating text. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job), custom backoff (the server's `retry:` hint governs), `Authorization` headers (cookie auth only; header auth needs fetch-streaming, deferred until a consumer needs it).
+**Streaming document content:** accumulate in JS and insert literal text into an existing display outlet such as `<pre id="answer"></pre>`, without mirroring the body in attributes. UI flags such as `answering` still use `the()`. The equality guard avoids replacing unchanged text; it does not deduplicate appended chunks. Resume and replay correctness belong to the stream protocol, including the server's handling of `Last-Event-ID`. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job), custom backoff (the server's `retry:` hint governs), `Authorization` headers (cookie auth only; header auth needs fetch-streaming, deferred until a consumer needs it).
 
 ## `on_the_money/clipboard` — copy affordances
 
@@ -490,11 +491,11 @@ The observer doesn't enable reactivity — it deduplicates the imperative respon
 | `media.play()`, `media.pause()` — playback state | Adding/removing a class |
 | `el.animate(...)` — Web Animations timing | Conditional opacity / visibility |
 | `el.requestFullscreen()` — browser mode | Animation triggers expressible as CSS transitions |
-| `navigator.clipboard.writeText(...)` — out-of-DOM side effects | Toggling text content (use `[data-text]`) |
+| `navigator.clipboard.writeText(...)` — out-of-DOM side effects | Reimplementing attribute-to-text state bindings (use `[data-text]`) |
 
 `dialog.showModal()` is a borderline case: it shows the dialog (visual) AND traps focus, paints the backdrop, registers an Escape handler, and announces modal semantics to assistive tech (behavioral + a11y). If you want only the visual, `dialog[open]` + CSS suffices. If you want the bundled behavior, call `showModal()` — and reach for `MutationObserver` only if `data-modal` can be set from multiple call sites that all need the same dispatch.
 
-If your `MutationObserver` callback is setting styles, toggling classes, or changing `textContent`, you've smuggled a JS reactivity layer into a project that explicitly rejected one. The CSS attribute selector was already doing that job — declaratively, with zero JS, with the right perf shape.
+Do not use a `MutationObserver` to reimplement CSS styling or `[data-text]` state bindings. Those already own their respective state responses. Inserting document content received from a fetch or stream is a separate application operation, not an attribute-to-text binding; native DOM insertion is appropriate there.
 
 ### The deletion test
 
@@ -507,13 +508,13 @@ The single best self-check: strip every JS function except `on()` handlers, the 
 
 Classify every JS module by why a page refresh cannot replace it — the rung justifies the module's existence:
 
-0. **Structure and content** — the server's job. Never JS.
+0. **Initial structure and content** — the server renders a real document. Browser enhancement does not replace that baseline.
 1. **State → visual** — CSS's job (mechanism #1). No JS beyond the `the()` write.
-2. **Server-initiated updates** — a refresh cannot know to happen (a payment confirmed, a comment arrived). The one category that is JS territory by definition: `live()`/`sse()` intake writing state.
+2. **Server-initiated updates** — a refresh cannot know to happen (a payment confirmed, a comment arrived). `live()`/`sse()` intake can update UI state or insert document content into existing outlets.
 3. **Capability-gated affordances** — behavior the platform may not offer (clipboard, share, fullscreen). Feature-detect once, declare the capability as state, reveal dependent controls by CSS.
 4. **Latency elimination** — making instant what navigation already does (reactive filters via `route(cb, { match })` + `request()`). The page must stay whole without it.
 
-Every module above rung 1 must pass the deletion test's module form: **delete the file and the site is whole.** If deleting a module breaks content or structure, it was squatting on a rung that belongs to the server or to CSS.
+Every module above rung 1 must pass the deletion test's module form: **delete the file and the server-rendered baseline is whole.** Live arrivals and faster updates may disappear; initial content and structure must not depend on browser enhancement.
 
 ### Element-as-state-carrier
 
@@ -634,7 +635,36 @@ $.cloneEach("#posts", "#post-card", posts, (el, post) => {
 });
 ```
 
-`$.cloneEach` clears the container for you; when clearing manually, `replaceChildren()` is the sanctioned idiom — `innerHTML = ""` and `textContent = ""` are both banned by the lint stack. Keep server output to data; `otm/no-server-dom` bans rendering HTML server-side.
+`$.cloneEach` clears the container for you; `replaceChildren()` also clears it natively, and `textContent = ""` clears a literal-text outlet. The server can render real documents or supply data; `otm/no-server-dom` prohibits using browser-DOM emulation packages to run OTM outside the browser, not ordinary server rendering.
+
+### Literal document content
+
+Document bodies are not UI state. Notes, logs, code, and generated output can use ordinary semantic HTML without `data-text`, `data-i18n`, or a new content marker. Keep localizable interface copy and state mirrors alongside them:
+
+```html
+<article id="document">
+  <h2 data-i18n="document_title">Document</h2>
+  <p data-text="document-status">Ready</p>
+  <pre id="document-body">Previously rendered content.</pre>
+</article>
+```
+
+Given a literal string `body` from your application's request or stream boundary, insert it into the existing display outlet:
+
+```javascript
+const outlet = $("#document-body");
+if (outlet.textContent !== body) {
+  outlet.textContent = body;
+}
+```
+
+The [DOM `textContent` setter](https://dom.spec.whatwg.org/#dom-node-textcontent) inserts text, not parsed HTML: tags, entities, Markdown, Unicode, and line breaks remain literal. Do not pre-escape this string for HTML; server-rendered HTML still needs its normal contextual escaping. Use a display element, not an executable element such as `<script>`. `innerText` has rendered-text semantics and is not the exact-text path.
+
+Compare against the live DOM before writing. Equal content leaves existing text nodes and native selection untouched, including split text nodes. Changed content replaces the outlet's children; an empty string clears them. This is not an editor, caret-preservation algorithm, or DOM reconciler. There is no hidden store or duplicate `data-*` body. Do not put `data-text` or `data-i18n` on the same outlet (or an owning ancestor) and give two writers ownership of its contents.
+
+Already-sanitized rich fragments can use native `replaceChildren(sanitizedFragment)`. Sanitization, allowed markup/URLs, and the fragment's trust boundary belong to the application; OTM neither sanitizes nor interprets raw HTML or Markdown. `lang` describes the actual content language. [`translate="no"`](https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute) is a translation policy, not a required content marker.
+
+**Lint migration:** `otm/prefer-the-set` and HTML-004 are retired. The shipped ESLint configurations already omit the retired rule; remove it from any hand-written rule configuration. No lint suppression or replacement marker is needed. Lint cannot infer whether arbitrary prose is interface copy or document content, so authors own that distinction; the existing state, styling, and server-DOM rules remain in force.
 
 ### Routing with `the.match`
 
@@ -696,7 +726,7 @@ On the client:
 await the.boot();   // localStorage values, if any, override the server-rendered attrs
 ```
 
-The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates keys opted into `persistKeys` that have stored values. Fallback text inside `data-text` carriers (`<h1 data-text="user">Alice</h1>`) is the sanctioned shape — HTML-004 requires it.
+The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates keys opted into `persistKeys` that have stored values. Keep fallback text inside `data-text` carriers (`<h1 data-text="user">Alice</h1>`) when practical, so the initial document remains useful before enhancement.
 
 ## Lint stack
 
@@ -724,11 +754,10 @@ export default [
 | Rule | Source | Behavior |
 | --- | --- | --- |
 | `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; require `on(parent, event, selector, handler)`. |
-| `otm/prefer-the-set` | bundled in `on_the_money` | Ban `textContent`/`innerText`/`nodeValue` assignment. |
 | `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
 | `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
 | `otm/no-style-mutation` | bundled in `on_the_money` | Ban `el.style.* = ...`. |
-| `otm/no-server-dom` | bundled in `on_the_money` | Ban imports of `linkedom`, `jsdom`, `cheerio`, `parse5`, etc. — emit JSON and let the OTM client hydrate. |
+| `otm/no-server-dom` | bundled in `on_the_money` | Ban imports of `linkedom`, `jsdom`, `cheerio`, `parse5`, etc.; no out-of-browser OTM rendering. |
 | `otm/no-document-query` | bundled in `on_the_money` | Ban `document.querySelector`/`getElementById`/`createElement`/etc.; use `$`/`$$`/`$.clone`. Use `// eslint-disable-next-line otm/no-document-query` for legitimate bridge code (MutationObserver targets, etc.). |
 | `no-unsanitized/no-inner-html` | `eslint-plugin-no-unsanitized` | Ban `innerHTML`/`outerHTML`. |
 | `no-unsanitized/method` | `eslint-plugin-no-unsanitized` | Ban `document.write`, `insertAdjacentHTML`. |
@@ -780,7 +809,6 @@ npx otm-lint --check ./src
 
 | Rule | Forbidden | Use instead |
 | --- | --- | --- |
-| **HTML-004** | Naked text in HTML | Every rendered text node lives inside a carrier — `data-i18n="key"` for localizable copy, `data-text="key"` for state-projected content — and SHOULD keep source-language fallback text in place. |
 | **HTML-017** | `<div data-action="...">` without `role`/`tabindex` | Use a `<button>` or other interactive element. |
 | **HTML-023** | A declared `<meta name="i18n">` has no dictionary path | Provide `content`, or omit the meta entirely for a source-only document. |
 | **HTML-024** | `data-available="..."` doesn't match locales folder | Keep the manifest aligned with the actual locale files. |
@@ -896,7 +924,7 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
 | `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
-| `npm run test:package` | Install the packed package in fresh runtime-only and Stylelint-with-override consumers; verify public imports, lint behavior, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
+| `npm run test:package` | Install the packed package in fresh runtime-only, ESLint, and Stylelint-with-override consumers; verify public imports, the README content example through ESLint and the HTML CLI, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
 | `npm run check` | Formatting/lint, examples, build, Node tests, coverage, types, all three browser engines, and packed consumers. CI/release gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |

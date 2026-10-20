@@ -48,29 +48,6 @@ test("prefer-on", () => {
 	});
 });
 
-test("prefer-the-set", () => {
-	tester.run("prefer-the-set", plugin.rules["prefer-the-set"], {
-		valid: [
-			{ code: 'the(el, "title", "x");' },
-			{ code: "const x = el.textContent;" },
-		],
-		invalid: [
-			{
-				code: 'el.textContent = "x";',
-				errors: [{ messageId: "useThe" }],
-			},
-			{
-				code: 'el.innerText = "x";',
-				errors: [{ messageId: "useThe" }],
-			},
-			{
-				code: 'node.nodeValue = "x";',
-				errors: [{ messageId: "useThe" }],
-			},
-		],
-	});
-});
-
 test("flat-state", () => {
 	tester.run("flat-state", plugin.rules["flat-state"], {
 		valid: [

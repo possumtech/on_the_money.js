@@ -81,8 +81,8 @@ export default class Cli {
 			".css",
 		]);
 		// .ejs joins the markup universe for cross-file rules (reveal spans,
-		// slots, actions); per-file rules stay .html-only — Linter.check
-		// skips non-.html, so template syntax never false-positives HTML-004.
+		// slots, actions); per-file rules stay .html-only so template syntax
+		// is not interpreted as ordinary HTML by Linter.check.
 		const htmlPaths = allFiles.filter(
 			(f) => f.endsWith(".html") || f.endsWith(".ejs"),
 		);

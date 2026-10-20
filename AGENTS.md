@@ -26,10 +26,14 @@ are coordinated realizations of that contract.
   static generation, build-time DOM rendering, hydration simulation, and
   documented out-of-browser template workarounds are permanently out of scope.
 - Reactivity is delegated to the platform: CSS owns visual state,
-  `[data-text]` owns text projection, and `MutationObserver` is the sanctioned
-  imperative fan-in. The framework adds no subscriber system.
-- Every rendered text node belongs in an i18n-addressable carrier bearing
-  `data-i18n` or `data-text`, with source-language fallback text when practical.
+  `[data-text]` owns state-to-text projection, and `MutationObserver` is the
+  sanctioned imperative fan-in. The framework adds no subscriber system.
+- Localizable interface copy uses `data-i18n`; UI state mirrors use `data-text`,
+  with source-language fallback text when practical. Ordinary document content
+  needs neither marker nor attribute mirror. Insert literal bodies with native
+  `textContent`, comparing the live value before writing to preserve unchanged
+  nodes and selection. Rich fragments remain an application-owned sanitization
+  boundary; the framework adds no renderer or content store.
 - Attribute state is a public interface. Global and scoped state-key collisions
   are lint failures, and renaming a consumed `data-*` key is a contract change.
 - `the(key, null)` deletes state. `undefined` is a contract violation. Global

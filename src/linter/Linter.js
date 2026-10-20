@@ -132,36 +132,6 @@ export default class Linter {
 					'Date formatting requires a valid data-i18n-val. Use ISO date text and set data-i18n-type="date" only after its value is available.',
 				);
 			}
-
-			if (node.nodeName === "#text") {
-				const parent = node.parentNode;
-				const parentName = parent?.nodeName;
-				const hasCarrier = parent?.attrs?.some(
-					(a) => a.name === "data-i18n" || a.name === "data-text",
-				);
-				const leafTextParents = new Set([
-					"script",
-					"style",
-					"option",
-					"textarea",
-					"title",
-				]);
-
-				if (
-					!leafTextParents.has(parentName) &&
-					node.value.trim() !== "" &&
-					!hasCarrier
-				) {
-					const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
-					Linter.#addViolation(
-						violations,
-						file,
-						{ line: loc.startLine, column: loc.startCol },
-						"HTML-004",
-						'Naked text is forbidden. Give the enclosing element data-i18n="key" (localizable copy) or data-text="key" (state-projected content), keeping this text in place as the source-language fallback.',
-					);
-				}
-			}
 		});
 
 		if (isFullDocument && hasI18nMeta) {

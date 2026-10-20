@@ -7,9 +7,11 @@ import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import { Linter as ESLint } from "eslint";
+import config from "on_the_money/eslint-config";
 import plugin from "../src/eslint/plugin.js";
 import Linter from "../src/linter/Linter.js";
 import { setupDOM } from "../src/test/index.js";
+import contentExample from "./content-example.js";
 
 const run = promisify(execFile);
 const root = fileURLToPath(new URL("..", import.meta.url));
@@ -22,6 +24,23 @@ const blocks = [...md.matchAll(/```(\w+)\n([\s\S]*?)```/g)].map(
 const htmlBlocks = blocks.filter((b) => b.lang === "html");
 const jsBlocks = blocks.filter((b) => b.lang === "javascript");
 const cssBlocks = blocks.filter((b) => b.lang === "css");
+
+test("README: native content passes both shipped ESLint configurations and HTML lint", () => {
+	const { html, javascript } = contentExample(md);
+	const linter = new ESLint();
+	for (const rules of [config, [plugin.configs.recommended]]) {
+		assert.deepStrictEqual(linter.verify(javascript, rules), []);
+	}
+	assert.deepStrictEqual(Linter.check("content.html", html), []);
+	assert.deepStrictEqual(
+		Linter.crossCheck({
+			htmlSources: [{ file: "content.html", source: html, dicts: [] }],
+			jsSources: [{ file: "content.js", source: javascript }],
+			cssSources: [],
+		}),
+		[],
+	);
+});
 
 test("README: every JavaScript block honors the event-delegation contract", () => {
 	const linter = new ESLint();
