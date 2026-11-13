@@ -43,9 +43,10 @@ offWindow();
 on.target(document.body, "click", () => {});
 // @ts-expect-error selector is mandatory, including for form submissions
 on(document.body, "submit", () => {});
-const stopRouter = route(() => {}, { match: "[data-route]" });
+const stopRouter = route(() => {}, { match: "[data-route]", initial: false });
 stopRouter?.();
 route.go("/next");
+route.go("/replaced", { replace: true });
 
 const channel = live("/ws", {
 	onError(error, raw) {

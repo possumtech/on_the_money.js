@@ -51,12 +51,21 @@ export interface The {
 	locale: string;
 }
 
+export interface RouteOptions {
+	match?: string;
+	initial?: boolean;
+}
+
+export interface RouteGoOptions {
+	replace?: boolean;
+}
+
 export interface Route {
 	(
 		callback: (pathname: string, search: string, hash: string) => void,
-		options?: { match?: string },
+		options?: RouteOptions,
 	): (() => void) | undefined;
-	go(path: string): void;
+	go(path: string, options?: RouteGoOptions): void;
 }
 
 export interface Select {

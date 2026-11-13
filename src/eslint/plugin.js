@@ -268,7 +268,7 @@ const noServerDom = {
 		},
 		messages: {
 			noServerDom:
-				"Server-side DOM library '{{name}}' is forbidden. Common LLM mistake: rendering HTML server-side instead of emitting JSON. The OTM client hydrates static templates via $.clone() + the() — keep server output to data. See README §The Discipline.",
+				"Browser-DOM emulation library '{{name}}' is forbidden in application code. Common LLM mistake: importing a server-side DOM shim to run OTM outside the browser. Render real HTML documents on the server and enhance them in the browser, or use 'on_the_money/test' in '*.test.*' files. See README §The Discipline.",
 		},
 		schema: [],
 	},
