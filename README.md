@@ -754,6 +754,8 @@ on_the_money ships a three-tool stack. Each layer covers what the others can't.
 
 The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath.
 
+ESLint 10's file-glob dependencies (`eslint` and `@eslint/config-array`) currently declare `minimatch@^10`, affected by [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Until ESLint adopts `minimatch@^11`, consumers running full `npm audit` alongside ESLint should pin upstream `minimatch` (`>=11.0.1`) in their root `package.json` `overrides` (`"minimatch": "11.0.8"`). Runtime-only browser installs contain neither ESLint nor `minimatch`.
+
 ```bash
 npm install -D eslint eslint-plugin-no-unsanitized
 ```
@@ -942,7 +944,7 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
 | `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
-| `npm run test:package` | Install the packed package in fresh runtime-only, ESLint, and Stylelint-with-override consumers; verify public imports, the README content example through ESLint and the HTML CLI, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
+| `npm run test:package` | Install the packed package in fresh runtime-only, ESLint, and Stylelint consumers (applying the documented root `overrides` to the lint consumers); verify public imports, the README content example through ESLint and the HTML CLI, file-glob matching, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
 | `npm run check` | Formatting/lint, examples, build, Node tests, coverage, types, all three browser engines, and packed consumers. CI/release gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |

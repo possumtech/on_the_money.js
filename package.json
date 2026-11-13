@@ -71,11 +71,12 @@
 		"node": ">=24.0.0"
 	},
 	"dependencies": {
-				"parse5": "8.0.1",
+		"parse5": "8.0.1",
 		"postcss-selector-parser": "7.1.6"
 	},
 	"overrides": {
-		"braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
+		"braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
+		"minimatch": "11.0.8"
 	},
 	"peerDependencies": {
 		"linkedom": ">=0.18",
@@ -90,13 +91,13 @@
 		}
 	},
 	"devDependencies": {
-				"@biomejs/biome": "2.5.15",
-				"@playwright/test": "1.64.0",
-				"esbuild": "0.28.2",
-				"eslint": "10.12.0",
-				"linkedom": "0.18.13",
+		"@biomejs/biome": "2.5.15",
+		"@playwright/test": "1.64.0",
+		"esbuild": "0.28.2",
+		"eslint": "10.14.0",
+		"linkedom": "0.18.13",
 		"stylelint": "17.16.0",
-				"typescript": "7.0.2"
+		"typescript": "7.0.2"
 	},
 	"license": "MIT"
 }

@@ -70,7 +70,7 @@ try {
 						: {}),
 					...(withESLint ? { eslint: pkg.devDependencies.eslint } : {}),
 				},
-				...(withStylelint ? { overrides: pkg.overrides } : {}),
+				...(withStylelint || withESLint ? { overrides: pkg.overrides } : {}),
 			}),
 		);
 		await npm(["install", "--ignore-scripts", "--fund=false"], cwd);
@@ -82,6 +82,12 @@ try {
 					await fs.readFile(path.join(installed, "README.md"), "utf8"),
 				)
 			: null;
+		if (withESLint) {
+			const fixture = path.join(cwd, "content");
+			await fs.mkdir(fixture);
+			await fs.writeFile(path.join(fixture, "index.html"), example.html);
+			await fs.writeFile(path.join(fixture, "content.js"), example.javascript);
+		}
 		const source = withStylelint
 			? `
 				import assert from "node:assert/strict";
@@ -100,7 +106,7 @@ try {
 			: withESLint
 				? `
 				import assert from "node:assert/strict";
-				import {Linter} from "eslint";
+				import {ESLint, Linter} from "eslint";
 				import config from "on_the_money/eslint-config";
 				import plugin from "on_the_money/eslint-plugin";
 				assert.equal(Object.hasOwn(plugin.rules, "prefer-the-set"), false);
@@ -117,6 +123,10 @@ try {
 							[{ruleId, messageId}]);
 					}
 				}
+				const cli = new ESLint({overrideConfigFile: true, overrideConfig: config});
+				const fileResults = await cli.lintFiles(["content/**/*.js"]);
+				assert.equal(fileResults.length, 1);
+				assert.deepEqual(fileResults[0].messages, []);
 			`
 				: `
 				import assert from "node:assert/strict";
@@ -126,6 +136,7 @@ try {
 				assert.equal(typeof the.boot, "function");
 				assert.throws(() => require.resolve("stylelint"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
+				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
 			`;
 		await exec(process.execPath, ["--input-type=module", "-e", source], {
 			cwd,
@@ -133,9 +144,6 @@ try {
 		});
 		if (withESLint) {
 			const fixture = path.join(cwd, "content");
-			await fs.mkdir(fixture);
-			await fs.writeFile(path.join(fixture, "index.html"), example.html);
-			await fs.writeFile(path.join(fixture, "content.js"), example.javascript);
 			const manifest = JSON.parse(
 				await fs.readFile(path.join(installed, "package.json")),
 			);
