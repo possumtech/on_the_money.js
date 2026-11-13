@@ -18,7 +18,7 @@ maintainer can establish the corresponding development work.
 
 Requirements:
 
-- Node.js 24 or newer
+- Node.js 24.15.0 or newer
 - npm
 - Playwright's Chromium, Firefox, and WebKit browsers
 

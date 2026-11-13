@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-11-13
+
+This pre-1.0 minor release adds event-target, authenticated-SSE, and routing options. Development and package support now require Node.js 24.15.0 or newer. Consumers updating optional lint tooling should review the Stylelint and ESLint root-override migration below; browser-only runtime installs carry neither linter nor their overrides.
+
+### Added
+
+- **`on.target(target, event, fn, options?)`** subscribes to shared non-Element `EventTarget`s without overwriting sibling handlers. It supports `AbortSignal`, `once`, `passive`, and `capture`, returns an unsubscribe function, and rejects DOM `Element`s so delegated `on()` remains the DOM authoring path. `otm/prefer-on` recognizes it and the shipped README examples and public types include the API. (#13)
+- **Header-authenticated SSE:** `sse(path, { headers })` selects fetch-streaming SSE for static or asynchronous headers, while omitting headers retains native `EventSource`. Streaming handles event framing, multiline data, event IDs, retry hints, bounded reconnects, abort fan-out, and documented terminal responses. (#14)
+- **Progressive routing:** `route(callback, { initial: false })` preserves an already server-rendered initial document; hash navigation is single-fire; `route.go(path, { replace: true })` settles URLs using `replaceState`. Public types, examples, `setupDOM`, and lint diagnostics follow the runtime contract. (#15)
+
+### Security
+
+- Updated ESLint to 10.14.0 and refreshed its transitive `fast-uri`; root `minimatch` 11.0.8 mitigates the affected ESLint 10 `^10` file-glob chain. npm does not inherit library overrides, so consumers using ESLint must retain the documented root `minimatch` override and regenerate their own lockfile. Packed runtime consumers contain neither ESLint nor `minimatch`. (#16)
+
+### Changed
+
+- Updated `parse5` to 8.1.1 and `postcss-selector-parser` to 7.2.1. Verification tooling uses Biome 2.6.7, Playwright 1.65.0, linkedom 0.18.15, and TypeScript 7.0.2; esbuild and ESLint remain pinned at 0.28.2 and 10.14.0. (#18)
+- The optional CSS integration is verified with Stylelint 18.0.0 and `stylelint-config-standard` 41.0.0. Its engine range explains the Node.js 24.15.0 support floor. Stylelint 18 file globs no longer use `braces`; remove the former root `braces` override after all packages have left that chain, while retaining it if continuing to use Stylelint 17 or an older affected chain. The Stylelint package check now exercises a real file glob and `stylelint-config-standard` module resolution instead of the superseded deep-`braces` fixture. (#18)
+- Browser tests select Mesa software EGL on Linux GLVND hosts exposing `/usr/share/glvnd/egl_vendor.d/50_mesa.json`; other hosts retain their existing WebKit environment. This is host-environment selection, not a general upstream WebKit defect fix. (#17)
 ## [0.11.0] — 2026-10-20
 
 This pre-1.0 minor release removes a public ESLint rule. Consumers explicitly configuring `otm/prefer-the-set` must remove that entry; the shipped configurations need no manual change. There is no new runtime API or bundle growth.

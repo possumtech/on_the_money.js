@@ -5,10 +5,6 @@ import stylelint from "stylelint";
 import plugin from "../src/stylelint/plugin.js";
 
 const require = createRequire(import.meta.url);
-const fromStylelint = createRequire(require.resolve("stylelint"));
-const fromFastGlob = createRequire(fromStylelint.resolve("fast-glob"));
-const fromMicromatch = createRequire(fromFastGlob.resolve("micromatch"));
-const braces = fromMicromatch("braces");
 const nested = (depth) => `${"{".repeat(depth)}a,b${"}".repeat(depth)}`;
 const config = {
 	plugins: [plugin],
@@ -18,40 +14,28 @@ const config = {
 	},
 };
 
-test("Stylelint's installed braces rejects excessive nesting before stack exhaustion", () => {
-	for (const method of ["parse", "compile", "expand", "stringify"]) {
-		for (const depth of [101, 4900]) {
-			assert.throws(() => braces[method](nested(depth)), {
-				name: "SyntaxError",
-				message: "Input depth (101), exceeds max depth (100)",
-			});
-		}
-	}
+test("Stylelint 18's file-glob dependency graph does not contain affected braces", () => {
+	assert.throws(() => require.resolve("braces"), {
+		code: "MODULE_NOT_FOUND",
+	});
+	assert.throws(() => require.resolve("micromatch"), {
+		code: "MODULE_NOT_FOUND",
+	});
+	assert.match(require.resolve("picomatch"), /node_modules\/picomatch\//);
+	assert.match(require.resolve("tinyglobby"), /node_modules\/tinyglobby\//);
 });
 
-test("bounded brace parsing preserves ordinary alternatives, ranges, and nesting", () => {
-	assert.deepEqual(braces.expand("src/{core,live}/*.{js,ts}"), [
-		"src/core/*.js",
-		"src/core/*.ts",
-		"src/live/*.js",
-		"src/live/*.ts",
-	]);
-	assert.deepEqual(braces.expand("{01..03}"), ["01", "02", "03"]);
-	assert.deepEqual(braces.expand("a/{b,{c,d}}"), ["a/b", "a/c", "a/d"]);
-	assert.equal(braces.compile("src/{core,live}/*.js"), "src/(core|live)/*.js");
-	assert.equal(braces.stringify(braces.parse(nested(100))), nested(100));
-});
-
-test("Stylelint's real file-glob path rejects excessive nesting with the bounded error", async () => {
+test("Stylelint's real file-glob path fails excessive nesting without stack exhaustion", async () => {
 	await assert.rejects(
 		stylelint.lint({ files: `**/${nested(4900)}`, config }),
-		{
-			name: "SyntaxError",
-			message: "Input depth (101), exceeds max depth (100)",
+		(error) => {
+			assert.equal(error instanceof RangeError, false);
+			assert.equal(error.name, "NoFilesFoundError");
+			assert.match(error.message, /^No files matching the pattern/);
+			return true;
 		},
 	);
 });
-
 test("Stylelint still lints real example files through brace expansion", async () => {
 	const result = await stylelint.lint({
 		files: "examples/{blog,todo}/*.css",
