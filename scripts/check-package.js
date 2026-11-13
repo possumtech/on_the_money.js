@@ -66,7 +66,11 @@ try {
 				dependencies: {
 					[pkg.name]: `file:${artifact}`,
 					...(withStylelint
-						? { stylelint: pkg.devDependencies.stylelint }
+						? {
+								stylelint: pkg.devDependencies.stylelint,
+								"stylelint-config-standard":
+									pkg.devDependencies["stylelint-config-standard"],
+							}
 						: {}),
 					...(withESLint ? { eslint: pkg.devDependencies.eslint } : {}),
 				},
@@ -82,6 +86,11 @@ try {
 					await fs.readFile(path.join(installed, "README.md"), "utf8"),
 				)
 			: null;
+		if (withStylelint) {
+			const fixture = path.join(cwd, "content");
+			await fs.mkdir(fixture);
+			await fs.writeFile(path.join(fixture, "index.css"), "a { color: red; }\n");
+		}
 		if (withESLint) {
 			const fixture = path.join(cwd, "content");
 			await fs.mkdir(fixture);
@@ -98,10 +107,17 @@ try {
 				const bad = await stylelint.lint({code: ".active { color: red !important; }", config});
 				assert.deepEqual(bad.results[0].warnings.map(({rule}) => rule).sort(),
 					["declaration-no-important", "otm/prefer-attribute-selector"]);
-				const pattern = "**/" + "{".repeat(4900) + "a,b" + "}".repeat(4900);
-				await assert.rejects(stylelint.lint({files: pattern, config}), {
-					name: "SyntaxError", message: "Input depth (101), exceeds max depth (100)"
+				const {createRequire} = await import("node:module");
+				const require = createRequire(import.meta.url);
+
+				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
+				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
+				const files = await stylelint.lint({
+					files: "**/*.css",
+					config: {...config, extends: ["stylelint-config-standard"]},
 				});
+				assert.equal(files.errored, false);
+				assert.equal(files.results.length, 1);
 			`
 			: withESLint
 				? `

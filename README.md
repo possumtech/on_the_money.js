@@ -754,7 +754,7 @@ on_the_money ships a three-tool stack. Each layer covers what the others can't.
 
 The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath.
 
-ESLint 10's file-glob dependencies (`eslint` and `@eslint/config-array`) currently declare `minimatch@^10`, affected by [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Until ESLint adopts `minimatch@^11`, consumers running full `npm audit` alongside ESLint should pin upstream `minimatch` (`>=11.0.1`) in their root `package.json` `overrides` (`"minimatch": "11.0.8"`). Runtime-only browser installs contain neither ESLint nor `minimatch`.
+ESLint 10's file-glob dependencies (`eslint` and `@eslint/config-array`) currently declare `minimatch@^10`, affected by [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Until ESLint adopts `minimatch@^11`, consumers running full `npm audit` alongside ESLint must pin upstream `minimatch` (`>=11.0.1`) in their root `package.json` `overrides` (`"minimatch": "11.0.8"`). npm does not inherit overrides from installed libraries, so the consuming application owns this lockfile; runtime-only browser installs contain neither ESLint nor `minimatch`.
 
 ```bash
 npm install -D eslint eslint-plugin-no-unsanitized
@@ -788,19 +788,9 @@ The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your T
 
 Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package.
 
-Stylelint's file-glob dependencies currently reach `braces@3.0.3`, affected by [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm). This repository uses an exact npm alias override to the reviewed [depth-guard fork](https://github.com/dieub/braces-depth-guard/tree/305a2e4bfe324bb53c336c1b03387ee1251c926f), with artifact integrity recorded in `package-lock.json`:
+The optional Stylelint integration supports Stylelint 16 or newer; it is verified with Stylelint 18 and `stylelint-config-standard` 41. Stylelint 18 requires Node.js `^22.22.2`, `^24.15.0`, or `>=26.0.0`; OTM's own development and package support floor is Node.js 24.15.0.
 
-```json
-{
-  "overrides": {
-    "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
-  }
-}
-```
-
-**Consumers using Stylelint must add this override to their own root `package.json` and commit their regenerated lockfile.** npm does not inherit overrides from installed libraries. This is not needed for the browser runtime, which contains no Stylelint or `braces`. The override preserves the Stylelint integration; it does not bundle a linter into the browser or modify another project's dependencies.
-
-The reviewed fork caps parsing and AST nesting at 100 levels and rejects excessive input with a specific error instead of overflowing the stack. The original MIT license and public entry point are preserved; the published artifact matches the linked commit. Our tests exercise the actual installed Stylelint glob path, ordinary file globs, and the distinction between CSS content and file patterns. This is a scoped repair, not a guarantee against every resource-exhaustion pattern; a renamed package's clean audit is not proof of a fix. Re-review the exact artifact, provenance, compatibility, and security regression tests before changing this pin. Remove it only after the upstream chain provides a verified replacement.
+Stylelint 18 resolves configuration packages through standard ESM specifiers: use `stylelint-config-standard`, not a bare file path. Its file globs now use `picomatch` through `tinyglobby` rather than `braces`. If no other dependency uses `braces`, remove the root override required by earlier OTM guidance. If retaining Stylelint 17 or older, keep that existing audit mitigation until upgrading the affected chain. A clean audit reflects dependency resolution and known advisories, not a substitute for reviewing actual behavior.
 
 ```bash
 npm install -D stylelint stylelint-config-standard
@@ -944,7 +934,7 @@ Unit tests are co-located with source: `src/core/On.test.js`, etc.
 | `npm run test:coverage` | Tests + coverage report (50/50/50 line/branch/function gate). |
 | `npm run lint` | Biome formatter + import order. |
 | `npm run lint:examples` | Dogfood the shipped eslint/stylelint configs against `examples/`. |
-| `npm run test:package` | Install the packed package in fresh runtime-only, ESLint, and Stylelint consumers (applying the documented root `overrides` to the lint consumers); verify public imports, the README content example through ESLint and the HTML CLI, file-glob matching, the nesting guard, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
+| `npm run test:package` | Install the packed package in fresh runtime-only, ESLint, and Stylelint consumers (applying the documented root `overrides` to the lint consumers); verify public imports, the README content example through ESLint and the HTML CLI, file-glob and configuration-package resolution, and each full dependency audit. After publication, add `-- --package on_the_money@<version>` to test the registry artifact; its name/version must match the checkout. Requires registry access. |
 | `npm run build` | Build `dist/on_the_money.min.js` via esbuild. |
 | `npm run check` | Formatting/lint, examples, build, Node tests, coverage, types, all three browser engines, and packed consumers. CI/release gate. |
 | `npm run otm` | Self-lint `examples/` against project rules. |

@@ -1,6 +1,6 @@
 {
 	"name": "on_the_money",
-	"version": "0.11.0",
+	"version": "0.12.0",
 	"description": "Opinionated, attribute-driven, standards-oriented modern framework. Native browser APIs only. See README.md for the authoring context.",
 	"type": "module",
 	"main": "src/core/index.js",
@@ -68,14 +68,14 @@
 		"prepublishOnly": "npm run check"
 	},
 	"engines": {
-		"node": ">=24.0.0"
+		"node": ">=24.15.0"
 	},
 	"dependencies": {
-		"parse5": "8.0.1",
-		"postcss-selector-parser": "7.1.6"
+		"parse5": "8.1.1",
+		"postcss-selector-parser": "7.2.1"
 	},
 	"overrides": {
-		"braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3",
+
 		"minimatch": "11.0.8"
 	},
 	"peerDependencies": {
@@ -91,12 +91,13 @@
 		}
 	},
 	"devDependencies": {
-		"@biomejs/biome": "2.5.15",
-		"@playwright/test": "1.64.0",
+		"@biomejs/biome": "2.6.7",
+		"@playwright/test": "1.65.0",
 		"esbuild": "0.28.2",
 		"eslint": "10.14.0",
-		"linkedom": "0.18.13",
-		"stylelint": "17.16.0",
+		"linkedom": "0.18.15",
+		"stylelint": "18.0.0",
+		"stylelint-config-standard": "41.0.0",
 		"typescript": "7.0.2"
 	},
 	"license": "MIT"
