@@ -55,7 +55,14 @@ const channel = live("/ws", {
 });
 channel.send({ type: "ping" });
 void channel.request<{ type: string; data: string }>({ type: "query" });
-void sse("/events", { types: ["token"] });
+const sseChannel = sse("/events", {
+	types: ["token"],
+	headers: async (_signal) => ({ authorization: "Bearer token" }),
+	onError(error) {
+		void error;
+	},
+});
+sseChannel.close();
 void clipboard({ resetMs: 1000 });
 void setupDOM("<main></main>").document;
 void [elements, eslintConfig, eslintPlugin, stylelintConfig, stylelintPlugin];

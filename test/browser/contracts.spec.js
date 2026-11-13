@@ -1028,3 +1028,36 @@ for (const locale of [undefined, "en"]) {
 		expect(result).toEqual({ locale: "en", text: "Running" });
 	});
 }
+
+test("header-authenticated sse streams named events and forwards authorization in real browsers", async ({
+	page,
+}) => {
+	const seenHeaders = [];
+	await page.route("**/__otm_sse", async (route) => {
+		seenHeaders.push(route.request().headers().authorization ?? null);
+		await route.fulfill({
+			status: 200,
+			headers: { "content-type": "text/event-stream; charset=utf-8" },
+			body: 'id: 9\nevent: update\ndata: {"ok":true}\n\n',
+		});
+	});
+	const result = await page.evaluate(async () => {
+		const { sse } = await import("/src/live/index.js");
+		return await new Promise((resolve) => {
+			const ch = sse("/__otm_sse", {
+				types: ["update"],
+				headers: () => ({ authorization: "Bearer browser-token" }),
+				onMessage(type, data, lastEventId) {
+					ch.close();
+					resolve({ type, data, lastEventId });
+				},
+			});
+		});
+	});
+	expect(seenHeaders).toEqual(["Bearer browser-token"]);
+	expect(result).toEqual({
+		type: "update",
+		data: { ok: true },
+		lastEventId: "9",
+	});
+});

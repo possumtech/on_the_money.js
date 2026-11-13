@@ -22,12 +22,22 @@ export interface LiveChannel {
 	): Promise<T | null>;
 }
 
+export type SseHeaders =
+	| HeadersInit
+	| ((signal: AbortSignal) => HeadersInit | Promise<HeadersInit>);
+
 export interface SseOptions {
 	types?: string[];
+	headers?: SseHeaders;
 	onMessage?: (type: string, data: unknown, lastEventId: string) => void;
-	onDown?: () => void;
+	onError?: (error: unknown) => void;
+	onDown?: (error?: unknown) => void;
 	onUp?: () => void;
 	signal?: AbortSignal;
+}
+
+export interface SseChannel {
+	close(): void;
 }
 
 export function backoffDelay(attempt: number, random?: () => number): number;
@@ -36,7 +46,7 @@ export function live(
 	channel: { fromState: string },
 	options?: LiveOptions,
 ): LiveChannel | null;
-export function sse(path: string, options?: SseOptions): object;
+export function sse(path: string, options?: SseOptions): SseChannel;
 
 declare const api: {
 	live: typeof live;

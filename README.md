@@ -399,15 +399,16 @@ const reply = await ch.request({ type: "filter", q: "cats" }, { takeLatest: true
 
 ### `sse(path, options)` — Server-Sent Events
 
-The platform's `EventSource` already owns reconnection, `retry:` hints, and `Last-Event-ID` resume — so this adapter is nearly nothing: named-event subscription (`types`, because the platform has no wildcard), JSON-or-raw-text decode, and the same handler contract as `live()`.
+Uses native `EventSource` when `headers` is omitted, and switches transparently to WHATWG `fetch`-streaming SSE when `headers` (a `HeadersInit` value or `(signal) => HeadersInit | Promise<HeadersInit>` credential supplier) is provided — giving Bearer-authenticated streams the exact same `{ types, onMessage, onError, onDown, onUp, signal }` and `.close()` contract as public/cookie streams.
 
 ```javascript
 import { sse } from "on_the_money/live";
 
 const outlet = $("#answer");
 let answer = "";
-sse("/stream/answer", {
+const stream = sse("/stream/answer", {
   types: ["token", "done"],
+  headers: (signal) => accessHeaders(signal), // omit for cookie/public EventSource
   onMessage(type, chunk) {
     if (type === "done") return the("answering", null);
     answer += chunk;
@@ -418,7 +419,7 @@ sse("/stream/answer", {
 });
 ```
 
-**Streaming document content:** accumulate in JS and insert literal text into an existing display outlet such as `<pre id="answer"></pre>`, without mirroring the body in attributes. UI flags such as `answering` still use `the()`. The equality guard avoids replacing unchanged text; it does not deduplicate appended chunks. Resume and replay correctness belong to the stream protocol, including the server's handling of `Last-Event-ID`. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job), custom backoff (the server's `retry:` hint governs), `Authorization` headers (cookie auth only; header auth needs fetch-streaming, deferred until a consumer needs it).
+**Streaming document content:** accumulate in JS and insert literal text into an existing display outlet such as `<pre id="answer"></pre>`, without mirroring the body in attributes. UI flags such as `answering` still use `the()`. The equality guard avoids replacing unchanged text; it does not deduplicate appended chunks. In `headers` mode, `sse()` forwards `Last-Event-ID`, honors server `retry:` hints (falling back to jittered `backoffDelay`), wakes immediately on `online` / visible `visibilitychange`, and treats `204`, non-`text/event-stream` `200`, and deterministic `4xx` responses (other than `408`/`429`) as terminal rather than retrying. Pin scroll with CSS `overflow-anchor`; typing-effect motion belongs in CSS behind `prefers-reduced-motion`. NOT in scope: correlation (SSE is one-way — `request/reply` is `live()`'s job).
 
 ## `on_the_money/clipboard` — copy affordances
 
