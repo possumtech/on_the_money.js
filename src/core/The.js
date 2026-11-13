@@ -310,7 +310,7 @@ export default class The {
 
 	static #routeNavigate = null;
 
-	static route(callback, { match } = {}) {
+	static route(callback, { match, initial = true } = {}) {
 		if (typeof window === "undefined") return;
 		if (The.#routeNavigate) {
 			throw new Error(
@@ -318,12 +318,18 @@ export default class The {
 			);
 		}
 
-		const navigate = () =>
+		let lastHref = window.location.href;
+		const navigate = () => {
+			lastHref = window.location.href;
 			callback(
 				window.location.pathname,
 				window.location.search,
 				window.location.hash,
 			);
+		};
+		const onHashChange = () => {
+			if (window.location.href !== lastHref) navigate();
+		};
 		The.#routeNavigate = navigate;
 
 		const onClick = (e) => {
@@ -361,29 +367,33 @@ export default class The {
 		};
 
 		window.addEventListener("popstate", navigate);
-		window.addEventListener("hashchange", navigate);
+		window.addEventListener("hashchange", onHashChange);
 		document.addEventListener("click", onClick);
 
-		navigate();
+		if (initial) navigate();
 
 		return () => {
 			window.removeEventListener("popstate", navigate);
-			window.removeEventListener("hashchange", navigate);
+			window.removeEventListener("hashchange", onHashChange);
 			document.removeEventListener("click", onClick);
 			The.#routeNavigate = null;
 		};
 	}
 
-	// Programmatic navigation. pushState doesn't fire popstate, so the click
-	// interceptor can't cover redirects (e.g. post-submit).
-	static go(path) {
+	// Programmatic navigation. pushState/replaceState don't fire popstate, so
+	// the click interceptor can't cover redirects (e.g. post-submit).
+	static go(path, { replace = false } = {}) {
 		if (typeof window === "undefined") return;
 		if (!The.#routeNavigate) {
 			throw new Error("route.go(): no active router — call route() first");
 		}
 		const url = new URL(path, window.location.href);
 		if (url.href === window.location.href) return;
-		window.history.pushState({}, "", url.href);
+		if (replace) {
+			window.history.replaceState({}, "", url.href);
+		} else {
+			window.history.pushState({}, "", url.href);
+		}
 		The.#routeNavigate();
 	}
 

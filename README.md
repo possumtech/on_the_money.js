@@ -80,7 +80,7 @@ styles/
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. On `on`: `on.emit(el, event, detail?)`, `on.target(target, event, fn, options?)`. On `route`: `route.go(path)`. Live accessors on `the`: `the.dictionary`, `the.locale`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. On `on`: `on.emit(el, event, detail?)`, `on.target(target, event, fn, options?)`. On `route`: `route.go(path, options?)`. Live accessors on `the`: `the.dictionary`, `the.locale`.
 
 For tests: `import { setupDOM } from "on_the_money/test"` (see [Testing your app](#testing-your-app)).
 
@@ -270,7 +270,7 @@ Plural categories are grammatical categories, not exact quantities: French `one`
 <span data-i18n="price" data-i18n-val="9.99" data-i18n-type="currency" data-i18n-currency="USD">$9.99</span>
 ```
 
-### `route(callback)` — pushState router
+### `route(callback, options?)` — pushState router
 
 ```javascript
 const off = route((pathname, search, hash) => {
@@ -278,23 +278,23 @@ const off = route((pathname, search, hash) => {
 });
 ```
 
-Fires the callback on initial mount, on `popstate`, on `hashchange`, and on intercepted internal `<a>` clicks. Left to the browser: modified clicks (meta/ctrl/shift/alt, non-primary button), `[download]` links, `data-external`, `target="_blank"`, and cross-origin hrefs. Clicking a link to the current URL is a no-op. Hash-only same-page links are left to the browser; `hashchange` still triggers the callback.
+Fires the callback on initial mount (unless `{ initial: false }` is passed for server-rendered documents that are already hydrated), on `popstate`, on `hashchange` (deduplicated after `popstate` so fragment navigation fires once), and on intercepted internal `<a>` clicks. Left to the browser: modified clicks (meta/ctrl/shift/alt, non-primary button), `[download]` links, `data-external`, `target="_blank"`, and cross-origin hrefs. Clicking a link to the current URL is a no-op. Hash-only same-page links are left to the browser and invoke the callback once.
 
 Returns an unsubscribe function. One router at a time: calling `route()` while another registration is active throws — unsubscribe the first.
 
-**Selective enhancement:** `route(cb, { match: "[data-route]" })` intercepts only links matching the selector — the opt-in polarity for making specific controls instant (sort toggles, filters) while the rest of the site navigates natively. Non-matching links are untouched; `popstate` and `route.go` behave identically in both modes, so the back button stays correct without any hand-rolled listener.
+**Selective enhancement:** `route(cb, { match: "[data-route]", initial: false })` intercepts only links matching the selector while leaving the server-rendered initial document and non-matching links untouched. `popstate` and `route.go` behave identically in both modes, so the back button stays correct without any hand-rolled listener.
 
-### `route.go(path)` — programmatic navigation
+### `route.go(path, options?)` — programmatic navigation
 
 ```javascript
 on("#login-form", "submit", "form", async (e) => {
   e.preventDefault();
   await submitLogin(the.form(e.target));
-  route.go("/dashboard");
+  route.go("/dashboard", { replace: true });
 });
 ```
 
-`pushState` + callback invocation in one call. `pushState` alone never fires `popstate`, so this is the sanctioned path for redirects (post-submit, auth bounce). Throws if no router is active. Navigating to the current URL is a no-op.
+`pushState` (or `replaceState` when `{ replace: true }`) + callback invocation in one call. `pushState` and `replaceState` never fire `popstate`, so this is the sanctioned path for redirects (post-submit, auth bounce, canonical URL settlement). Throws if no router is active. Navigating to the current URL is a no-op.
 
 ### `the.match(pattern, path?)` — pattern matching with named segments
 

@@ -190,8 +190,30 @@ test("Integration: route.go navigates programmatically", async (_t_context) => {
 	route.go("/dashboard");
 	assert.strictEqual(currentPath, "/dashboard");
 	assert.strictEqual(globalThis.window.location.pathname, "/dashboard");
+	route.go("/canonical", { replace: true });
+	assert.strictEqual(currentPath, "/canonical");
+	assert.strictEqual(globalThis.window.location.pathname, "/canonical");
 
 	off();
+
+	const progressiveVisits = [];
+	const offProgressive = route(
+		(path, _search, hash) => {
+			progressiveVisits.push(`${path}${hash}`);
+		},
+		{ initial: false },
+	);
+	assert.deepStrictEqual(progressiveVisits, []);
+	route.go("/enhanced");
+	assert.deepStrictEqual(progressiveVisits, ["/enhanced"]);
+
+	// Simulate popstate + hashchange for a single fragment jump
+	globalThis.window.history.pushState({}, "", "/enhanced#sec");
+	globalThis.window.dispatchEvent(new CustomEvent("popstate"));
+	globalThis.window.dispatchEvent(new CustomEvent("hashchange"));
+	assert.deepStrictEqual(progressiveVisits, ["/enhanced", "/enhanced#sec"]);
+
+	offProgressive();
 });
 
 test("Integration: npm entry and battery subpaths share one core singleton", async (_t_context) => {

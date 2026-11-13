@@ -36,14 +36,16 @@ export const setupDOM = (
 		href: u.href,
 	};
 
+	const applyLocation = (next) => {
+		const target = new URL(next, globalThis.window.location.href);
+		globalThis.window.location.href = target.href;
+		globalThis.window.location.pathname = target.pathname;
+		globalThis.window.location.search = target.search;
+		globalThis.window.location.hash = target.hash;
+	};
 	globalThis.window.history = {
-		pushState: (_state, _title, next) => {
-			const target = new URL(next, globalThis.window.location.href);
-			globalThis.window.location.href = target.href;
-			globalThis.window.location.pathname = target.pathname;
-			globalThis.window.location.search = target.search;
-			globalThis.window.location.hash = target.hash;
-		},
+		pushState: (_state, _title, next) => applyLocation(next),
+		replaceState: (_state, _title, next) => applyLocation(next),
 	};
 
 	const storage = {};

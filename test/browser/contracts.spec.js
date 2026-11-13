@@ -986,20 +986,40 @@ test("explicit boot locale preserves the server-rendered document", async ({
 	expect(result).toEqual({ locale: "en", text: "Account", fetched: false });
 });
 
-test("router navigation, same-URL no-op, and unsubscribe", async ({ page }) => {
+test("router navigation, initial: false, replaceState, single-fire hash jump, and unsubscribe", async ({
+	page,
+}) => {
 	const result = await page.evaluate(async () => {
 		const { route } = await import("/src/core/index.js");
+		document.body.innerHTML =
+			'<a id="frag" href="#details">Details</a><section id="details"></section>';
 		const visits = [];
-		const off = route((pathname) => visits.push(pathname));
+		const off = route(
+			(pathname, _search, hash) => visits.push(`${pathname}${hash}`),
+			{ initial: false },
+		);
+		const initialLength = window.history.length;
 		route.go("/next");
-		route.go("/next");
+		const afterPushLength = window.history.length;
+		route.go("/settled", { replace: true });
+		const afterReplaceLength = window.history.length;
+		route.go("/settled");
+		document.getElementById("frag").click();
+		await new Promise((r) => setTimeout(r, 20));
 		off();
 		window.history.pushState({}, "", "/after");
 		window.dispatchEvent(new PopStateEvent("popstate"));
-		return { visits, pathname: window.location.pathname };
+		return {
+			visits,
+			pushedIncrement: afterPushLength - initialLength,
+			replacedDelta: afterReplaceLength - afterPushLength,
+			pathname: window.location.pathname,
+		};
 	});
 	expect(result).toEqual({
-		visits: ["/", "/next"],
+		visits: ["/next", "/settled", "/settled#details"],
+		pushedIncrement: 1,
+		replacedDelta: 0,
 		pathname: "/after",
 	});
 });
