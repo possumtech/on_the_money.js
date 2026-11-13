@@ -1,3 +1,5 @@
+import On from "../core/On.js";
+
 // EventSource battery — the platform already owns reconnection, retry
 // hints, and Last-Event-ID resume; this adapter owns only the OTM
 // handoff: named-event subscription, JSON-or-text decode, one handler
@@ -9,6 +11,7 @@ export default class Sse {
 	#source;
 
 	constructor(path, { types = [], onMessage, onDown, onUp, signal } = {}) {
+		if (signal?.aborted) return;
 		this.#source = new EventSource(path);
 		this.#source.onopen = () => onUp?.();
 		this.#source.onerror = () => onDown?.();
@@ -19,7 +22,9 @@ export default class Sse {
 		// platform offers no wildcard. The adapter owns the EventSource;
 		// consumers never touch it.
 		for (const type of types) this.#source.addEventListener(type, dispatch);
-		if (signal) signal.onabort = () => this.#source.close();
+		if (signal) {
+			On.target(signal, "abort", () => this.#source.close(), { once: true });
+		}
 	}
 
 	// SSE data is text: LLM token streams send raw chunks, most everything

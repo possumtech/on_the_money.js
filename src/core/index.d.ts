@@ -83,12 +83,22 @@ export interface SelectAll {
 	<E extends Element = Element>(context: ParentNode, selector: string): E[];
 }
 
+export interface OnTargetOptions extends AddEventListenerOptions {
+	signal?: AbortSignal;
+}
+
 export interface On {
 	(
 		parent: Element | Document | string | null,
 		event: string,
 		selector: string,
 		handler: (this: Element, event: Event, target: Element) => void,
+	): () => void;
+	target<T extends EventTarget>(
+		target: T extends Element ? never : T,
+		event: string,
+		handler: (event: Event) => void,
+		options?: OnTargetOptions,
 	): () => void;
 	emit(element: Element | string, event: string, detail?: unknown): void;
 }

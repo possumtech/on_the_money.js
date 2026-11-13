@@ -15,40 +15,79 @@ const preferOn = {
 		messages: {
 			onSignature:
 				"on() requires four arguments: parent, event, selector, handler. For a form's own submit event, use on(form, 'submit', 'form', handler).",
+			onTargetSignature:
+				"on.target() requires three or four arguments: target, event, handler[, options]. For DOM elements, use delegated on(parent, event, selector, handler).",
+			onTargetDom:
+				"DOM elements use delegated on(parent, event, selector, handler), not on.target().",
 			useOn:
-				"Direct addEventListener on DOM targets is forbidden — use on() for delegation. Non-DOM EventTargets have no selector to delegate against: sockets get live() from on_the_money/live; Worker/AbortSignal/MediaQueryList get handler properties (worker.onmessage = fn); eslint-disable with a justification for the rare multi-listener case. Common LLM mistake: copying jQuery / React tutorial patterns — on() is the single delegated-listener idiom. See README §The Discipline.",
+				"Direct addEventListener is forbidden — use on(parent, event, selector, handler) for DOM delegation, on.target(target, event, handler, { signal }) for shared non-Element EventTargets (window, document, visualViewport, AbortSignal, MediaQueryList), or handler properties (worker.onmessage = fn) for privately owned 1:1 targets; sockets get live() from on_the_money/live. Common LLM mistake: copying raw addEventListener patterns instead of OTM's event helpers. See README §The Discipline.",
 		},
 		schema: [],
 	},
 	create(context) {
-		const isOn = (node) => {
-			const callee = node.callee;
-			const identifier =
-				callee.type === "Identifier"
-					? callee
-					: callee.type === "MemberExpression" &&
-							!callee.computed &&
-							callee.property.name === "on"
-						? callee.object
-						: null;
-			if (identifier?.type !== "Identifier") return false;
+		const resolvesToOn = (node, identifier) => {
+			if (identifier?.type !== "Identifier") return { match: false };
 			const reference = context.sourceCode
 				.getScope(node)
 				.references.find((ref) => ref.identifier === identifier);
 			if (!reference?.resolved)
-				return callee === identifier && identifier.name === "on";
+				return { match: identifier.name === "on", namespace: false };
 			const definition = reference.resolved.defs[0];
 			const source = definition?.parent?.source?.value;
 			if (
 				definition?.type !== "ImportBinding" ||
 				!(source === "on_the_money" || source?.endsWith("/src/core/index.js"))
 			)
+				return { match: false };
+			if (
+				["ImportNamespaceSpecifier", "ImportDefaultSpecifier"].includes(
+					definition.node.type,
+				)
+			) {
+				return { match: true, namespace: true };
+			}
+			return {
+				match: definition.node.imported?.name === "on",
+				namespace: false,
+			};
+		};
+		const isOn = (node) => {
+			const callee = node.callee;
+			if (callee.type === "Identifier") {
+				const res = resolvesToOn(node, callee);
+				return res.match && !res.namespace;
+			}
+			if (
+				callee.type === "MemberExpression" &&
+				!callee.computed &&
+				callee.property.name === "on"
+			) {
+				const res = resolvesToOn(node, callee.object);
+				return res.match && res.namespace;
+			}
+			return false;
+		};
+		const isOnTarget = (node) => {
+			const callee = node.callee;
+			if (
+				callee.type !== "MemberExpression" ||
+				callee.computed ||
+				callee.property.name !== "target"
+			)
 				return false;
-			return callee === identifier
-				? definition.node.imported?.name === "on"
-				: ["ImportNamespaceSpecifier", "ImportDefaultSpecifier"].includes(
-						definition.node.type,
-					);
+			if (callee.object.type === "Identifier") {
+				const res = resolvesToOn(node, callee.object);
+				return res.match && !res.namespace;
+			}
+			if (
+				callee.object.type === "MemberExpression" &&
+				!callee.object.computed &&
+				callee.object.property.name === "on"
+			) {
+				const res = resolvesToOn(node, callee.object.object);
+				return res.match && res.namespace;
+			}
+			return false;
 		};
 		return {
 			CallExpression(node) {
@@ -58,6 +97,26 @@ const preferOn = {
 					!node.arguments.some((arg) => arg.type === "SpreadElement")
 				) {
 					context.report({ node, messageId: "onSignature" });
+				}
+				if (isOnTarget(node)) {
+					if (
+						(node.arguments.length < 3 || node.arguments.length > 4) &&
+						!node.arguments.some((arg) => arg.type === "SpreadElement")
+					) {
+						context.report({ node, messageId: "onTargetSignature" });
+						return;
+					}
+					const first = node.arguments[0];
+					if (
+						first?.type === "MemberExpression" &&
+						!first.computed &&
+						first.object?.type === "Identifier" &&
+						first.object.name === "document" &&
+						(first.property?.name === "body" ||
+							first.property?.name === "documentElement")
+					) {
+						context.report({ node, messageId: "onTargetDom" });
+					}
 				}
 				if (node.callee?.property?.name === "addEventListener") {
 					context.report({ node, messageId: "useOn" });

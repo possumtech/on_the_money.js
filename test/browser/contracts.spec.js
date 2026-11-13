@@ -923,9 +923,41 @@ test("delegated events unsubscribe and localized templates mount", async ({
 		button.click();
 		off();
 		button.click();
-		return { clicks, text: button.textContent, connected: button.isConnected };
+
+		const sharedEvents = [];
+		const ac = new AbortController();
+		const offFirst = on.target(window, "otm-shared", () =>
+			sharedEvents.push("first"),
+		);
+		on.target(window, "otm-shared", () => sharedEvents.push("second"), {
+			signal: ac.signal,
+		});
+		window.dispatchEvent(new Event("otm-shared"));
+		ac.abort();
+		window.dispatchEvent(new Event("otm-shared"));
+		offFirst();
+		window.dispatchEvent(new Event("otm-shared"));
+		let rejectedElement = false;
+		try {
+			on.target(document.body, "click", () => {});
+		} catch (error) {
+			rejectedElement = error instanceof TypeError;
+		}
+		return {
+			clicks,
+			text: button.textContent,
+			connected: button.isConnected,
+			sharedEvents,
+			rejectedElement,
+		};
 	});
-	expect(result).toEqual({ clicks: 1, text: "Choose", connected: true });
+	expect(result).toEqual({
+		clicks: 1,
+		text: "Choose",
+		connected: true,
+		sharedEvents: ["first", "second", "first"],
+		rejectedElement: true,
+	});
 });
 
 test("explicit boot locale preserves the server-rendered document", async ({

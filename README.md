@@ -80,7 +80,7 @@ styles/
 import { on, the, _t, route, $, $$ } from "on_the_money";
 ```
 
-Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. On `route`: `route.go(path)`. Live accessors on `the`: `the.dictionary`, `the.locale`.
+Aliases on `the`: `the.t === _t`, `the.route === route`, `the.form(formEl)`, `the.flat(obj, sep?)`, `the.match(pattern, path?)`, `the.boot(options?)`. On `on`: `on.emit(el, event, detail?)`, `on.target(target, event, fn, options?)`. On `route`: `route.go(path)`. Live accessors on `the`: `the.dictionary`, `the.locale`.
 
 For tests: `import { setupDOM } from "on_the_money/test"` (see [Testing your app](#testing-your-app)).
 
@@ -110,6 +110,17 @@ Dispatches a bubbling, cancelable `CustomEvent` on `el`. `el` may be an element 
 
 ```javascript
 on.emit("#cart", "items-changed", { count: 3 });
+```
+
+### `on.target(target, event, fn, options?)` — shared non-Element `EventTarget`s
+
+Subscribes to a non-Element `EventTarget` (`window`, `document` lifecycle events, `visualViewport`, `AbortSignal`, `MediaQueryList`) without overwriting sibling modules' handlers. Throws a `TypeError` if `target` is a DOM `Element` — DOM elements always use delegated `on(parent, event, selector, fn)`. Accepts `{ signal, once, passive, capture }` and returns an `() => void` unsubscribe function (also detaching automatically when `signal` aborts, or no-opping when `signal.aborted` is already `true`).
+
+```javascript
+const stopResize = on.target(window, "resize", () => syncViewport(), {
+  signal: page.signal,
+});
+stopResize();
 ```
 
 ### `the(...)` — state
@@ -532,14 +543,20 @@ The `body[data-modal]` indirection is correct when the state is a named enum the
 
 ### Non-DOM EventTargets
 
-`on()` is DOM delegation — `closest(selector)` against a container. A `Worker`, `AbortSignal`, or `MediaQueryList` has no selector to delegate against, and `otm/prefer-on` still flags `addEventListener` on them, deliberately: the sanctioned shape there is different. Use **handler properties** for the single-handler case these targets almost always are:
+`on()` is DOM delegation — `closest(selector)` against a container. Non-Element `EventTarget`s have no selector to delegate against, and `otm/prefer-on` bans raw `addEventListener` everywhere. Distinguish **privately owned 1:1 targets** from **shared broadcast targets**:
+
+- **Shared / broadcast targets** (`window`, `document` lifecycle events such as `visibilitychange`, `visualViewport`, `AbortSignal`, `MediaQueryList`): use `on.target(target, event, fn, { signal })` so sibling modules and multi-instance components compose without clobbering `.onfoo` properties.
+- **Privately owned 1:1 targets** (`new Worker()`, `new FileReader()`): handler properties (`worker.onmessage = fn`) remain clean because one owner created the target.
 
 ```javascript
 const dark = matchMedia("(prefers-color-scheme: dark)");
-dark.onchange = (e) => the("scheme", e.matches ? "dark" : "light");
+const off = on.target(dark, "change", (e) => {
+  the("scheme", e.matches ? "dark" : "light");
+});
+off();
 ```
 
-Sockets are their own case: `otm/no-raw-websocket` bans `new WebSocket` outright — use [`live()`](#on_the_moneylive--websocket-battery). Needing multiple listeners or `{ once }` on a non-DOM target is rare enough to warrant `// eslint-disable-next-line otm/prefer-on` with a justification comment.
+Sockets are their own case: `otm/no-raw-websocket` bans `new WebSocket` outright — use [`live()`](#on_the_moneylive--websocket-battery).
 
 ### Banned vocabulary, in spirit
 
@@ -753,7 +770,7 @@ export default [
 
 | Rule | Source | Behavior |
 | --- | --- | --- |
-| `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; require `on(parent, event, selector, handler)`. |
+| `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; require `on(parent, event, selector, handler)` or `on.target(target, event, handler, options?)`. |
 | `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
 | `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
 | `otm/no-style-mutation` | bundled in `on_the_money` | Ban `el.style.* = ...`. |

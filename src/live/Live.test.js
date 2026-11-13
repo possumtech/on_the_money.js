@@ -180,17 +180,23 @@ test("live: takeLatest holds only the newest frame while down, flushes on open",
 	assert.strictEqual((await p2).data, "fresh");
 });
 
-test("live: AbortSignal stops the channel — closed, no reconnect", (t) => {
+test("live: AbortSignal stops the channel — closed, no reconnect, fan-out + pre-aborted safe", (t) => {
 	setup();
 	t.mock.timers.enable({ apis: ["setTimeout"] });
 	const ac = new AbortController();
-	new Live("/ws", { signal: ac.signal });
-	const sock = FakeSocket.instances[0];
-	sock.open();
+	new Live("/ws-a", { signal: ac.signal });
+	new Live("/ws-b", { signal: ac.signal });
+	const [sockA, sockB] = FakeSocket.instances;
+	sockA.open();
+	sockB.open();
 	ac.abort();
-	assert.strictEqual(sock.readyState, 3);
+	assert.strictEqual(sockA.readyState, 3);
+	assert.strictEqual(sockB.readyState, 3);
 	t.mock.timers.tick(60_000);
-	assert.strictEqual(FakeSocket.instances.length, 1);
+	assert.strictEqual(FakeSocket.instances.length, 2);
+
+	new Live("/ws-preaborted", { signal: ac.signal });
+	assert.strictEqual(FakeSocket.instances.length, 2);
 });
 
 test("live({ fromState }): reads the advertised channel; null when absent", (_t) => {

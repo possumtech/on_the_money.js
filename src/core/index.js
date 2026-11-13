@@ -4,6 +4,7 @@ import The from "./The.js";
 
 export const on = On.on;
 on.emit = On.emit;
+on.target = On.target;
 
 export const the = The.the;
 export const _t = The._t;
