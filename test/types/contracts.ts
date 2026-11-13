@@ -35,6 +35,12 @@ const off = on(document.body, "click", "[data-action]", (_event, target) => {
 	void target;
 });
 off();
+const offWindow = on.target(window, "resize", (_event) => {}, {
+	signal: new AbortController().signal,
+});
+offWindow();
+// @ts-expect-error DOM elements use delegated on(), not on.target()
+on.target(document.body, "click", () => {});
 // @ts-expect-error selector is mandatory, including for form submissions
 on(document.body, "submit", () => {});
 const stopRouter = route(() => {}, { match: "[data-route]" });

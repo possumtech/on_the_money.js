@@ -118,3 +118,56 @@ test("On.emit: should dispatch CustomEvent with detail", (_t) => {
 	On.emit(el, "my-event", { foo: "bar" });
 	assert.deepStrictEqual(received, { foo: "bar" });
 });
+
+test("On.target: subscribes multiple handlers on non-Element EventTargets and detaches via off() or AbortSignal", () => {
+	const { document: dom, window } = setupDOM('<button id="btn">x</button>');
+	assert.throws(
+		() => On.target(dom.getElementById("btn"), "click", () => {}),
+		/expected a non-Element EventTarget/,
+	);
+	assert.throws(
+		() => On.target(null, "resize", () => {}),
+		/expected a non-Element EventTarget/,
+	);
+	for (const bad of [
+		[window, "", () => {}],
+		[window, "resize", null],
+		[window, "resize", () => {}, null],
+	]) {
+		assert.throws(() => On.target(...bad), {
+			name: "TypeError",
+			message: "on.target(): expected (target, event, handler, options?)",
+		});
+	}
+
+	const calls = [];
+	const ac = new AbortController();
+	const offA = On.target(window, "resize", () => calls.push("a"));
+	On.target(window, "resize", () => calls.push("b"), { signal: ac.signal });
+	On.target(dom, "visibilitychange", () => calls.push("vis"), {
+		once: true,
+		signal: ac.signal,
+	});
+
+	window.dispatchEvent(new CustomEvent("resize"));
+	dom.dispatchEvent(new CustomEvent("visibilitychange"));
+	dom.dispatchEvent(new CustomEvent("visibilitychange"));
+	assert.deepStrictEqual(calls, ["a", "b", "vis"]);
+
+	ac.abort();
+	window.dispatchEvent(new CustomEvent("resize"));
+	assert.deepStrictEqual(calls, ["a", "b", "vis", "a"]);
+
+	offA();
+	window.dispatchEvent(new CustomEvent("resize"));
+	assert.deepStrictEqual(calls, ["a", "b", "vis", "a"]);
+
+	const preAborted = new AbortController();
+	preAborted.abort();
+	const noopOff = On.target(window, "resize", () => calls.push("never"), {
+		signal: preAborted.signal,
+	});
+	window.dispatchEvent(new CustomEvent("resize"));
+	noopOff();
+	assert.deepStrictEqual(calls, ["a", "b", "vis", "a"]);
+});

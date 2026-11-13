@@ -1,3 +1,5 @@
+import On from "../core/On.js";
+
 // Browser WebSocket lifecycle battery — harvested from four production
 // consumer implementations of the same skeleton. Owns: URL derivation,
 // handler properties, JSON codec, jittered backoff with stable reset and
@@ -30,9 +32,13 @@ export default class Live {
 	constructor(path, options = {}) {
 		this.#path = path;
 		this.#options = options;
-		// Handler property, not addEventListener: single handler on a
-		// non-DOM target — the sanctioned shape (§The Discipline).
-		if (options.signal) options.signal.onabort = () => this.#stop();
+		if (options.signal) {
+			if (options.signal.aborted) {
+				this.#stopped = true;
+				return;
+			}
+			On.target(options.signal, "abort", () => this.#stop(), { once: true });
+		}
 		this.#dial();
 	}
 

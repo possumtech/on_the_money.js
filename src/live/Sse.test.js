@@ -82,10 +82,15 @@ test("sse: onUp/onDown ride onopen/onerror", (_t) => {
 	assert.deepStrictEqual(calls, ["up", "down"]);
 });
 
-test("sse: AbortSignal closes the source", (_t) => {
+test("sse: AbortSignal closes all subscribed sources and skips pre-aborted signals", (_t) => {
 	setup();
 	const ac = new AbortController();
-	sse("/stream", { signal: ac.signal });
+	sse("/stream-a", { signal: ac.signal });
+	sse("/stream-b", { signal: ac.signal });
 	ac.abort();
 	assert.strictEqual(FakeEventSource.instances[0].closed, true);
+	assert.strictEqual(FakeEventSource.instances[1].closed, true);
+
+	sse("/stream-preaborted", { signal: ac.signal });
+	assert.strictEqual(FakeEventSource.instances.length, 2);
 });

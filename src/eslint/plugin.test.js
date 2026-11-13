@@ -13,6 +13,11 @@ test("prefer-on", () => {
 		valid: [
 			{ code: 'on(document.body, "click", ".btn", fn);' },
 			{ code: 'on.emit(el, "x", {});' },
+			{ code: 'on.target(window, "resize", fn);' },
+			{ code: 'on.target(window, "pagehide", fn, { signal });' },
+			{
+				code: 'import otm from "on_the_money"; otm.on.target(window, "online", fn);',
+			},
 			{ code: 'import { on } from "node:events"; on(emitter, "data");' },
 			{ code: "function on() {} on();" },
 			{
@@ -35,6 +40,14 @@ test("prefer-on", () => {
 			{
 				code: 'import otm from "on_the_money"; otm.on("#form", "submit", () => {});',
 				errors: [{ messageId: "onSignature" }],
+			},
+			{
+				code: 'import { on } from "on_the_money"; on.target(window, "resize");',
+				errors: [{ messageId: "onTargetSignature" }],
+			},
+			{
+				code: 'import { on } from "on_the_money"; on.target(document.body, "click", fn);',
+				errors: [{ messageId: "onTargetDom" }],
 			},
 			{
 				code: 'el.addEventListener("click", fn);',
