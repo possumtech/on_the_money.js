@@ -56,11 +56,13 @@ test("prefer-attribute-selector: respects rule disabled", async () => {
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: allows pure layout rules and sublayers in structure.css", async () => {
+test("layer-discipline: allows pure layout rules, static ARIA landmarks, and sublayers in structure.css", async () => {
 	const { results } = await lint(
 		`@layer structure {
 			main { display: grid; gap: 1rem; max-inline-size: 48rem; }
 			main:has(> footer) { grid-template-rows: 1fr auto; }
+			nav[aria-label="Main navigation"] { grid-area: menu; }
+			section[aria-labelledby="hero-title"] { display: flex; }
 		}
 		@layer structure.grid {
 			section { display: flex; }
@@ -191,11 +193,13 @@ test("layer-discipline: flags state selectors, interactive pseudos, and skin pro
 	);
 });
 
-test("layer-discipline: allows skin, custom properties, and ephemeral hover/focus pseudos in style.css", async () => {
+test("layer-discipline: allows skin, custom properties, static ARIA landmarks, and ephemeral hover/focus pseudos in style.css", async () => {
 	const { results } = await lint(
 		`@layer style {
 			:root { --otm-border-radius: 0.5rem; }
 			article { background: white; box-shadow: none; }
+			nav[aria-label="breadcrumb"] button { background: transparent; }
+			section[aria-describedby="lead"] { color: var(--otm-muted-color); }
 			a {
 				color: var(--otm-primary);
 				&:hover,
@@ -288,6 +292,7 @@ test("layer-discipline: allows state-driven rules and nested children in state.c
 				&::before { content: "x"; }
 			}
 			dialog[open] { display: block; }
+			nav[aria-label="Main"] a[aria-current="page"] { font-weight: 700; }
 			form:has([aria-invalid="true"]) { border-color: red; }
 			button:focus-visible { outline: 2px solid; }
 			@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
@@ -300,11 +305,12 @@ test("layer-discipline: allows state-driven rules and nested children in state.c
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: flags unconditional selectors including structural :has() and mixed lists in state.css", async () => {
+test("layer-discipline: flags unconditional selectors including structural :has(), static ARIA landmarks, and mixed lists in state.css", async () => {
 	const { results } = await lint(
 		`@layer state {
 			main { display: flex; }
 			main:has(> footer) { display: grid; }
+			nav[aria-label="Main"] { color: red; }
 			article, [data-open="true"] { display: block; }
 		}`,
 		{
@@ -313,7 +319,7 @@ test("layer-discipline: flags unconditional selectors including structural :has(
 		},
 	);
 	const texts = results[0].warnings.map((w) => w.text);
-	assert.strictEqual(texts.length, 3);
+	assert.strictEqual(texts.length, 4);
 	assert.match(
 		texts[0],
 		/Unconditional selector "main" does not belong in state\.css/,
@@ -324,6 +330,10 @@ test("layer-discipline: flags unconditional selectors including structural :has(
 	);
 	assert.match(
 		texts[2],
+		/Unconditional selector "nav\[aria-label="Main"\]" does not belong in state\.css/,
+	);
+	assert.match(
+		texts[3],
 		/Unconditional selector "article, \[data-open="true"\]" does not belong in state\.css/,
 	);
 });

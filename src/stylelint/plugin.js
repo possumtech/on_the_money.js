@@ -161,6 +161,14 @@ const STRUCTURE_ONLY_PROPS = new Set([
 	"z-index",
 ]);
 
+const STATIC_ARIA_ATTRS = new Set([
+	"aria-label",
+	"aria-labelledby",
+	"aria-describedby",
+	"aria-details",
+	"aria-roledescription",
+]);
+
 const NATIVE_STATE_ATTRS = new Set([
 	"open",
 	"hidden",
@@ -210,7 +218,8 @@ const detectLayer = (from) => {
 };
 
 const isStateAttr = (name) =>
-	name.startsWith("data-") || name.startsWith("aria-");
+	name.startsWith("data-") ||
+	(name.startsWith("aria-") && !STATIC_ARIA_ATTRS.has(name));
 
 const insideKeyframes = (node) => {
 	let cur = node.parent;
