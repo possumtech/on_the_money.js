@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-11-20
+
+This pre-1.0 minor release tightens OTM's core contracts, adds imperative keyed list reconciliation (`$.reconcile`), adds SSR-safe agentic/content-engine contract linting and a first-party `llms.txt`, pools delegated DOM listeners per `(parent, event)` pair, and freezes `otm-build` as a minimal lossless `esbuild` wrapper by removing `CssPruner`. Core JS runtime size is `14.3 KB` minified / `5.4 KiB` (`5,581 B`) gzipped. Review the breaking pre-1.0 items below (canonical kebab-case keys, `the.flat` `"-"` separator, `hidden` writing `data-hidden`, and `--prune` removal) when upgrading.
+
 ### Added
 
 - **Keyed, focus-preserving list reconciliation (`$.reconcile`):** added imperative, stateless `$.reconcile(parent, selector, items, { key, fill?, attr? })` in `src/core/Select.js` (with `HTML-101` recognition, TypeScript types, and Chromium/Firefox/WebKit Playwright coverage). Keys live in a DOM `data-*` attribute (`data-otm-key` by default), existing nodes are reused and reordered via native `Element.prototype.moveBefore` (falling back to `insertBefore`) to preserve focus, `<textarea>` edits, and `<details open>`, and duplicate or empty keys throw atomically before mutating the DOM. (#24)
