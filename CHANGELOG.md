@@ -6,6 +6,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-11-20
+
+This pre-1.0 minor release ships a first-party, evergreen, zero-class CSS substrate distilled from Pico Classless, enforces the 5-S CSS layer stack in Stylelint, and adds the zero-config `otm-build` production CLI backed by `esbuild` and template-aware CSS pruning. Core JS runtime size is unchanged (`12.3 KB` minified / `4.8 KB` gzipped).
+
+### Added
+
+- **First-party classless CSS substrate + 20 color schemes (`on_the_money/css`):**
+  - `on_the_money/css/schema` (`@layer schema`) — evergreen modern-CSS semantic HTML + ARIA foundation using native `light-dark()`, `color-mix(in oklch, ...)`, 100% CSS logical properties (automatic RTL/i18n support), `[popover]` + `<dialog>` with `@starting-style` and `allow-discrete` transitions, `<search>`, `<meter>`, `<dl>`, `:user-invalid`, `text-wrap: balance`/`pretty`, and `interpolate-size: allow-keywords`. Zero `.class` selectors, zero `!important`, zero legacy fallbacks, zero bytes added to the core JS bundle.
+  - `on_the_money/css/schemes/*` (`@layer scheme`) — all 20 Pico color palettes (`amber`, `azure`, `blue`, `cyan`, `fuchsia`, `green`, `grey`, `indigo`, `jade`, `lime`, `orange`, `pink`, `pumpkin`, `purple`, `red`, `sand`, `slate`, `violet`, `yellow`, `zinc`) distilled to 3 irreducible `light-dark()` tokens each.
+  - `on_the_money/css` — default convenience entry combining `schema` and the `azure` scheme. (#20)
+- **5-S Stylelint layer discipline (`otm/layer-discipline`):** bundled in `on_the_money/stylelint-plugin` and enabled by default in `on_the_money/stylelint-config`. Enforces `@layer schema, scheme, structure, style, state;` boundaries across `structure.css`, `style.css`, and `state.css` (and `*-structure`/`*-style`/`*-state.css`). (#20)
+- **Zero-config production bundler (`otm-build`):** `npx otm-build [srcDir] [--out <dir>] [--no-prune] [--no-hash]` bundles and minifies JS and collapses all 5-S CSS layers via `esbuild`, performs pure `parse5` HTML + `<template>`-aware CSS pruning (sound because OTM forbids JS-driven HTML injection), emits content-hashed assets, rewrites HTML references, and copies static companions (such as `locales/*.json`). (#21)
+
+### Changed
+
+- Moved `esbuild` (`0.28.2`) from `devDependencies` to `dependencies` so `otm-build` works out of the box for consumers with zero transitive JS dependencies and zero audit vulnerabilities. (#21)
+- Migrated `examples/blog` and `examples/todo` to the 5-S CSS stack (`schema` + `scheme` + `structure.css` + `style.css` + `state.css`), removing the external Pico CDN link. (#20)
+- Updated `AGENTS.md` and `README.md` to document the first-party CSS substrate, 5-S cascade, `otm/layer-discipline`, `otm-build` + NOT-list, and the incompatibility of JS-driven HTML injection with template-aware CSS pruning. (#20, #21)
+
 ## [0.12.0] — 2026-11-13
 
 This pre-1.0 minor release adds event-target, authenticated-SSE, and routing options. Development and package support now require Node.js 24.15.0 or newer. Consumers updating optional lint tooling should review the Stylelint and ESLint root-override migration below; browser-only runtime installs carry neither linter nor their overrides.
