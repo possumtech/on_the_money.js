@@ -6,79 +6,11 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import LintCli from "../linter/cli.js";
 import Builder from "./Builder.js";
-import CssPruner from "./CssPruner.js";
 import BuildCli from "./cli.js";
 
 const root = fileURLToPath(new URL("../..", import.meta.url));
 
-test("CssPruner: collects tags from HTML body and inside <template> contents", () => {
-	const tags = CssPruner.collectUsedTags([
-		{
-			file: "index.html",
-			source: `<!DOCTYPE html><html><body>
-				<main><button>Go</button></main>
-				<template id="row"><article><h3>Title</h3><time>now</time></article></template>
-			</body></html>`,
-		},
-	]);
-
-	assert.ok(tags.has("main"));
-	assert.ok(tags.has("button"));
-	assert.ok(tags.has("article"));
-	assert.ok(tags.has("h3"));
-	assert.ok(tags.has("time"));
-	assert.equal(tags.has("table"), false);
-	assert.equal(tags.has("dialog"), false);
-});
-
-test("CssPruner: prunes unused tags, handles :has() requirements and :is()/:where() disjunctions, and ignores :not()", () => {
-	const css = `
-		@layer schema, scheme, structure, style, state;
-		@layer schema {
-			:root { --otm-color: #111; }
-			p, table, blockquote { margin-block-end: 1rem; }
-			table { inline-size: 100%; }
-			dialog { padding: 1rem; }
-			p:has(> table) { color: red; }
-			p:has(> span, > table) { color: green; }
-			:where(ol, ul, menu) { margin: 0; }
-			:is(dl, figure) { padding: 0; }
-			input:where(:not([type="checkbox"])) { inline-size: 100%; }
-			p:not(table) { line-height: 1.5; }
-			[aria-invalid="true"] { border-color: red; }
-			@keyframes otm-spin { to { rotate: 1turn; } }
-		}
-	`;
-	const used = CssPruner.collectUsedTags([
-		{
-			file: "index.html",
-			source:
-				"<!DOCTYPE html><html><body><p><span>Hi</span></p><ul><li>One</li></ul><input type='text'></body></html>",
-		},
-	]);
-
-	const pruned = CssPruner.prune(css, used);
-	assert.match(pruned, /@layer schema, scheme, structure, style, state;/);
-	assert.match(pruned, /:root\s*\{/);
-	assert.match(pruned, /p\s*\{/);
-	assert.doesNotMatch(pruned, /\btable\s*\{/);
-	assert.doesNotMatch(pruned, /\bblockquote\b/);
-	assert.doesNotMatch(pruned, /\bdialog\b/);
-	// p:has(> table) requires <table>, so it MUST be pruned
-	assert.doesNotMatch(pruned, /p:has\(>\s*table\)/);
-	// p:has(> span, > table) matches because <span> exists
-	assert.match(pruned, /p:has\(>\s*span,\s*>\s*table\)/);
-	// :where(ol, ul, menu) matches because <ul> exists
-	assert.match(pruned, /:where\(ol,\s*ul,\s*menu\)/);
-	// :is(dl, figure) has neither <dl> nor <figure>, so it is pruned
-	assert.doesNotMatch(pruned, /:is\(dl,\s*figure\)/);
-	assert.match(pruned, /input:where/);
-	assert.match(pruned, /p:not\(table\)/);
-	assert.match(pruned, /\[aria-invalid="true"\]/);
-	assert.match(pruned, /@keyframes otm-spin/);
-});
-
-test("Builder: defaults to lossless CSS (preserving rich-fragment tags) and bundles examples/todo", async () => {
+test("Builder: bundles examples/todo losslessly (preserving semantic tags), minifies, hashes, and copies companions", async () => {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "otm-build-todo-"));
 	try {
 		const result = await Builder.build({
@@ -87,7 +19,7 @@ test("Builder: defaults to lossless CSS (preserving rich-fragment tags) and bund
 		});
 
 		assert.equal(result.htmlCount, 1);
-		assert.equal(result.cssBytesBefore, result.cssBytesAfter);
+		assert.ok(result.cssBytes > 0);
 		assert.ok(result.jsBytes > 0);
 
 		const html = await fs.readFile(path.join(outDir, "index.html"), "utf8");
@@ -98,7 +30,7 @@ test("Builder: defaults to lossless CSS (preserving rich-fragment tags) and bund
 		assert.match(cssHref, /^assets\/index\.[0-9a-f]{8}\.css$/);
 
 		const css = await fs.readFile(path.join(outDir, cssHref), "utf8");
-		// Default build is lossless: table/dialog/blockquote stay styled for rich fragments
+		// Lossless build preserves semantic schema rules for rich fragments & SSR pages
 		assert.match(css, /\btable\{/);
 		assert.match(css, /\bdialog/);
 		assert.match(css, /@layer schema,scheme,structure,style,state/);
@@ -119,27 +51,19 @@ test("Builder: defaults to lossless CSS (preserving rich-fragment tags) and bund
 	}
 });
 
-test("Builder: supports opt-in prune: true and hash: false", async () => {
+test("Builder: respects hash: false", async () => {
 	const outDir = await fs.mkdtemp(path.join(os.tmpdir(), "otm-build-opts-"));
 	try {
 		const result = await Builder.build({
 			srcDir: path.join(root, "examples/todo"),
 			outDir,
-			prune: true,
 			hash: false,
 		});
 
-		assert.ok(result.cssBytesBefore > result.cssBytesAfter);
+		assert.ok(result.cssBytes > 0);
 		const html = await fs.readFile(path.join(outDir, "index.html"), "utf8");
 		assert.match(html, /href="assets\/index\.css"/);
 		assert.match(html, /src="assets\/app\.js"/);
-
-		const css = await fs.readFile(
-			path.join(outDir, "assets/index.css"),
-			"utf8",
-		);
-		assert.doesNotMatch(css, /\btable\{/);
-		assert.doesNotMatch(css, /\bdialog\{/);
 	} finally {
 		await fs.rm(outDir, { recursive: true, force: true });
 	}
@@ -269,7 +193,7 @@ test("Builder: resolves root-relative refs, avoids MPA basename collisions, spli
 	}
 });
 
-test("BuildCli: runs end-to-end, supports --prune, prints help, and fails cleanly on invalid input", async () => {
+test("BuildCli: runs end-to-end, prints help, and fails cleanly on invalid input", async () => {
 	const helpCode = await BuildCli.run(["--help"]);
 	assert.equal(helpCode, 0);
 
@@ -286,7 +210,6 @@ test("BuildCli: runs end-to-end, supports --prune, prints help, and fails cleanl
 			path.join(root, "examples/blog"),
 			"--out",
 			outDir,
-			"--prune",
 		]);
 		assert.equal(okCode, 0);
 		const builtHtml = await fs.readFile(
@@ -310,7 +233,7 @@ test("Builder: composes cleanly with upstream Markdown/content filters (preserve
 		await fs.mkdir(path.join(srcDir, "posts"), { recursive: true });
 		await fs.writeFile(
 			path.join(srcDir, "llms.txt"),
-			`# Example Docs\n\n> Canonical Markdown docs rendered to semantic HTML.\n\n## Posts\n\n- [Hello World](/posts/hello.md): First post\n`,
+			"# Example Docs\n\n> Canonical Markdown docs rendered to semantic HTML.\n\n## Posts\n\n- [Hello World](/posts/hello.md): First post\n",
 		);
 		await fs.writeFile(
 			path.join(srcDir, "posts/hello.md"),
@@ -351,7 +274,6 @@ test("Builder: composes cleanly with upstream Markdown/content filters (preserve
 			path.join(outDir, "posts/hello.html"),
 			"utf8",
 		);
-		// Alternate Markdown link stays intact; stylesheet is bundled & hashed
 		assert.match(
 			builtHtml,
 			/<link\b[^>]*rel="alternate"[^>]*type="text\/markdown"[^>]*href="\.\/hello\.md"/,
@@ -361,7 +283,6 @@ test("Builder: composes cleanly with upstream Markdown/content filters (preserve
 			/href="\.\.\/assets\/posts\/hello\.[0-9a-f]{8}\.css"/,
 		);
 
-		// Companion .md and llms.txt passed through untouched
 		const builtMd = await fs.readFile(
 			path.join(outDir, "posts/hello.md"),
 			"utf8",
@@ -370,7 +291,6 @@ test("Builder: composes cleanly with upstream Markdown/content filters (preserve
 		const builtLlms = await fs.readFile(path.join(outDir, "llms.txt"), "utf8");
 		assert.match(builtLlms, /\/posts\/hello\.md/);
 
-		// Full otm-lint pass against built output verifies HTML-028/029/108 + LLMS-001/002
 		const lintViolations = await LintCli.run([
 			"--check",
 			outDir,

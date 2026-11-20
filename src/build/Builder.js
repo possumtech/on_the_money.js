@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { serialize } from "parse5";
 import Markup from "../linter/Markup.js";
-import CssPruner from "./CssPruner.js";
 
 const EXCLUDE_DIRS = new Set(["node_modules", "dist", ".git"]);
 const EXTERNAL_URL_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i;
@@ -96,14 +95,8 @@ export default class Builder {
 		}
 	}
 
-	static async build({
-		srcDir = ".",
-		outDir = "dist",
-		prune = false,
-		hash = true,
-	} = {}) {
-		const { build: esbuild, transform: esbuildTransform } =
-			await Builder.#loadEsbuild();
+	static async build({ srcDir = ".", outDir = "dist", hash = true } = {}) {
+		const { build: esbuild } = await Builder.#loadEsbuild();
 
 		const absSrc = path.resolve(srcDir);
 		const absOut = path.resolve(outDir);
@@ -122,15 +115,12 @@ export default class Builder {
 			})),
 		);
 
-		const usedTags = prune ? CssPruner.collectUsedTags(htmlSources) : null;
-
 		await fs.mkdir(absOut, { recursive: true });
 		const assetsDir = path.join(absOut, "assets");
 		await fs.mkdir(assetsDir, { recursive: true });
 
 		const emitted = new Map();
-		let cssBytesBefore = 0;
-		let cssBytesAfter = 0;
+		let cssBytes = 0;
 		let jsBytes = 0;
 
 		// Pass 1: parse all HTML documents and collect CSS links and script entries
@@ -233,7 +223,7 @@ export default class Builder {
 		const moduleOutPaths = await bundleScriptGroup(moduleEntries, true);
 		const classicOutPaths = await bundleScriptGroup(classicEntries, false);
 
-		// Pass 3: bundle CSS per page (preserving url() assets, opt-in pruning) and write HTML
+		// Pass 3: bundle CSS per page (lossless, preserving url() assets) and write HTML
 		for (const page of pages) {
 			const {
 				relHtml,
@@ -256,7 +246,7 @@ export default class Builder {
 				const bundled = await esbuild({
 					entryPoints: { [pageStem]: virtualId },
 					bundle: true,
-					minify: !prune,
+					minify: true,
 					write: false,
 					outdir: assetsDir,
 					entryNames: "[dir]/[name]",
@@ -295,27 +285,9 @@ export default class Builder {
 					}
 				}
 
-				const rawCss = cssOutput.text;
-				let finalCss = rawCss;
-				if (prune) {
-					const beforeMin = await esbuildTransform(rawCss, {
-						loader: "css",
-						minify: true,
-					});
-					cssBytesBefore += Buffer.byteLength(beforeMin.code, "utf8");
-
-					const prunedCss = CssPruner.prune(rawCss, usedTags);
-					const minified = await esbuildTransform(prunedCss, {
-						loader: "css",
-						minify: true,
-					});
-					finalCss = minified.code;
-					cssBytesAfter += Buffer.byteLength(finalCss, "utf8");
-				} else {
-					const bytes = Buffer.byteLength(finalCss, "utf8");
-					cssBytesBefore += bytes;
-					cssBytesAfter += bytes;
-				}
+				const finalCss = cssOutput.text;
+				const bytes = Buffer.byteLength(finalCss, "utf8");
+				cssBytes += bytes;
 
 				const cssDir = path.dirname(expectedCssPath);
 				const cssBase = path.basename(expectedCssPath, ".css");
@@ -325,7 +297,7 @@ export default class Builder {
 				const outAsset = path.join(cssDir, fileName);
 				await fs.mkdir(cssDir, { recursive: true });
 				await fs.writeFile(outAsset, finalCss, "utf8");
-				emitted.set(outAsset, Buffer.byteLength(finalCss, "utf8"));
+				emitted.set(outAsset, bytes);
 
 				const relAssetHref = formatAssetUrl(
 					outAsset,
@@ -364,7 +336,7 @@ export default class Builder {
 			emitted.set(outHtmlPath, Buffer.byteLength(serialized, "utf8"));
 		}
 
-		// Pass 4: copy static companion files (locales/*.json, images, etc.)
+		// Pass 4: copy static companion files (locales/*.json, .md, llms.txt, images, etc.)
 		for (const file of allFiles) {
 			if (
 				file.endsWith(".html") ||
@@ -386,8 +358,7 @@ export default class Builder {
 		return {
 			outDir: absOut,
 			htmlCount: htmlFiles.length,
-			cssBytesBefore,
-			cssBytesAfter,
+			cssBytes,
 			jsBytes,
 			files: [...emitted.entries()].map(([file, bytes]) => ({
 				file: path.relative(absOut, file),

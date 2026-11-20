@@ -1242,3 +1242,86 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), sco
 	expect(result.kbdDisplay).toBe("inline-block");
 	expect(result.blockCodeDisplay).toBe("block");
 });
+
+test("$.reconcile preserves DOM identity, active focus, textarea draft, and open <details> across updates and reorderings", async ({
+	page,
+}) => {
+	const result = await page.evaluate(async () => {
+		const { $, the } = await import("/src/core/index.js");
+		document.body.innerHTML = `
+			<ul id="turns"></ul>
+			<template id="turn-card">
+				<li data-item>
+					<strong data-text="title"></strong>
+					<textarea></textarea>
+					<details><summary>Notes</summary><p>Detail</p></details>
+				</li>
+			</template>
+		`;
+		const fill = (el, item) => the(el, { title: item.title });
+		const [first, second] = $.reconcile(
+			"#turns",
+			"#turn-card",
+			[
+				{ id: "t1", title: "First" },
+				{ id: "t2", title: "Second" },
+			],
+			{ key: (x) => x.id, fill },
+		);
+
+		const details = second.querySelector("details");
+		const textarea = second.querySelector("textarea");
+		details.open = true;
+		textarea.value = "Draft reply";
+		textarea.focus();
+
+		// 1. Update in place + append: neither existing row moves, focus stays in every engine
+		$.reconcile(
+			"#turns",
+			"#turn-card",
+			[
+				{ id: "t1", title: "First (v2)" },
+				{ id: "t2", title: "Second (v2)" },
+				{ id: "t3", title: "Third" },
+			],
+			{ key: (x) => x.id, fill },
+		);
+		const focusAfterInPlaceUpdate = document.activeElement === textarea;
+
+		// 2. Prepend + reorder (moves t2 ahead of t1) + remove t3
+		const after = $.reconcile(
+			"#turns",
+			"#turn-card",
+			[
+				{ id: "t0", title: "Prepended" },
+				{ id: "t2", title: "Second (v3)" },
+				{ id: "t1", title: "First (v3)" },
+			],
+			{ key: (x) => x.id, fill },
+		);
+
+		return {
+			count: after.length,
+			sameFirst: after[2] === first,
+			sameSecond: after[1] === second,
+			order: after.map((el) => el.getAttribute("data-otm-key")),
+			titles: after.map((el) => el.querySelector("strong").textContent),
+			detailsStillOpen: details.open,
+			draftPreserved: textarea.value,
+			focusAfterInPlaceUpdate,
+			focusAfterReorder: document.activeElement === textarea,
+		};
+	});
+
+	expect(result).toEqual({
+		count: 3,
+		sameFirst: true,
+		sameSecond: true,
+		order: ["t0", "t2", "t1"],
+		titles: ["Prepended", "Second (v3)", "First (v3)"],
+		detailsStillOpen: true,
+		draftPreserved: "Draft reply",
+		focusAfterInPlaceUpdate: true,
+		focusAfterReorder: true,
+	});
+});

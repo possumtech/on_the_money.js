@@ -386,9 +386,129 @@ const noRawWebsocket = {
 	},
 };
 
+const KEBAB_KEY_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+const suggestKebab = (key) =>
+	key
+		.replace(/_/g, "-")
+		.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+		.toLowerCase()
+		.replace(/[^a-z0-9-]+/g, "-")
+		.replace(/^-+|-+$/g, "")
+		.replace(/-{2,}/g, "-") || "my-key";
+
+const kebabStateKeys = {
+	meta: {
+		type: "problem",
+		docs: {
+			description:
+				"Require canonical kebab-case state keys in the() and the.boot({ persistKeys }).",
+		},
+		messages: {
+			notKebab:
+				'State key "{{key}}" must be canonical kebab-case (e.g. "{{suggestion}}") so HTML, CSS, and JS share one greppable spelling.',
+		},
+		schema: [],
+	},
+	create(context) {
+		const checkKey = (node, key) => {
+			if (typeof key !== "string" || KEBAB_KEY_RE.test(key)) return;
+			context.report({
+				node,
+				messageId: "notKebab",
+				data: { key, suggestion: suggestKebab(key) },
+			});
+		};
+
+		const checkObjectKeys = (objNode) => {
+			for (const prop of objNode.properties) {
+				if (prop.type !== "Property" || prop.computed) continue;
+				if (prop.key.type === "Identifier") {
+					checkKey(prop.key, prop.key.name);
+				} else if (
+					prop.key.type === "Literal" &&
+					typeof prop.key.value === "string"
+				) {
+					checkKey(prop.key, prop.key.value);
+				}
+			}
+		};
+
+		return {
+			CallExpression(node) {
+				const callee = node.callee;
+				const isThe =
+					callee?.name === "the" || callee?.property?.name === "the";
+				if (isThe) {
+					const args = node.arguments;
+					if (args.length === 1) {
+						if (
+							args[0].type === "Literal" &&
+							typeof args[0].value === "string"
+						) {
+							checkKey(args[0], args[0].value);
+						} else if (args[0].type === "ObjectExpression") {
+							checkObjectKeys(args[0]);
+						}
+					} else if (args.length === 2) {
+						if (
+							args[0].type === "Literal" &&
+							typeof args[0].value === "string"
+						) {
+							checkKey(args[0], args[0].value);
+						} else if (
+							args[1].type === "Literal" &&
+							typeof args[1].value === "string"
+						) {
+							checkKey(args[1], args[1].value);
+						} else if (args[1].type === "ObjectExpression") {
+							checkObjectKeys(args[1]);
+						}
+					} else if (args.length === 3) {
+						if (
+							args[1].type === "Literal" &&
+							typeof args[1].value === "string"
+						) {
+							checkKey(args[1], args[1].value);
+						}
+					}
+					return;
+				}
+
+				const isBoot =
+					callee?.type === "MemberExpression" &&
+					!callee.computed &&
+					callee.property?.name === "boot" &&
+					(callee.object?.name === "the" ||
+						callee.object?.property?.name === "the");
+				if (isBoot && node.arguments[0]?.type === "ObjectExpression") {
+					for (const prop of node.arguments[0].properties) {
+						if (
+							prop.type === "Property" &&
+							!prop.computed &&
+							((prop.key.type === "Identifier" &&
+								prop.key.name === "persistKeys") ||
+								(prop.key.type === "Literal" &&
+									prop.key.value === "persistKeys")) &&
+							prop.value.type === "ArrayExpression"
+						) {
+							for (const el of prop.value.elements) {
+								if (el?.type === "Literal" && typeof el.value === "string") {
+									checkKey(el, el.value);
+								}
+							}
+						}
+					}
+				}
+			},
+		};
+	},
+};
+
 const rules = {
 	"prefer-on": preferOn,
 	"flat-state": flatState,
+	"kebab-state-keys": kebabStateKeys,
 	"prefer-submit": preferSubmit,
 	"no-style-mutation": noStyleMutation,
 	"no-server-dom": noServerDom,
@@ -407,6 +527,7 @@ plugin.configs = {
 		rules: {
 			"otm/prefer-on": "error",
 			"otm/flat-state": "error",
+			"otm/kebab-state-keys": "error",
 			"otm/prefer-submit": "warn",
 			"otm/no-style-mutation": "error",
 			"otm/no-server-dom": "error",
