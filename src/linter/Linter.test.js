@@ -743,3 +743,52 @@ test("Linter.isCheckableLocalTarget: checks relative paths always and root-relat
 	);
 	assert.strictEqual(Linter.isCheckableLocalTarget("#section"), false);
 });
+
+test("Linter.crossCheck: ignores JS/CSS comments and parses nested expressions inside the({ ... })", () => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "index.html",
+				source:
+					'<span data-text="first"></span><span data-text="second"></span>',
+				dicts: [],
+			},
+		],
+		jsSources: [
+			{
+				file: "app.js",
+				source: `
+					// the("commented-out", "1");
+					/* the("block-commented", "2"); [data-action="fake"] */
+					the({
+						first: compute({ inner: 1 }, argA, argB),
+						second: "ok",
+					});
+				`,
+			},
+		],
+		cssSources: [
+			{
+				file: "state.css",
+				source: `/* [data-ghost-key="ignored"] { display: block; } */`,
+			},
+		],
+	});
+	assert.deepStrictEqual(violations, []);
+
+	// Commented-out CSS must NOT satisfy HTML-106 for a live global write
+	const unconsumed = Linter.crossCheck({
+		htmlSources: [],
+		jsSources: [{ file: "app.js", source: 'the("live-key", "1");' }],
+		cssSources: [
+			{
+				file: "state.css",
+				source: '/* [data-live-key="1"] { color: red; } */',
+			},
+		],
+	});
+	assert.deepStrictEqual(
+		unconsumed.map((v) => v.ruleId),
+		["HTML-106"],
+	);
+});

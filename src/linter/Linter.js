@@ -3,6 +3,159 @@ import Markup from "./Markup.js";
 const EXTERNAL_URL_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 const TEMPLATE_EXPR_RE = /\{\{|\$\{|\s/;
 
+const blankPreservingNewlines = (text) => text.replace(/[^\r\n]/g, " ");
+
+const stripCssComments = (source) => {
+	let out = "";
+	let i = 0;
+	const len = source.length;
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			out += source.slice(start, i);
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			const close = end === -1 ? len : end + 2;
+			out += blankPreservingNewlines(source.slice(i, close));
+			i = close;
+			continue;
+		}
+		out += ch;
+		i++;
+	}
+	return out;
+};
+
+const stripJsComments = (source) => {
+	let out = "";
+	let i = 0;
+	const len = source.length;
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'" || ch === "`") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			out += source.slice(start, i);
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "/") {
+			const nl = source.indexOf("\n", i + 2);
+			const end = nl === -1 ? len : nl;
+			out += blankPreservingNewlines(source.slice(i, end));
+			i = end;
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			const close = end === -1 ? len : end + 2;
+			out += blankPreservingNewlines(source.slice(i, close));
+			i = close;
+			continue;
+		}
+		out += ch;
+		i++;
+	}
+	return out;
+};
+
+const extractTopLevelObjectKeys = (source, openBraceIndex) => {
+	const keys = [];
+	const len = source.length;
+	let depth = 0;
+	let parenDepth = 0;
+	let bracketDepth = 0;
+	let i = openBraceIndex;
+	let expectKey = true;
+
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'" || ch === "`") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			if (
+				depth === 1 &&
+				parenDepth === 0 &&
+				bracketDepth === 0 &&
+				expectKey &&
+				ch !== "`"
+			) {
+				let j = i;
+				while (j < len && /\s/.test(source[j])) j++;
+				if (source[j] === ":") {
+					keys.push(source.slice(start + 1, i - 1));
+					expectKey = false;
+				}
+			}
+			continue;
+		}
+		if (ch === "{") {
+			depth++;
+			if (depth === 1) expectKey = true;
+			i++;
+			continue;
+		}
+		if (ch === "}") {
+			depth--;
+			i++;
+			if (depth === 0) break;
+			continue;
+		}
+		if (ch === "(") {
+			parenDepth++;
+			i++;
+			continue;
+		}
+		if (ch === ")" && parenDepth > 0) {
+			parenDepth--;
+			i++;
+			continue;
+		}
+		if (ch === "[") {
+			bracketDepth++;
+			i++;
+			continue;
+		}
+		if (ch === "]" && bracketDepth > 0) {
+			bracketDepth--;
+			i++;
+			continue;
+		}
+		if (depth === 1 && parenDepth === 0 && bracketDepth === 0) {
+			if (ch === ",") {
+				expectKey = true;
+				i++;
+				continue;
+			}
+			if (expectKey && /[A-Za-z_$]/.test(ch)) {
+				const start = i++;
+				while (i < len && /[\w$]/.test(source[i])) i++;
+				let j = i;
+				while (j < len && /\s/.test(source[j])) j++;
+				if (source[j] === ":" || source[j] === "," || source[j] === "}") {
+					keys.push(source.slice(start, i));
+					expectKey = false;
+				}
+				continue;
+			}
+		}
+		i++;
+	}
+	return keys;
+};
+
 const isMarkdownAlternate = (attrs) => {
 	const rels = (attrs.rel || "").toLowerCase().split(/\s+/).filter(Boolean);
 	const mediaType = (attrs.type || "").split(";")[0].trim().toLowerCase();
@@ -330,6 +483,14 @@ export default class Linter {
 
 	static crossCheck({ htmlSources, jsSources, cssSources = [] }) {
 		const violations = [];
+		const cleanJsSources = jsSources.map(({ file, source }) => ({
+			file,
+			source: stripJsComments(source),
+		}));
+		const cleanCssSources = cssSources.map(({ file, source }) => ({
+			file,
+			source: stripCssComments(source),
+		}));
 
 		// HTML-101: orphan templates — <template id="X"> never referenced by $.clone(_, "#X")
 		const templates = new Map();
@@ -360,7 +521,7 @@ export default class Linter {
 		}
 
 		const cloneRefs = new Set();
-		for (const { source } of jsSources) {
+		for (const { source } of cleanJsSources) {
 			const matches = source.matchAll(
 				/\$\.clone(?:Each)?\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
 			);
@@ -456,7 +617,7 @@ export default class Linter {
 		// HTML-104: keys written globally in JS that also appear as data-text
 		// slots inside <template> subtrees — global writes walk the whole
 		// document and clobber every instance.
-		const globalWriteKeys = Linter.#globalWriteKeys(jsSources);
+		const globalWriteKeys = Linter.#globalWriteKeys(cleanJsSources);
 
 		for (const { file, source } of htmlSources) {
 			const document = Markup.parse(file, source, {
@@ -498,7 +659,7 @@ export default class Linter {
 		// JS (action-dispatch pattern) waives the dead-control direction.
 		const actionRefs = new Map();
 		let wildcardDispatch = false;
-		for (const { file, source } of jsSources) {
+		for (const { file, source } of cleanJsSources) {
 			if (/\[data-action\]/.test(source)) wildcardDispatch = true;
 			for (const m of source.matchAll(/\[data-action=["']?([\w-]+)["']?\]/g)) {
 				if (!actionRefs.has(m[1]))
@@ -545,12 +706,12 @@ export default class Linter {
 		// "data-key" string literal e.g. MutationObserver attributeFilter)
 		// is dead state or a missing CSS rule.
 		const consumed = new Set();
-		for (const { source } of cssSources) {
+		for (const { source } of cleanCssSources) {
 			for (const m of source.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
 		}
 		for (const { file, source } of htmlSources) {
-			const markup = Markup.source(file, source);
+			const markup = stripCssComments(Markup.source(file, source));
 			// Inline <style> blocks ride along in the raw HTML source.
 			for (const m of markup.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
@@ -563,7 +724,7 @@ export default class Linter {
 				}
 			}
 		}
-		for (const { source } of jsSources) {
+		for (const { source } of cleanJsSources) {
 			for (const m of source.matchAll(/["']data-([a-z0-9-]+)["']/g))
 				consumed.add(m[1]);
 			for (const m of source.matchAll(/\bthe\s*\(\s*["']([^"']+)["']\s*\)/g))
@@ -617,11 +778,11 @@ export default class Linter {
 		// that reveals a span may be named anything (body[data-form-error="V"]
 		// revealing [data-error-key="V"] is fully functional) — a reveal rule
 		// necessarily references the span it reveals, so the ref IS the proof.
-		const styleTexts = [...cssSources, ...htmlSources];
+		const styleTexts = [...cleanCssSources, ...htmlSources];
 		const spanRefs = [];
 		const refPairs = new Set();
 		for (const { file, source } of styleTexts) {
-			const styleSource = Markup.source(file, source);
+			const styleSource = stripCssComments(Markup.source(file, source));
 			for (const m of styleSource.matchAll(
 				/\[data-([a-z0-9-]+?)-key=["']?([\w-]+)["']?\]/g,
 			)) {
@@ -685,11 +846,10 @@ export default class Linter {
 				if (!keys.has(k))
 					keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 			}
-			for (const m of source.matchAll(/\bthe\s*\(\s*\{([^}]*)\}/g)) {
-				for (const km of m[1].matchAll(
-					/(?:^|[,{\s])["']?([A-Za-z_$][\w$]*)["']?\s*:/g,
-				)) {
-					const k = Linter.#kebab(km[1]);
+			for (const m of source.matchAll(/\bthe\s*\(\s*\{/g)) {
+				const openBrace = m.index + m[0].length - 1;
+				for (const rawKey of extractTopLevelObjectKeys(source, openBrace)) {
+					const k = Linter.#kebab(rawKey);
 					if (!keys.has(k))
 						keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 				}

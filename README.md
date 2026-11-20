@@ -700,8 +700,6 @@ Compare against the live DOM before writing. Equal content leaves existing text 
 
 Already-sanitized rich fragments can use native `replaceChildren(sanitizedFragment)`. Sanitization, allowed markup/URLs, and the fragment's trust boundary belong to the application; OTM neither sanitizes nor interprets raw HTML or Markdown. `lang` describes the actual content language. [`translate="no"`](https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute) is a translation policy, not a required content marker.
 
-**Lint migration:** `otm/prefer-the-set` and HTML-004 are retired. The shipped ESLint configurations already omit the retired rule; remove it from any hand-written rule configuration. No lint suppression or replacement marker is needed. Lint cannot infer whether arbitrary prose is interface copy or document content, so authors own that distinction; the existing state, styling, and server-DOM rules remain in force.
-
 ### Routing with `the.match`
 
 ```javascript
@@ -804,9 +802,7 @@ on_the_money ships a three-tool stack. Each layer covers what the others can't.
 
 ### 1. JavaScript — ESLint + bundled plugin
 
-The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath.
-
-ESLint 10's file-glob dependencies (`eslint` and `@eslint/config-array`) currently declare `minimatch@^10`, affected by [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Until ESLint adopts `minimatch@^11`, consumers running full `npm audit` alongside ESLint must pin upstream `minimatch` (`>=11.0.1`) in their root `package.json` `overrides` (`"minimatch": "11.0.8"`). npm does not inherit overrides from installed libraries, so the consuming application owns this lockfile; runtime-only browser installs contain neither ESLint nor `minimatch`.
+The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath. (ESLint 10's transitive glob deps currently require `"minimatch": "11.0.8"` in the consumer's root `overrides` for a clean `npm audit`; browser-only installs are unaffected.)
 
 ```bash
 npm install -D eslint eslint-plugin-no-unsanitized
@@ -838,11 +834,7 @@ The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your T
 
 ### 2. CSS — Stylelint + bundled plugin
 
-Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package.
-
-The optional Stylelint integration supports Stylelint 16 or newer; it is verified with Stylelint 18 and `stylelint-config-standard` 41. Stylelint 18 requires Node.js `^22.22.2`, `^24.15.0`, or `>=26.0.0`; OTM's own development and package support floor is Node.js 24.15.0.
-
-Stylelint 18 resolves configuration packages through standard ESM specifiers: use `stylelint-config-standard`, not a bare file path. Its file globs now use `picomatch` through `tinyglobby` rather than `braces`. If no other dependency uses `braces`, remove the root override required by earlier OTM guidance. If retaining Stylelint 17 or older, keep that existing audit mitigation until upgrading the affected chain. A clean audit reflects dependency resolution and known advisories, not a substitute for reviewing actual behavior.
+Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package. Supports Stylelint `>=16` (verified with Stylelint 18 + `stylelint-config-standard` 41 on Node `>=24.15.0`).
 
 ```bash
 npm install -D stylelint stylelint-config-standard
@@ -964,15 +956,15 @@ test("theme write projects into the badge", (_t) => {
 
 ```
 my-app/
-├── index.html              # substrate link + meta tags + script entry
+├── index.html              # 5-S stylesheets + meta tags + script entry
 ├── app.js                  # await the.boot(); register handlers
-├── locales/
-│   ├── es.json
-│   └── fr.json
-├── styles.css              # attribute-selector-driven custom CSS (optional)
-└── views/
-    ├── home.html           # fragment imported via fetch + $.clone, or inline <template>
-    └── about.html
+├── structure.css           # @layer structure — layout geometry
+├── style.css               # @layer style     — brand skin & --otm-* overrides
+├── state.css               # @layer state     — [data-*] / [aria-*] / native state
+├── llms.txt                # optional agent index (validated by otm-lint when present)
+└── locales/
+    ├── es.json
+    └── fr.json
 ```
 
 For an English-source document, `<meta name="i18n" content="/locales" data-available="es,fr">` advertises optional Spanish and French dictionaries. English fallback is already in the HTML. Omit both the meta and the `locales/` directory when no translations exist.
@@ -982,28 +974,31 @@ For an English-source document, `<meta name="i18n" content="/locales" data-avail
 `npm run size` measures the minified and gzipped core and lists its module inputs without writing build output. Translation dictionaries are application resources, not part of that bundle.
 
 ```
+llms.txt                    # machine-readable package index
 src/
 ├── core/
-│   ├── index.js           # public exports
-│   ├── On.js              # event delegation + emit
-│   ├── The.js             # state, i18n, boot, route, form, flat
-│   └── Select.js          # $, $$, clone
-├── test/
-│   └── index.js           # setupDOM harness (on_the_money/test)
-├── eslint/
-│   ├── plugin.js          # eslint-plugin-otm rules
-│   └── config.js          # shareable flat config
-├── stylelint/
-│   ├── plugin.js          # prefer-attribute-selector
-│   └── config.js          # shareable config
-└── linter/
-    ├── main.js            # otm-lint binary entrypoint
-    ├── cli.js             # directory scan, output
-    └── Linter.js          # rule implementations
-test/
-└── integration.test.js    # cross-module integration suite
+│   ├── index.js            # public exports
+│   ├── On.js               # pooled event delegation, target, emit
+│   ├── The.js              # state projection, i18n, boot
+│   ├── Form.js             # form extraction + object flattening
+│   ├── Router.js           # pushState router + pattern matching
+│   ├── Select.js           # $, $$, $.clone, $.cloneEach
+│   ├── Dictionary.js       # dictionary validation
+│   └── Locale.js           # Unicode locale chain + compatibility
+├── css/
+│   ├── index.css           # default schema + azure scheme
+│   ├── schema.css          # @layer schema semantic HTML + ARIA substrate
+│   └── schemes/*.css       # 20 @layer scheme color palettes
+├── live/                   # on_the_money/live (WebSocket + SSE battery)
+├── clipboard/              # on_the_money/clipboard (copy affordance battery)
+├── test/                   # on_the_money/test (setupDOM linkedom harness)
+├── eslint/                 # eslint-plugin-otm + shareable flat config
+├── stylelint/              # stylelint-plugin-otm (classless + 5-S layers)
+├── linter/                 # otm-lint CLI (HTML + cross-file + llms.txt)
+└── build/                  # otm-build CLI (optional esbuild peer)
+test/                       # integration, README doctests, types, Playwright
 dist/
-└── on_the_money.min.js    # CDN/script-tag artifact only — npm resolves "." to src
+└── on_the_money.min.js     # CDN/script-tag artifact only — npm resolves "." to src
 ```
 
 **One module graph.** The npm entry (`.`) and every battery subpath resolve into the same `src/` graph, so `The`'s statics (`dictionary`, `locale`, `prefix`, `persistKeys`) are one singleton everywhere. `dist/on_the_money.min.js` exists solely for `<script type="module">` hotlinking — importing it *alongside* npm subpaths would fork the core, which is exactly the bug this arrangement removes.

@@ -13,6 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   - Shipped a first-party `llms.txt` at the package root (included in npm artifacts and verified in `check-package.js`) pointing to `README.md`, public `.d.ts` contracts, and the 5-S CSS substrate.
   - Documented the server-rendered content-engine composition pattern (`markdown → html` / `structured data → html` + `<link rel="alternate" type="text/markdown">` + `/llms.txt` + explicit NOT-list) in `README.md` and added end-to-end `otm-build` + `otm-lint` pass-through coverage. (#19)
 
+### Fixed
+
+- **True per-`(parent, event)` listener pooling (`On.js`):** `on()` now multiplexes registrations over a single native DOM listener per `(container, event)` pair via `WeakMap` (matching the documented contract), detaches the native listener when the last subscriber unsubscribes, and guards non-Element event targets (such as Text nodes) safely. (#25)
+- **Linter comment & nested-expression safety (`otm-lint`, `otm/prefer-submit`):** `Linter.crossCheck` now strips JS/CSS comments while preserving line numbers and parses balanced nested expressions in `the({ ... })` writes; `otm/prefer-submit` no longer false-positives on explicit `button[data-action="..."]`, `button[type="button"]`, or non-button attribute selectors containing `"button"`. (#25)
+
+### Changed
+
+- **Internal core modularity & README tightening:** extracted `src/core/Form.js` and `src/core/Router.js` from `src/core/The.js` with zero public API change; trimmed version-specific historical migration notes from `README.md` and updated the contributor/project layout maps. (#25)
+
 ## [0.14.0] — 2026-11-20
 
 This pre-1.0 minor release resolves post-`0.13.0` substrate, 5-S Stylelint, packaging, and `otm-build` contract defects surfaced during downstream integration planning. Runtime-only and Vite consumers no longer pull `esbuild` (now an optional peer dependency), and `otm-build` keeps the full bundled stylesheet by default so sanitized rich fragments and server-rendered pages sharing the stylesheet never lose semantic styling (`--prune` is now opt-in). Core JS runtime size is unchanged (`12.3 KB` minified / `4.8 KB` gzipped).

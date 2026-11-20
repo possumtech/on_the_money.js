@@ -171,3 +171,61 @@ test("On.target: subscribes multiple handlers on non-Element EventTargets and de
 	noopOff();
 	assert.deepStrictEqual(calls, ["a", "b", "vis", "a"]);
 });
+
+test("On.on: pools one native DOM listener per (parent, event) pair and detaches on last unsubscribe", (t) => {
+	const { document: dom } = setupDOM(
+		'<button data-action="a">A</button><button data-action="b">B</button>',
+	);
+	const addSpy = t.mock.method(dom.body, "addEventListener");
+	const removeSpy = t.mock.method(dom.body, "removeEventListener");
+
+	const calls = [];
+	const offA = On.on(dom.body, "click", '[data-action="a"]', () =>
+		calls.push("a"),
+	);
+	const offB = On.on(dom.body, "click", '[data-action="b"]', () =>
+		calls.push("b"),
+	);
+
+	assert.strictEqual(addSpy.mock.callCount(), 1);
+	assert.strictEqual(removeSpy.mock.callCount(), 0);
+
+	dom.querySelector('[data-action="a"]').click();
+	dom.querySelector('[data-action="b"]').click();
+	assert.deepStrictEqual(calls, ["a", "b"]);
+
+	offA();
+	assert.strictEqual(removeSpy.mock.callCount(), 0);
+	dom.querySelector('[data-action="a"]').click();
+	dom.querySelector('[data-action="b"]').click();
+	assert.deepStrictEqual(calls, ["a", "b", "b"]);
+
+	offB();
+	offB(); // idempotent double unsubscribe
+	assert.strictEqual(removeSpy.mock.callCount(), 1);
+});
+
+test("On.on: handles non-Element event targets (e.g. Text nodes) without throwing", () => {
+	const { document: dom } = setupDOM('<button data-action="go">Hi</button>');
+	const btn = dom.querySelector("button");
+	let matched = null;
+	let capturedDispatch = null;
+	const origAdd = dom.body.addEventListener.bind(dom.body);
+	dom.body.addEventListener = (type, fn, opts) => {
+		if (type === "custom-hit") capturedDispatch = fn;
+		return origAdd(type, fn, opts);
+	};
+
+	On.on(dom.body, "custom-hit", '[data-action="go"]', (_e, target) => {
+		matched = target;
+	});
+
+	// Text node child has parentElement (btn) but no .closest() method
+	const textNode = btn.firstChild;
+	assert.strictEqual(typeof textNode.closest, "undefined");
+	capturedDispatch({ target: textNode });
+	assert.strictEqual(matched, btn);
+
+	// Target with neither .closest nor .parentElement is safely ignored
+	assert.doesNotThrow(() => capturedDispatch({ target: dom }));
+});

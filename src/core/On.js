@@ -1,4 +1,8 @@
 export default class On {
+	// One native DOM listener per (container, event) pair; WeakMap lets
+	// detached subtrees garbage-collect automatically.
+	static #registry = new WeakMap();
+
 	static on(parent, event, selector, fn) {
 		if (
 			typeof selector !== "string" ||
@@ -15,14 +19,45 @@ export default class On {
 			throw new Error(`on(): parent selector matched nothing: ${parent}`);
 		}
 
-		const handler = (e) => {
-			const target = e.target.closest(selector);
-			if (target && container.contains(target)) {
-				fn.call(target, e, target);
+		let byEvent = On.#registry.get(container);
+		if (!byEvent) {
+			byEvent = new Map();
+			On.#registry.set(container, byEvent);
+		}
+		let bucket = byEvent.get(event);
+		if (!bucket) {
+			const entries = new Set();
+			const dispatch = (e) => {
+				const raw = e.target;
+				const origin =
+					raw && typeof raw.closest === "function"
+						? raw
+						: raw?.parentElement || null;
+				if (!origin) return;
+				for (const entry of [...entries]) {
+					if (!entries.has(entry)) continue;
+					const target = origin.closest(entry.selector);
+					if (target && container.contains(target)) {
+						entry.fn.call(target, e, target);
+					}
+				}
+			};
+			bucket = { dispatch, entries };
+			byEvent.set(event, bucket);
+			container.addEventListener(event, dispatch);
+		}
+
+		const entry = { selector, fn };
+		bucket.entries.add(entry);
+
+		return () => {
+			bucket.entries.delete(entry);
+			if (bucket.entries.size === 0 && byEvent.get(event) === bucket) {
+				container.removeEventListener(event, bucket.dispatch);
+				byEvent.delete(event);
+				if (byEvent.size === 0) On.#registry.delete(container);
 			}
 		};
-		container.addEventListener(event, handler);
-		return () => container.removeEventListener(event, handler);
 	}
 
 	static target(target, event, fn, options = {}) {

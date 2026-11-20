@@ -95,6 +95,9 @@ test("prefer-submit", () => {
 		valid: [
 			{ code: 'on("#form", "submit", "form", (e) => {});' },
 			{ code: 'on("#nav", "click", "a", fn);' },
+			{ code: 'on("main", "click", \'button[data-action="close"]\', fn);' },
+			{ code: 'on("main", "click", \'button[type="button"]\', fn);' },
+			{ code: 'on("main", "click", \'[data-target="button-bar"]\', fn);' },
 		],
 		invalid: [
 			{
@@ -103,6 +106,14 @@ test("prefer-submit", () => {
 			},
 			{
 				code: 'on(form, "click", "button", fn);',
+				errors: [{ messageId: "useSubmit" }],
+			},
+			{
+				code: 'on("#form", "click", \'button[type="submit"]\', fn);',
+				errors: [{ messageId: "useSubmit" }],
+			},
+			{
+				code: 'on("#form", "click", \'input[type="submit"]\', fn);',
 				errors: [{ messageId: "useSubmit" }],
 			},
 		],
