@@ -190,10 +190,21 @@ const preferSubmit = {
 		schema: [],
 	},
 	create(context) {
-		const isButtonSelector = (n) =>
-			n?.type === "Literal" &&
-			typeof n.value === "string" &&
-			(n.value === "button" || n.value.includes("button"));
+		const isSubmitButtonSelector = (n) => {
+			if (n?.type !== "Literal" || typeof n.value !== "string") return false;
+			const sel = n.value;
+			if (/\[type\s*=\s*["']?submit["']?\]/i.test(sel)) return true;
+			const hasButtonTag = /(?:^|[\s>+~,])button(?=$|[\s.#[:>+~,])/i.test(sel);
+			if (!hasButtonTag) return false;
+			// Explicit OTM action controls and non-submit buttons legitimately use click.
+			if (
+				/\[data-action\b/i.test(sel) ||
+				/\[type\s*=\s*["']?(?:button|reset)["']?\]/i.test(sel)
+			) {
+				return false;
+			}
+			return true;
+		};
 
 		return {
 			CallExpression(node) {
@@ -201,7 +212,7 @@ const preferSubmit = {
 					node.callee?.name === "on" || node.callee?.property?.name === "on";
 				if (!isOn) return;
 				const [, evt, sel] = node.arguments;
-				if (evt?.value === "click" && isButtonSelector(sel)) {
+				if (evt?.value === "click" && isSubmitButtonSelector(sel)) {
 					context.report({ node, messageId: "useSubmit" });
 				}
 			},

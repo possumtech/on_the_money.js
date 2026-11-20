@@ -1,5 +1,172 @@
 import Markup from "./Markup.js";
 
+const EXTERNAL_URL_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+const TEMPLATE_EXPR_RE = /\{\{|\$\{|\s/;
+
+const blankPreservingNewlines = (text) => text.replace(/[^\r\n]/g, " ");
+
+const stripCssComments = (source) => {
+	let out = "";
+	let i = 0;
+	const len = source.length;
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			out += source.slice(start, i);
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			const close = end === -1 ? len : end + 2;
+			out += blankPreservingNewlines(source.slice(i, close));
+			i = close;
+			continue;
+		}
+		out += ch;
+		i++;
+	}
+	return out;
+};
+
+const stripJsComments = (source) => {
+	let out = "";
+	let i = 0;
+	const len = source.length;
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'" || ch === "`") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			out += source.slice(start, i);
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "/") {
+			const nl = source.indexOf("\n", i + 2);
+			const end = nl === -1 ? len : nl;
+			out += blankPreservingNewlines(source.slice(i, end));
+			i = end;
+			continue;
+		}
+		if (ch === "/" && source[i + 1] === "*") {
+			const end = source.indexOf("*/", i + 2);
+			const close = end === -1 ? len : end + 2;
+			out += blankPreservingNewlines(source.slice(i, close));
+			i = close;
+			continue;
+		}
+		out += ch;
+		i++;
+	}
+	return out;
+};
+
+const extractTopLevelObjectKeys = (source, openBraceIndex) => {
+	const keys = [];
+	const len = source.length;
+	let depth = 0;
+	let parenDepth = 0;
+	let bracketDepth = 0;
+	let i = openBraceIndex;
+	let expectKey = true;
+
+	while (i < len) {
+		const ch = source[i];
+		if (ch === '"' || ch === "'" || ch === "`") {
+			const start = i++;
+			while (i < len) {
+				if (source[i] === "\\") i += 2;
+				else if (source[i++] === ch) break;
+			}
+			if (
+				depth === 1 &&
+				parenDepth === 0 &&
+				bracketDepth === 0 &&
+				expectKey &&
+				ch !== "`"
+			) {
+				let j = i;
+				while (j < len && /\s/.test(source[j])) j++;
+				if (source[j] === ":") {
+					keys.push(source.slice(start + 1, i - 1));
+					expectKey = false;
+				}
+			}
+			continue;
+		}
+		if (ch === "{") {
+			depth++;
+			if (depth === 1) expectKey = true;
+			i++;
+			continue;
+		}
+		if (ch === "}") {
+			depth--;
+			i++;
+			if (depth === 0) break;
+			continue;
+		}
+		if (ch === "(") {
+			parenDepth++;
+			i++;
+			continue;
+		}
+		if (ch === ")" && parenDepth > 0) {
+			parenDepth--;
+			i++;
+			continue;
+		}
+		if (ch === "[") {
+			bracketDepth++;
+			i++;
+			continue;
+		}
+		if (ch === "]" && bracketDepth > 0) {
+			bracketDepth--;
+			i++;
+			continue;
+		}
+		if (depth === 1 && parenDepth === 0 && bracketDepth === 0) {
+			if (ch === ",") {
+				expectKey = true;
+				i++;
+				continue;
+			}
+			if (expectKey && /[A-Za-z_$]/.test(ch)) {
+				const start = i++;
+				while (i < len && /[\w$]/.test(source[i])) i++;
+				let j = i;
+				while (j < len && /\s/.test(source[j])) j++;
+				if (source[j] === ":" || source[j] === "," || source[j] === "}") {
+					keys.push(source.slice(start, i));
+					expectKey = false;
+				}
+				continue;
+			}
+		}
+		i++;
+	}
+	return keys;
+};
+
+const isMarkdownAlternate = (attrs) => {
+	const rels = (attrs.rel || "").toLowerCase().split(/\s+/).filter(Boolean);
+	const mediaType = (attrs.type || "").split(";")[0].trim().toLowerCase();
+	return rels.includes("alternate") && mediaType === "text/markdown";
+};
+
+const stripQueryAndHash = (ref) => {
+	const idx = ref.search(/[?#]/);
+	return idx === -1 ? ref : ref.slice(0, idx);
+};
+
 export default class Linter {
 	static check(file, source, availableLocales = null) {
 		if (!file.endsWith(".html")) return [];
@@ -11,13 +178,118 @@ export default class Linter {
 		return violations;
 	}
 
+	static extractMarkdownAlternates(file, source) {
+		const document = Markup.parse(file, source, {
+			sourceCodeLocationInfo: true,
+		});
+		const links = [];
+		Linter.#traverse(document, (node) => {
+			if (node.nodeName !== "link") return;
+			const attrs = node.attrs
+				? Object.fromEntries(
+						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
+					)
+				: {};
+			if (!isMarkdownAlternate(attrs)) return;
+			const href = (attrs.href || "").trim();
+			if (!href) return;
+			const dynamic = Object.hasOwn(attrs, "data-otm-dynamic");
+			const loc = node.sourceCodeLocation?.attrs?.href ||
+				node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+			links.push({
+				file,
+				href,
+				dynamic,
+				line: loc.startLine,
+				column: loc.startCol,
+			});
+		});
+		return links;
+	}
+
+	static extractLlmsLinks(source) {
+		const links = [];
+		const lines = source.split(/\r?\n/);
+		let inFence = false;
+		for (let idx = 0; idx < lines.length; idx++) {
+			const line = lines[idx];
+			if (/^\s*(?:```|~~~)/.test(line)) {
+				inFence = !inFence;
+				continue;
+			}
+			if (inFence) continue;
+			// Blank out inline code spans so syntax examples don't trigger link checks.
+			const clean = line.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
+			for (const m of clean.matchAll(/(?<!!)\[([^\]]*)\]\(([^)]*)\)/g)) {
+				const rawTarget = m[2].trim();
+				// Allow optional Markdown link title after whitespace (e.g. README.md "Docs")
+				const closeAngle = rawTarget.indexOf(">");
+				const target = rawTarget.startsWith("<")
+					? closeAngle > 1
+						? rawTarget.slice(1, closeAngle).trim()
+						: ""
+					: rawTarget.split(/\s+/)[0] || "";
+				links.push({
+					label: m[1].trim(),
+					target,
+					rawTarget,
+					line: idx + 1,
+					column: m.index + 1,
+				});
+			}
+		}
+		return links;
+	}
+
+	static isCheckableLocalTarget(target, { checkRootRelative = false } = {}) {
+		if (!target || target.startsWith("#")) return false;
+		if (EXTERNAL_URL_RE.test(target)) return false;
+		const pathname = stripQueryAndHash(target);
+		if (!pathname || TEMPLATE_EXPR_RE.test(pathname)) return false;
+		if (pathname.startsWith("/")) return checkRootRelative;
+		return true;
+	}
+
+	static checkLlmsTxt(file, source) {
+		const violations = [];
+		const lines = source.split(/\r?\n/);
+		const firstNonEmptyIdx = lines.findIndex((l) => l.trim().length > 0);
+		if (
+			firstNonEmptyIdx === -1 ||
+			!/^#\s+\S/.test(lines[firstNonEmptyIdx].trim())
+		) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: firstNonEmptyIdx === -1 ? 1 : firstNonEmptyIdx + 1, column: 1 },
+				"LLMS-001",
+				'llms.txt must begin with an H1 title line ("# Project Name") per the llms.txt specification.',
+			);
+		}
+
+		for (const link of Linter.extractLlmsLinks(source)) {
+			if (!link.label || !link.target) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: link.line, column: link.column },
+					"LLMS-001",
+					"Malformed Markdown link in llms.txt; provide both non-empty link text and a target URL.",
+				);
+			}
+		}
+
+		return violations;
+	}
+
 	static #checkHtmlRules(document, violations, file, availableLocales) {
 		let hasI18nMeta = false;
 		let hasI18nPath = true;
 		let manifestMatches = true;
 		let isFullDocument = false;
+		const documentNavs = [];
 
-		Linter.#traverse(document, (node) => {
+		Linter.#traverse(document, (node, inTemplate) => {
 			if (
 				(node.nodeName === "html" || node.nodeName === "#documentType") &&
 				node.sourceCodeLocation
@@ -28,6 +300,30 @@ export default class Linter {
 			const attrs = node.attrs
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
+			const lowerAttrs = node.attrs
+				? Object.fromEntries(
+						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
+					)
+				: {};
+
+			if (node.nodeName === "nav" && !inTemplate) {
+				documentNavs.push({ node, attrs: lowerAttrs });
+			}
+
+			if (
+				node.nodeName === "link" &&
+				isMarkdownAlternate(lowerAttrs) &&
+				!lowerAttrs.href?.trim()
+			) {
+				const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-029",
+					'<link rel="alternate" type="text/markdown"> requires a non-empty href pointing to the canonical Markdown representation.',
+				);
+			}
 			const localeAttrs =
 				node.nodeName === "html"
 					? ["lang"]
@@ -134,6 +430,36 @@ export default class Linter {
 			}
 		});
 
+		if (documentNavs.length > 1) {
+			const seenLabels = new Set();
+			for (const { node, attrs } of documentNavs) {
+				const label = (attrs["aria-label"] || "").trim();
+				const labelledBy = (attrs["aria-labelledby"] || "").trim();
+				const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				if (!label && !labelledBy) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-028",
+						"Multiple <nav> landmarks in one document require distinguishing aria-label or aria-labelledby attributes.",
+					);
+				} else if (label) {
+					const normalized = label.toLowerCase();
+					if (seenLabels.has(normalized)) {
+						Linter.#addViolation(
+							violations,
+							file,
+							{ line: loc.startLine, column: loc.startCol },
+							"HTML-028",
+							`Duplicate <nav aria-label="${label}"> landmark; use unique labels to distinguish sibling navigations.`,
+						);
+					}
+					seenLabels.add(normalized);
+				}
+			}
+		}
+
 		if (isFullDocument && hasI18nMeta) {
 			if (!hasI18nPath) {
 				Linter.#addViolation(
@@ -157,6 +483,14 @@ export default class Linter {
 
 	static crossCheck({ htmlSources, jsSources, cssSources = [] }) {
 		const violations = [];
+		const cleanJsSources = jsSources.map(({ file, source }) => ({
+			file,
+			source: stripJsComments(source),
+		}));
+		const cleanCssSources = cssSources.map(({ file, source }) => ({
+			file,
+			source: stripCssComments(source),
+		}));
 
 		// HTML-101: orphan templates — <template id="X"> never referenced by $.clone(_, "#X")
 		const templates = new Map();
@@ -187,7 +521,7 @@ export default class Linter {
 		}
 
 		const cloneRefs = new Set();
-		for (const { source } of jsSources) {
+		for (const { source } of cleanJsSources) {
 			const matches = source.matchAll(
 				/\$\.clone(?:Each)?\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
 			);
@@ -283,7 +617,7 @@ export default class Linter {
 		// HTML-104: keys written globally in JS that also appear as data-text
 		// slots inside <template> subtrees — global writes walk the whole
 		// document and clobber every instance.
-		const globalWriteKeys = Linter.#globalWriteKeys(jsSources);
+		const globalWriteKeys = Linter.#globalWriteKeys(cleanJsSources);
 
 		for (const { file, source } of htmlSources) {
 			const document = Markup.parse(file, source, {
@@ -325,7 +659,7 @@ export default class Linter {
 		// JS (action-dispatch pattern) waives the dead-control direction.
 		const actionRefs = new Map();
 		let wildcardDispatch = false;
-		for (const { file, source } of jsSources) {
+		for (const { file, source } of cleanJsSources) {
 			if (/\[data-action\]/.test(source)) wildcardDispatch = true;
 			for (const m of source.matchAll(/\[data-action=["']?([\w-]+)["']?\]/g)) {
 				if (!actionRefs.has(m[1]))
@@ -372,12 +706,12 @@ export default class Linter {
 		// "data-key" string literal e.g. MutationObserver attributeFilter)
 		// is dead state or a missing CSS rule.
 		const consumed = new Set();
-		for (const { source } of cssSources) {
+		for (const { source } of cleanCssSources) {
 			for (const m of source.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
 		}
 		for (const { file, source } of htmlSources) {
-			const markup = Markup.source(file, source);
+			const markup = stripCssComments(Markup.source(file, source));
 			// Inline <style> blocks ride along in the raw HTML source.
 			for (const m of markup.matchAll(/\[data-([a-z0-9-]+)/g))
 				consumed.add(m[1]);
@@ -390,7 +724,7 @@ export default class Linter {
 				}
 			}
 		}
-		for (const { source } of jsSources) {
+		for (const { source } of cleanJsSources) {
 			for (const m of source.matchAll(/["']data-([a-z0-9-]+)["']/g))
 				consumed.add(m[1]);
 			for (const m of source.matchAll(/\bthe\s*\(\s*["']([^"']+)["']\s*\)/g))
@@ -444,11 +778,11 @@ export default class Linter {
 		// that reveals a span may be named anything (body[data-form-error="V"]
 		// revealing [data-error-key="V"] is fully functional) — a reveal rule
 		// necessarily references the span it reveals, so the ref IS the proof.
-		const styleTexts = [...cssSources, ...htmlSources];
+		const styleTexts = [...cleanCssSources, ...htmlSources];
 		const spanRefs = [];
 		const refPairs = new Set();
 		for (const { file, source } of styleTexts) {
-			const styleSource = Markup.source(file, source);
+			const styleSource = stripCssComments(Markup.source(file, source));
 			for (const m of styleSource.matchAll(
 				/\[data-([a-z0-9-]+?)-key=["']?([\w-]+)["']?\]/g,
 			)) {
@@ -512,11 +846,10 @@ export default class Linter {
 				if (!keys.has(k))
 					keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 			}
-			for (const m of source.matchAll(/\bthe\s*\(\s*\{([^}]*)\}/g)) {
-				for (const km of m[1].matchAll(
-					/(?:^|[,{\s])["']?([A-Za-z_$][\w$]*)["']?\s*:/g,
-				)) {
-					const k = Linter.#kebab(km[1]);
+			for (const m of source.matchAll(/\bthe\s*\(\s*\{/g)) {
+				const openBrace = m.index + m[0].length - 1;
+				for (const rawKey of extractTopLevelObjectKeys(source, openBrace)) {
+					const k = Linter.#kebab(rawKey);
 					if (!keys.has(k))
 						keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 				}
@@ -525,13 +858,15 @@ export default class Linter {
 		return keys;
 	}
 
-	static #traverse(node, visitor) {
-		visitor(node);
+	static #traverse(node, visitor, inTemplate = false) {
+		visitor(node, inTemplate);
+		const childInTemplate = inTemplate || node.nodeName === "template";
 		// parse5 templates keep children under content.childNodes while
 		// childNodes stays a truthy empty array — walk both.
-		for (const child of node.childNodes || []) Linter.#traverse(child, visitor);
+		for (const child of node.childNodes || [])
+			Linter.#traverse(child, visitor, childInTemplate);
 		for (const child of node.content?.childNodes || [])
-			Linter.#traverse(child, visitor);
+			Linter.#traverse(child, visitor, true);
 	}
 
 	static #addViolation(violations, file, loc, ruleId, message, severity) {

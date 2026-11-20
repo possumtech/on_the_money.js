@@ -195,3 +195,77 @@ test("Cli.scan: .ejs joins the markup universe for cross-file rules", async (t) 
 	assert.strictEqual(result, 0);
 	await fs.rm(tmp, { recursive: true, force: true });
 });
+
+test("Cli.scan: HTML-108 checks static relative markdown alternates and stays SSR-safe for root-relative routes", async (t) => {
+	quiet(t);
+	// Missing relative companion triggers HTML-108
+	const missingRel = await fixture(t, {
+		"index.html":
+			'<!doctype html><html lang="en"><head><link rel="alternate" type="text/markdown" href="./index.md"></head><body><main><h1>Hi</h1></main></body></html>',
+	});
+	assert.strictEqual(await Cli.run(["--check", missingRel]), 1);
+
+	// Present relative companion passes
+	await fs.writeFile(path.join(missingRel, "index.md"), "# Hi\n");
+	assert.strictEqual(await Cli.run(["--check", missingRel]), 0);
+
+	// Dynamic SSR root-relative route is NOT flagged without --public-root
+	const ssr = await fixture(t, {
+		"views/post.html":
+			'<!doctype html><html lang="en"><head><link rel="alternate" type="text/markdown" href="/posts/hello.md"></head><body><main><h1>Hello</h1></main></body></html>',
+	});
+	assert.strictEqual(await Cli.run(["--check", path.join(ssr, "views")]), 0);
+
+	// With explicit --public-root, missing static target IS flagged unless marked data-otm-dynamic
+	const pub = path.join(ssr, "public");
+	await fs.mkdir(pub, { recursive: true });
+	assert.strictEqual(
+		await Cli.run(["--check", path.join(ssr, "views"), "--public-root", pub]),
+		1,
+	);
+	await fs.mkdir(path.join(pub, "posts"), { recursive: true });
+	await fs.writeFile(path.join(pub, "posts/hello.md"), "# Hello\n");
+	assert.strictEqual(
+		await Cli.run(["--check", path.join(ssr, "views"), "--public-root", pub]),
+		0,
+	);
+});
+
+test("Cli.scan: validates llms.txt structure (LLMS-001) and static local targets (LLMS-002)", async (t) => {
+	quiet(t);
+	const bad = await fixture(t, {
+		"llms.txt": "# Site\n\n- [Missing](./missing.md)\n",
+		"index.html":
+			"<!doctype html><html lang='en'><body><main></main></body></html>",
+	});
+	assert.strictEqual(await Cli.run(["--check", bad]), 1);
+
+	await fs.writeFile(path.join(bad, "missing.md"), "# Present\n");
+	assert.strictEqual(await Cli.run(["--check", bad]), 0);
+
+	// Root-relative links in llms.txt stay SSR-safe unless --public-root is passed
+	const ssrLlms = await fixture(t, {
+		"llms.txt": "# Site\n\n- [Dynamic](/api/doc.md)\n",
+		"index.html":
+			"<!doctype html><html lang='en'><body><main></main></body></html>",
+	});
+	assert.strictEqual(await Cli.run(["--check", ssrLlms]), 0);
+	assert.strictEqual(
+		await Cli.run(["--check", ssrLlms, "--public-root", ssrLlms]),
+		1,
+	);
+});
+
+test("Repo root llms.txt passes LLMS-001 and all its relative links exist", async () => {
+	const root = path.resolve(new URL("../..", import.meta.url).pathname);
+	const llmsPath = path.join(root, "llms.txt");
+	const source = await fs.readFile(llmsPath, "utf8");
+	const { default: Linter } = await import("./Linter.js");
+	assert.deepStrictEqual(Linter.checkLlmsTxt(llmsPath, source), []);
+	const links = Linter.extractLlmsLinks(source);
+	assert.ok(links.length > 0);
+	for (const link of links) {
+		if (!Linter.isCheckableLocalTarget(link.target)) continue;
+		await fs.access(path.resolve(root, link.target));
+	}
+});

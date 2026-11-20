@@ -5,6 +5,20 @@ import Dictionary from "../core/Dictionary.js";
 import Linter from "./Linter.js";
 import Markup from "./Markup.js";
 
+const stripQueryAndHash = (ref) => {
+	const idx = ref.search(/[?#]/);
+	return idx === -1 ? ref : ref.slice(0, idx);
+};
+
+const pathExists = async (targetPath) => {
+	try {
+		await fs.access(targetPath);
+		return true;
+	} catch {
+		return false;
+	}
+};
+
 export default class Cli {
 	static async run(args = []) {
 		console.log("on_the_money.js Linter (Experimental)");
@@ -72,7 +86,17 @@ export default class Cli {
 			.filter((f) => exts.includes(path.extname(f)));
 	}
 
-	static async scan(dir, { publicRoot = dir } = {}) {
+	static async #resolveAndCheckTarget(target, baseDir, publicRoot) {
+		const pathname = stripQueryAndHash(target);
+		const resolved = pathname.startsWith("/")
+			? path.resolve(publicRoot, pathname.slice(1))
+			: path.resolve(baseDir, pathname);
+		return { resolved, exists: await pathExists(resolved) };
+	}
+
+	static async scan(dir, options = {}) {
+		const hasExplicitPublicRoot = options.publicRoot !== undefined;
+		const publicRoot = options.publicRoot ?? dir;
 		const allFiles = await Cli.getFiles(dir, [
 			".html",
 			".ejs",
@@ -139,11 +163,80 @@ export default class Cli {
 			}
 
 			const violations = Linter.check(file, source, availableLocales);
+
+			// HTML-108: verify static local <link rel="alternate" type="text/markdown">
+			// targets (relative paths always; root-relative only with explicit --public-root).
+			for (const link of Linter.extractMarkdownAlternates(file, source)) {
+				if (link.dynamic) continue;
+				if (
+					!Linter.isCheckableLocalTarget(link.href, {
+						checkRootRelative: hasExplicitPublicRoot,
+					})
+				) {
+					continue;
+				}
+				const { exists } = await Cli.#resolveAndCheckTarget(
+					link.href,
+					path.dirname(file),
+					publicRoot,
+				);
+				if (!exists) {
+					violations.push({
+						file,
+						ruleId: "HTML-108",
+						line: link.line,
+						column: link.column,
+						message: `<link rel="alternate" type="text/markdown" href="${link.href}"> target does not exist on disk. Fix the path, emit the companion .md file, or mark dynamic SSR links data-otm-dynamic.`,
+					});
+				}
+			}
+
 			htmlSources.push({ file, source, dicts });
 
 			if (violations.length > 0) {
 				totalViolations += violations.length;
 				Cli.report(file, violations);
+			}
+		}
+
+		// LLMS-001 / LLMS-002: validate llms.txt if present in scanned root or publicRoot.
+		const llmsCandidates = [
+			...new Set([
+				path.resolve(dir, "llms.txt"),
+				path.resolve(publicRoot, "llms.txt"),
+			]),
+		];
+		for (const llmsFile of llmsCandidates) {
+			if (!(await pathExists(llmsFile))) continue;
+			const source = await fs.readFile(llmsFile, "utf-8");
+			const llmsViolations = Linter.checkLlmsTxt(llmsFile, source);
+			for (const link of Linter.extractLlmsLinks(source)) {
+				if (
+					!link.target ||
+					!Linter.isCheckableLocalTarget(link.target, {
+						checkRootRelative: hasExplicitPublicRoot,
+					})
+				) {
+					continue;
+				}
+				const { exists } = await Cli.#resolveAndCheckTarget(
+					link.target,
+					path.dirname(llmsFile),
+					publicRoot,
+				);
+				if (!exists) {
+					llmsViolations.push({
+						file: llmsFile,
+						ruleId: "LLMS-002",
+						line: link.line,
+						column: link.column,
+						message: `Local link "${link.target}" in llms.txt does not exist on disk.`,
+					});
+				}
+			}
+			if (llmsViolations.length > 0) {
+				totalViolations += llmsViolations.length;
+				Cli.report(llmsFile, llmsViolations);
 			}
 		}
 

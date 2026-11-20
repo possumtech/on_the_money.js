@@ -1,5 +1,7 @@
 import Dictionary from "./Dictionary.js";
+import { extractForm, flat } from "./Form.js";
 import Locale from "./Locale.js";
+import { go, match, route } from "./Router.js";
 
 export default class The {
 	static #dictionaries = [{ dictionary: {}, locale: null }];
@@ -67,114 +69,11 @@ export default class The {
 		);
 	}
 
-	static match(pattern, path) {
-		const subject =
-			path ??
-			(typeof window !== "undefined" && window.location
-				? window.location.pathname
-				: "");
-		const paramNames = [];
-		const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-		const regexSource = escaped.replace(
-			/:([a-zA-Z_][a-zA-Z0-9_]*)/g,
-			(_, name) => {
-				paramNames.push(name);
-				return "([^/]+)";
-			},
-		);
-		const m = subject.match(new RegExp(`^${regexSource}$`));
-		if (!m) return null;
-		const out = {};
-		paramNames.forEach((name, i) => {
-			out[name] = decodeURIComponent(m[i + 1]);
-		});
-		return out;
-	}
-
-	static flat(obj, sep = "_") {
-		if (obj === null || typeof obj !== "object") {
-			throw new TypeError("the.flat: input must be an object");
-		}
-		const out = {};
-		const walk = (val, prefix) => {
-			if (val === null || typeof val !== "object") {
-				out[prefix] = val;
-				return;
-			}
-			for (const [k, v] of Object.entries(val)) {
-				walk(v, prefix ? `${prefix}${sep}${k}` : k);
-			}
-		};
-		walk(obj, "");
-		return out;
-	}
-
-	static form(formEl) {
-		const obj = {};
-		const controls = formEl.querySelectorAll("input, select, textarea");
-
-		for (const el of controls) {
-			const name = el.name;
-			if (!name || el.disabled) continue;
-
-			const type = (el.type || "text").toLowerCase();
-			if (type === "submit" || type === "button" || type === "reset") continue;
-			if (type === "file") continue;
-
-			if (type === "checkbox" || type === "radio") {
-				const checked = el.checked ?? el.hasAttribute("checked");
-				if (!checked) continue;
-			}
-
-			if (el.tagName === "SELECT" && el.hasAttribute("multiple")) {
-				// selectedOptions in browsers; attribute query under linkedom (tests).
-				const opts =
-					"selectedOptions" in el
-						? el.selectedOptions
-						: el.querySelectorAll("option[selected]");
-				for (const opt of opts) The.#assign(obj, name, opt.value);
-				continue;
-			}
-
-			const value = el.value ?? el.getAttribute("value") ?? "";
-			The.#assign(obj, name, value);
-		}
-		return obj;
-	}
-
-	static #assign(obj, key, value) {
-		// name="tags[]" is an array from the first entry — shape must not
-		// depend on cardinality.
-		const isArrayLeaf = key.endsWith("[]");
-		const parts = key.split(/[[\]]/).filter(Boolean);
-		const forbidden = parts.find((part) =>
-			["__proto__", "prototype", "constructor"].includes(part),
-		);
-		if (forbidden) {
-			throw new TypeError(
-				`the.form: unsafe field name ${JSON.stringify(key)} contains forbidden path segment ${JSON.stringify(forbidden)}`,
-			);
-		}
-		let current = obj;
-		for (let i = 0; i < parts.length; i++) {
-			const part = parts[i];
-			const isLast = i === parts.length - 1;
-			if (isLast) {
-				if (isArrayLeaf) {
-					current[part] ||= [];
-					current[part].push(value);
-				} else if (current[part] !== undefined) {
-					if (!Array.isArray(current[part])) current[part] = [current[part]];
-					current[part].push(value);
-				} else {
-					current[part] = value;
-				}
-			} else {
-				current[part] = current[part] || {};
-				current = current[part];
-			}
-		}
-	}
+	static match = match;
+	static flat = flat;
+	static form = extractForm;
+	static route = route;
+	static go = go;
 
 	static _t(key, options = {}) {
 		const isNode =
@@ -306,95 +205,6 @@ export default class The {
 		}
 
 		return { text: result, locale: language };
-	}
-
-	static #routeNavigate = null;
-
-	static route(callback, { match, initial = true } = {}) {
-		if (typeof window === "undefined") return;
-		if (The.#routeNavigate) {
-			throw new Error(
-				"route(): a router is already active — call its unsubscribe first",
-			);
-		}
-
-		let lastHref = window.location.href;
-		const navigate = () => {
-			lastHref = window.location.href;
-			callback(
-				window.location.pathname,
-				window.location.search,
-				window.location.hash,
-			);
-		};
-		const onHashChange = () => {
-			if (window.location.href !== lastHref) navigate();
-		};
-		The.#routeNavigate = navigate;
-
-		const onClick = (e) => {
-			// Modified clicks (new tab, context menu chords) belong to the browser.
-			if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button > 0)
-				return;
-			const link = e.target.closest("a");
-			if (
-				!link?.getAttribute("href") ||
-				link.hasAttribute("data-external") ||
-				link.hasAttribute("download") ||
-				link.target === "_blank"
-			) {
-				return;
-			}
-			// Selective enhancement: with a match selector, only opted-in links
-			// are intercepted — everything else navigates natively.
-			if (match && !link.matches(match)) return;
-
-			const url = new URL(link.getAttribute("href"), window.location.href);
-			if (url.origin !== window.location.origin) return;
-
-			if (
-				url.pathname === window.location.pathname &&
-				url.search === window.location.search &&
-				url.hash
-			) {
-				return;
-			}
-
-			e.preventDefault();
-			if (url.href === window.location.href) return;
-			window.history.pushState({}, "", url.href);
-			navigate();
-		};
-
-		window.addEventListener("popstate", navigate);
-		window.addEventListener("hashchange", onHashChange);
-		document.addEventListener("click", onClick);
-
-		if (initial) navigate();
-
-		return () => {
-			window.removeEventListener("popstate", navigate);
-			window.removeEventListener("hashchange", onHashChange);
-			document.removeEventListener("click", onClick);
-			The.#routeNavigate = null;
-		};
-	}
-
-	// Programmatic navigation. pushState/replaceState don't fire popstate, so
-	// the click interceptor can't cover redirects (e.g. post-submit).
-	static go(path, { replace = false } = {}) {
-		if (typeof window === "undefined") return;
-		if (!The.#routeNavigate) {
-			throw new Error("route.go(): no active router — call route() first");
-		}
-		const url = new URL(path, window.location.href);
-		if (url.href === window.location.href) return;
-		if (replace) {
-			window.history.replaceState({}, "", url.href);
-		} else {
-			window.history.pushState({}, "", url.href);
-		}
-		The.#routeNavigate();
 	}
 
 	// ARIA mapping: HTML5 widget/form boolean states only. Closed set; no future

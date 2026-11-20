@@ -700,8 +700,6 @@ Compare against the live DOM before writing. Equal content leaves existing text 
 
 Already-sanitized rich fragments can use native `replaceChildren(sanitizedFragment)`. Sanitization, allowed markup/URLs, and the fragment's trust boundary belong to the application; OTM neither sanitizes nor interprets raw HTML or Markdown. `lang` describes the actual content language. [`translate="no"`](https://html.spec.whatwg.org/multipage/dom.html#the-translate-attribute) is a translation policy, not a required content marker.
 
-**Lint migration:** `otm/prefer-the-set` and HTML-004 are retired. The shipped ESLint configurations already omit the retired rule; remove it from any hand-written rule configuration. No lint suppression or replacement marker is needed. Lint cannot infer whether arbitrary prose is interface copy or document content, so authors own that distinction; the existing state, styling, and server-DOM rules remain in force.
-
 ### Routing with `the.match`
 
 ```javascript
@@ -764,15 +762,47 @@ await the.boot();   // localStorage values, if any, override the server-rendered
 
 The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates keys opted into `persistKeys` that have stored values. Keep fallback text inside `data-text` carriers (`<h1 data-text="user">Alice</h1>`) when practical, so the initial document remains useful before enhancement.
 
+### Server content-engine & agentic composition
+
+OTM is designed to compose cleanly with any upstream server-side content engine — Markdown → HTML filters (`goldmark`, `comrak`, Pandoc, Eleventy, Hugo), structured-data templates, or database-backed SSR — without client-side Markdown rendering or hydration:
+
+1. **The server renders plain semantic HTML** from your canonical documents (`.md`, JSON, DB rows). `on_the_money/css/schema` styles every standard Markdown element (`<h1>`–`<h6>`, `<p>`, `<table>`, `<blockquote>`, `<pre><code>`, `<dl>`, `<hr>`, `<figure>`) classlessly, and ordinary prose needs neither `data-i18n` nor `data-text` mirrors.
+2. **The server delivers canonical `text/markdown` to agents** (via `.md` URLs and/or HTTP `Accept: text/markdown` content negotiation in your server or reverse proxy), linked from HTML with `<link rel="alternate" type="text/markdown" href="...">` and indexed at `/llms.txt`.
+3. **Sibling landmarks carry explicit accessible names** (`aria-label` / `aria-labelledby`), giving screen readers, browser agents, and classless CSS (`nav[aria-label="Primary"]`) unambiguous hooks without class names.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hello World</title>
+  <link rel="alternate" type="text/markdown" href="/posts/hello.md">
+  <link rel="stylesheet" href="/assets/index.css">
+</head>
+<body>
+  <header><nav aria-label="Primary"><a href="/">Home</a></nav></header>
+  <main>
+    <article>
+      <h1>Hello World</h1>
+      <p>Server-rendered semantic HTML from canonical Markdown or structured data.</p>
+    </article>
+  </main>
+  <footer><nav aria-label="Footer"><a href="/llms.txt">llms.txt</a></nav></footer>
+</body>
+</html>
+```
+
+For two-stage static pipelines (`your-filter ./content ./stage && npx otm-build ./stage --out ./dist`), `otm-build` keeps `<link rel="alternate" type="text/markdown">` intact, copies `.md` companions and `llms.txt` straight through, and keeps the full semantic stylesheet intact by default.
+
+**NOT in scope:** OTM ships no Markdown or frontmatter parser, no HTML sanitizer, no SSG/layout engine, no `otm-build` filter plugin API, no server HTTP `Accept: text/markdown` middleware, and no speculative pre-standard browser-agent runtime APIs.
+
 ## Lint stack
 
 on_the_money ships a three-tool stack. Each layer covers what the others can't.
 
 ### 1. JavaScript — ESLint + bundled plugin
 
-The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath.
-
-ESLint 10's file-glob dependencies (`eslint` and `@eslint/config-array`) currently declare `minimatch@^10`, affected by [GHSA-g3hv-75wg-m249](https://github.com/advisories/GHSA-g3hv-75wg-m249). Until ESLint adopts `minimatch@^11`, consumers running full `npm audit` alongside ESLint must pin upstream `minimatch` (`>=11.0.1`) in their root `package.json` `overrides` (`"minimatch": "11.0.8"`). npm does not inherit overrides from installed libraries, so the consuming application owns this lockfile; runtime-only browser installs contain neither ESLint nor `minimatch`.
+The ESLint plugin and config ship inside `on_the_money` itself. No separate `eslint-plugin-otm` package — import via subpath. (ESLint 10's transitive glob deps currently require `"minimatch": "11.0.8"` in the consumer's root `overrides` for a clean `npm audit`; browser-only installs are unaffected.)
 
 ```bash
 npm install -D eslint eslint-plugin-no-unsanitized
@@ -804,11 +834,7 @@ The recommended config matches `**/*.{js,mjs,cjs,ts,mts,cts,tsx,jsx}` — your T
 
 ### 2. CSS — Stylelint + bundled plugin
 
-Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package.
-
-The optional Stylelint integration supports Stylelint 16 or newer; it is verified with Stylelint 18 and `stylelint-config-standard` 41. Stylelint 18 requires Node.js `^22.22.2`, `^24.15.0`, or `>=26.0.0`; OTM's own development and package support floor is Node.js 24.15.0.
-
-Stylelint 18 resolves configuration packages through standard ESM specifiers: use `stylelint-config-standard`, not a bare file path. Its file globs now use `picomatch` through `tinyglobby` rather than `braces`. If no other dependency uses `braces`, remove the root override required by earlier OTM guidance. If retaining Stylelint 17 or older, keep that existing audit mitigation until upgrading the affected chain. A clean audit reflects dependency resolution and known advisories, not a substitute for reviewing actual behavior.
+Same pattern: the Stylelint plugin and config ship inside `on_the_money`. No separate `stylelint-plugin-otm` package. Supports Stylelint `>=16` (verified with Stylelint 18 + `stylelint-config-standard` 41 on Node `>=24.15.0`).
 
 ```bash
 npm install -D stylelint stylelint-config-standard
@@ -844,6 +870,8 @@ npx otm-lint --check ./src
 | **HTML-025** | `data-i18n-type="currency"` without `data-i18n-currency` | `_t()` throws at runtime without an explicit ISO 4217 code — declare it on the element. |
 | **HTML-026** | Invalid source, available, or fallback locale identifier | Use Unicode locale tags accepted by `Intl.Locale`, such as `fr-CA` or `sr-Latn`. |
 | **HTML-027** | Active date formatting has a missing or invalid value | Supply ISO date text in `data-i18n-val` before activating `data-i18n-type="date"`. |
+| **HTML-028** | Multiple `<nav>` landmarks in one document without unique `aria-label` / `aria-labelledby` | Name each sibling `<nav>` with a distinct `aria-label` or `aria-labelledby` for assistive tech, browser agents, and classless CSS selectors. |
+| **HTML-029** | `<link rel="alternate" type="text/markdown">` without a non-empty `href` | Point `href` at the canonical Markdown representation. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
@@ -851,6 +879,9 @@ npx otm-lint --check ./src
 | **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
 | **HTML-106** | A globally written state key nothing consumes | The deletion test as lint: no CSS attribute selector, `[data-text]` slot, `"data-key"` JS string literal (e.g. MutationObserver `attributeFilter`), or `the("key")` read touches it — dead state or a missing CSS rule. Promoted from warn to error after a zero-false-positive production trial. |
 | **HTML-107** | A `data-K-key="V"` reveal span no state-CSS rule references, or a CSS `[data-K-key="V"]` reference no element carries | Pairing is by CSS reference — the state key revealing a span may be named anything (`body[data-form-error="V"] [data-error-key="V"]` is fine). Either half missing means the message silently never shows (or the rule is dead wiring); `data-otm-dynamic` opts a span out of the span→CSS direction. |
+| **HTML-108** | Local static `<link rel="alternate" type="text/markdown" href="...">` target missing on disk | Emit the companion `.md` file, fix the path, or mark dynamic SSR routes `data-otm-dynamic`. Relative paths are checked automatically; root-relative `/...` paths are checked only when `--public-root` is explicitly supplied so dynamic SSR servers do not false-positive. |
+| **LLMS-001** | Present `llms.txt` lacks a leading `# Title` H1 or has a malformed Markdown link | Follow the `llms.txt` specification: begin with `# Project Name` and ensure every link has non-empty label and URL. Checked only when `llms.txt` exists. |
+| **LLMS-002** | Local static target in `llms.txt` missing on disk | Fix stale `llms.txt` links after refactors. Relative links are checked automatically; root-relative `/...` links are checked only when `--public-root` is explicitly supplied. |
 
 `otm-lint` walks `.html`, `.ejs` (cross-file rules only — per-file rules stay `.html`), `.js`, `.css`, and locale `.json` files. HTML files get the per-file rules above (template content included); `.js` files contribute `$.clone` references, `the()` write/read keys, and `data-action` selectors; `.css` files contribute attribute-selector consumption for HTML-106; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is nonzero when error-level violations are found.
 
@@ -925,15 +956,15 @@ test("theme write projects into the badge", (_t) => {
 
 ```
 my-app/
-├── index.html              # substrate link + meta tags + script entry
+├── index.html              # 5-S stylesheets + meta tags + script entry
 ├── app.js                  # await the.boot(); register handlers
-├── locales/
-│   ├── es.json
-│   └── fr.json
-├── styles.css              # attribute-selector-driven custom CSS (optional)
-└── views/
-    ├── home.html           # fragment imported via fetch + $.clone, or inline <template>
-    └── about.html
+├── structure.css           # @layer structure — layout geometry
+├── style.css               # @layer style     — brand skin & --otm-* overrides
+├── state.css               # @layer state     — [data-*] / [aria-*] / native state
+├── llms.txt                # optional agent index (validated by otm-lint when present)
+└── locales/
+    ├── es.json
+    └── fr.json
 ```
 
 For an English-source document, `<meta name="i18n" content="/locales" data-available="es,fr">` advertises optional Spanish and French dictionaries. English fallback is already in the HTML. Omit both the meta and the `locales/` directory when no translations exist.
@@ -943,28 +974,31 @@ For an English-source document, `<meta name="i18n" content="/locales" data-avail
 `npm run size` measures the minified and gzipped core and lists its module inputs without writing build output. Translation dictionaries are application resources, not part of that bundle.
 
 ```
+llms.txt                    # machine-readable package index
 src/
 ├── core/
-│   ├── index.js           # public exports
-│   ├── On.js              # event delegation + emit
-│   ├── The.js             # state, i18n, boot, route, form, flat
-│   └── Select.js          # $, $$, clone
-├── test/
-│   └── index.js           # setupDOM harness (on_the_money/test)
-├── eslint/
-│   ├── plugin.js          # eslint-plugin-otm rules
-│   └── config.js          # shareable flat config
-├── stylelint/
-│   ├── plugin.js          # prefer-attribute-selector
-│   └── config.js          # shareable config
-└── linter/
-    ├── main.js            # otm-lint binary entrypoint
-    ├── cli.js             # directory scan, output
-    └── Linter.js          # rule implementations
-test/
-└── integration.test.js    # cross-module integration suite
+│   ├── index.js            # public exports
+│   ├── On.js               # pooled event delegation, target, emit
+│   ├── The.js              # state projection, i18n, boot
+│   ├── Form.js             # form extraction + object flattening
+│   ├── Router.js           # pushState router + pattern matching
+│   ├── Select.js           # $, $$, $.clone, $.cloneEach
+│   ├── Dictionary.js       # dictionary validation
+│   └── Locale.js           # Unicode locale chain + compatibility
+├── css/
+│   ├── index.css           # default schema + azure scheme
+│   ├── schema.css          # @layer schema semantic HTML + ARIA substrate
+│   └── schemes/*.css       # 20 @layer scheme color palettes
+├── live/                   # on_the_money/live (WebSocket + SSE battery)
+├── clipboard/              # on_the_money/clipboard (copy affordance battery)
+├── test/                   # on_the_money/test (setupDOM linkedom harness)
+├── eslint/                 # eslint-plugin-otm + shareable flat config
+├── stylelint/              # stylelint-plugin-otm (classless + 5-S layers)
+├── linter/                 # otm-lint CLI (HTML + cross-file + llms.txt)
+└── build/                  # otm-build CLI (optional esbuild peer)
+test/                       # integration, README doctests, types, Playwright
 dist/
-└── on_the_money.min.js    # CDN/script-tag artifact only — npm resolves "." to src
+└── on_the_money.min.js     # CDN/script-tag artifact only — npm resolves "." to src
 ```
 
 **One module graph.** The npm entry (`.`) and every battery subpath resolve into the same `src/` graph, so `The`'s statics (`dictionary`, `locale`, `prefix`, `persistKeys`) are one singleton everywhere. `dist/on_the_money.min.js` exists solely for `<script type="module">` hotlinking — importing it *alongside* npm subpaths would fork the core, which is exactly the bug this arrangement removes.
