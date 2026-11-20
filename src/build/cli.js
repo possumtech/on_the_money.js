@@ -12,7 +12,7 @@ export default class BuildCli {
 				allowPositionals: true,
 				options: {
 					out: { type: "string", short: "o", default: "dist" },
-					"no-prune": { type: "boolean", default: false },
+					prune: { type: "boolean", default: false },
 					"no-hash": { type: "boolean", default: false },
 					help: { type: "boolean", short: "h", default: false },
 				},
@@ -20,7 +20,7 @@ export default class BuildCli {
 
 			if (values.help) {
 				console.log(
-					"Usage: otm-build [srcDir] [--out <dir>] [--no-prune] [--no-hash]",
+					"Usage: otm-build [srcDir] [--out <dir>] [--prune] [--no-hash]",
 				);
 				return 0;
 			}
@@ -32,7 +32,7 @@ export default class BuildCli {
 			const result = await Builder.build({
 				srcDir: positionals[0] ?? ".",
 				outDir: values.out,
-				prune: !values["no-prune"],
+				prune: values.prune,
 				hash: !values["no-hash"],
 			});
 

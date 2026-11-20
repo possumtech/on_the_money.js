@@ -55,6 +55,7 @@ test("on_the_money/css ships schema, index, and all 20 Pico color schemes", asyn
 	assert.match(schemaCss, /light-dark\(/);
 	assert.match(schemaCss, /color-mix\(in oklch,/);
 	assert.doesNotMatch(schemaCss, /prefers-color-scheme/);
+	assert.doesNotMatch(schemaCss, /\[aria-hidden="true"\]/);
 
 	for (const name of EXPECTED_SCHEMES) {
 		const schemeCss = await fs.readFile(

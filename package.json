@@ -78,7 +78,6 @@
 		"node": ">=24.15.0"
 	},
 	"dependencies": {
-		"esbuild": "0.28.2",
 		"parse5": "8.1.1",
 		"postcss-selector-parser": "7.2.1"
 	},
@@ -86,10 +85,14 @@
 		"minimatch": "11.0.8"
 	},
 	"peerDependencies": {
+		"esbuild": ">=0.20",
 		"linkedom": ">=0.18",
 		"stylelint": ">=16"
 	},
 	"peerDependenciesMeta": {
+		"esbuild": {
+			"optional": true
+		},
 		"linkedom": {
 			"optional": true
 		},
@@ -100,6 +103,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.6.7",
 		"@playwright/test": "1.65.0",
+		"esbuild": "0.28.2",
 		"eslint": "10.14.0",
 		"linkedom": "0.18.15",
 		"stylelint": "18.0.0",

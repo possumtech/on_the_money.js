@@ -50,8 +50,14 @@ const layerDisciplineName = "otm/layer-discipline";
 const layerDisciplineMessages = stylelint.utils.ruleMessages(
 	layerDisciplineName,
 	{
-		stateSelectorInLayer: (attr, layer) =>
-			`State selector "${attr}" is forbidden in ${layer}.css. Move state-driven rules to state.css.`,
+		unlayeredRuleInFile: (selector, layer) =>
+			`Rule "${selector}" must be wrapped in "@layer ${layer} { ... }". Unlayered CSS overrides @layer state.`,
+		wrongLayerInFile: (selector, actual, expected) =>
+			`Rule "${selector}" is in "@layer ${actual}" inside ${expected}.css. Wrap it in "@layer ${expected} { ... }".`,
+		unlayeredRuleInLayeredFile: (selector) =>
+			`Unlayered rule "${selector}" overrides @layer state in a layered stylesheet. Wrap it in @layer structure, @layer style, or @layer state.`,
+		stateSelectorInLayer: (token, layer) =>
+			`State selector "${token}" is forbidden in @layer ${layer}. Move state-driven rules to state.css.`,
 		stylePropInStructure: (prop) =>
 			`Stylistic property "${prop}" belongs in style.css, not structure.css.`,
 		structurePropInStyle: (prop) =>
@@ -74,8 +80,33 @@ const STYLE_ONLY_PROPS = new Set([
 	"accent-color",
 	"text-decoration",
 	"text-decoration-color",
+	"border",
+	"border-top",
+	"border-right",
+	"border-bottom",
+	"border-left",
+	"border-block",
+	"border-block-start",
+	"border-block-end",
+	"border-inline",
+	"border-inline-start",
+	"border-inline-end",
 	"border-color",
+	"border-top-color",
+	"border-right-color",
+	"border-bottom-color",
+	"border-left-color",
+	"border-block-color",
+	"border-block-start-color",
+	"border-block-end-color",
+	"border-inline-color",
+	"border-inline-start-color",
+	"border-inline-end-color",
+	"border-style",
+	"border-radius",
+	"outline",
 	"outline-color",
+	"outline-style",
 ]);
 
 const STRUCTURE_ONLY_PROPS = new Set([
@@ -87,25 +118,42 @@ const STRUCTURE_ONLY_PROPS = new Set([
 	"grid-template-areas",
 	"grid-area",
 	"grid-column",
+	"grid-column-start",
+	"grid-column-end",
 	"grid-row",
+	"grid-row-start",
+	"grid-row-end",
 	"grid-auto-flow",
 	"grid-auto-columns",
 	"grid-auto-rows",
 	"flex",
+	"flex-grow",
+	"flex-shrink",
+	"flex-basis",
 	"flex-direction",
 	"flex-wrap",
 	"flex-flow",
 	"justify-content",
 	"justify-items",
+	"justify-self",
 	"align-items",
 	"align-content",
+	"align-self",
 	"place-items",
 	"place-content",
+	"place-self",
+	"order",
 	"gap",
 	"row-gap",
 	"column-gap",
 	"position",
 	"inset",
+	"inset-block",
+	"inset-block-start",
+	"inset-block-end",
+	"inset-inline",
+	"inset-inline-start",
+	"inset-inline-end",
 	"top",
 	"right",
 	"bottom",
@@ -123,7 +171,7 @@ const NATIVE_STATE_ATTRS = new Set([
 	"required",
 ]);
 
-const STATE_PSEUDOS = new Set([
+const DOM_STATE_PSEUDOS = new Set([
 	":checked",
 	":disabled",
 	":enabled",
@@ -138,13 +186,19 @@ const STATE_PSEUDOS = new Set([
 	":fullscreen",
 	":target",
 	":empty",
+]);
+
+const INTERACTIVE_PSEUDOS = new Set([
 	":focus",
 	":focus-visible",
 	":focus-within",
 	":hover",
 	":active",
-	":has",
 ]);
+
+const APP_LAYERS = new Set(["structure", "style", "state"]);
+const LAYER_IMPORT_RE =
+	/(?:on_the_money\/css|(?:^|[/\\"'-])(?:schema|scheme|structure|style|state)\.css)/i;
 
 const detectLayer = (from) => {
 	if (!from) return null;
@@ -169,24 +223,76 @@ const insideKeyframes = (node) => {
 	return false;
 };
 
-const selectorHasState = (selectorText) => {
+const isNestedRule = (rule) => {
+	let cur = rule.parent;
+	while (cur) {
+		if (cur.type === "rule") return true;
+		cur = cur.parent;
+	}
+	return false;
+};
+
+const enclosingRootLayer = (node) => {
+	let outermost = null;
+	let cur = node.parent;
+	while (cur) {
+		if (cur.type === "atrule" && cur.name.toLowerCase() === "layer") {
+			const name = cur.params.trim();
+			outermost = name ? name.split(".")[0].trim().toLowerCase() : "";
+		}
+		cur = cur.parent;
+	}
+	return outermost;
+};
+
+const fileOptsIntoLayers = (root) => {
+	let layered = false;
+	root.walkAtRules((atRule) => {
+		if (layered) return;
+		const name = atRule.name.toLowerCase();
+		if (name === "layer") {
+			layered = true;
+		} else if (name === "import" && LAYER_IMPORT_RE.test(atRule.params)) {
+			layered = true;
+		}
+	});
+	return layered;
+};
+
+const singleSelectorHasState = (selectorNode) => {
 	let found = false;
-	selectorParser((selectors) => {
-		selectors.walkAttributes((attr) => {
-			const lower = attr.attribute.toLowerCase();
-			if (isStateAttr(lower) || NATIVE_STATE_ATTRS.has(lower)) {
+	selectorNode.walkAttributes((attr) => {
+		const lower = attr.attribute.toLowerCase();
+		if (isStateAttr(lower) || NATIVE_STATE_ATTRS.has(lower)) {
+			found = true;
+		}
+	});
+	if (!found) {
+		selectorNode.walkPseudos((pseudo) => {
+			const lower = pseudo.value.toLowerCase();
+			if (DOM_STATE_PSEUDOS.has(lower) || INTERACTIVE_PSEUDOS.has(lower)) {
 				found = true;
 			}
 		});
-		if (!found) {
-			selectors.walkPseudos((pseudo) => {
-				if (STATE_PSEUDOS.has(pseudo.value.toLowerCase())) {
-					found = true;
-				}
-			});
+	}
+	return found;
+};
+
+const selectorHasState = (selectorText) => {
+	let allStateful = true;
+	selectorParser((selectors) => {
+		if (selectors.nodes.length === 0) {
+			allStateful = false;
+			return;
+		}
+		for (const sel of selectors.nodes) {
+			if (!singleSelectorHasState(sel)) {
+				allStateful = false;
+				return;
+			}
 		}
 	}).processSync(selectorText);
-	return found;
+	return allStateful;
 };
 
 const ruleOrAncestorHasState = (rule) => {
@@ -198,6 +304,42 @@ const ruleOrAncestorHasState = (rule) => {
 		cur = cur.parent;
 	}
 	return false;
+};
+
+const checkDisallowedStateSelectors = (rule, layer, result) => {
+	selectorParser((selectors) => {
+		selectors.walkAttributes((attr) => {
+			const lower = attr.attribute.toLowerCase();
+			if (isStateAttr(lower) || NATIVE_STATE_ATTRS.has(lower)) {
+				stylelint.utils.report({
+					message: layerDisciplineMessages.stateSelectorInLayer(
+						`[${attr.attribute}]`,
+						layer,
+					),
+					node: rule,
+					result,
+					ruleName: layerDisciplineName,
+				});
+			}
+		});
+		selectors.walkPseudos((pseudo) => {
+			const lower = pseudo.value.toLowerCase();
+			if (
+				DOM_STATE_PSEUDOS.has(lower) ||
+				(layer === "structure" && INTERACTIVE_PSEUDOS.has(lower))
+			) {
+				stylelint.utils.report({
+					message: layerDisciplineMessages.stateSelectorInLayer(
+						pseudo.value,
+						layer,
+					),
+					node: rule,
+					result,
+					ruleName: layerDisciplineName,
+				});
+			}
+		});
+	}).processSync(rule.selector);
 };
 
 const layerDisciplineRule = (primary) => {
@@ -212,41 +354,73 @@ const layerDisciplineRule = (primary) => {
 		);
 		if (!validOptions || !primary) return;
 
-		const layer = detectLayer(result.opts.from);
-		if (!layer) return;
+		const fileLayer = detectLayer(result.opts.from);
+		const layeredFile = fileLayer !== null || fileOptsIntoLayers(root);
 
 		root.walkRules((rule) => {
 			if (insideKeyframes(rule)) return;
 
-			if (layer === "structure" || layer === "style") {
-				selectorParser((selectors) => {
-					selectors.walkAttributes((attr) => {
-						const lower = attr.attribute.toLowerCase();
-						if (isStateAttr(lower)) {
-							stylelint.utils.report({
-								message: layerDisciplineMessages.stateSelectorInLayer(
-									`[${attr.attribute}]`,
-									layer,
-								),
-								node: rule,
-								result,
-								ruleName: layerDisciplineName,
-							});
-						}
-					});
-				}).processSync(rule.selector);
+			const declaredLayer = enclosingRootLayer(rule);
+			const nested = isNestedRule(rule);
+
+			if (fileLayer !== null) {
+				if (!nested) {
+					if (declaredLayer === null) {
+						stylelint.utils.report({
+							message: layerDisciplineMessages.unlayeredRuleInFile(
+								rule.selector,
+								fileLayer,
+							),
+							node: rule,
+							result,
+							ruleName: layerDisciplineName,
+						});
+					} else if (declaredLayer !== fileLayer) {
+						stylelint.utils.report({
+							message: layerDisciplineMessages.wrongLayerInFile(
+								rule.selector,
+								declaredLayer || "(anonymous)",
+								fileLayer,
+							),
+							node: rule,
+							result,
+							ruleName: layerDisciplineName,
+						});
+					}
+				}
+			} else if (declaredLayer === null && layeredFile && !nested) {
+				stylelint.utils.report({
+					message: layerDisciplineMessages.unlayeredRuleInLayeredFile(
+						rule.selector,
+					),
+					node: rule,
+					result,
+					ruleName: layerDisciplineName,
+				});
+			}
+
+			const effectiveLayer =
+				fileLayer ??
+				(declaredLayer && APP_LAYERS.has(declaredLayer) ? declaredLayer : null);
+			if (!effectiveLayer) return;
+
+			if (effectiveLayer === "structure" || effectiveLayer === "style") {
+				checkDisallowedStateSelectors(rule, effectiveLayer, result);
 
 				rule.each((child) => {
 					if (child.type !== "decl") return;
 					const prop = child.prop.toLowerCase();
-					if (layer === "structure" && STYLE_ONLY_PROPS.has(prop)) {
+					if (effectiveLayer === "structure" && STYLE_ONLY_PROPS.has(prop)) {
 						stylelint.utils.report({
 							message: layerDisciplineMessages.stylePropInStructure(child.prop),
 							node: child,
 							result,
 							ruleName: layerDisciplineName,
 						});
-					} else if (layer === "style" && STRUCTURE_ONLY_PROPS.has(prop)) {
+					} else if (
+						effectiveLayer === "style" &&
+						STRUCTURE_ONLY_PROPS.has(prop)
+					) {
 						stylelint.utils.report({
 							message: layerDisciplineMessages.structurePropInStyle(child.prop),
 							node: child,
@@ -255,7 +429,7 @@ const layerDisciplineRule = (primary) => {
 						});
 					}
 				});
-			} else if (layer === "state") {
+			} else if (effectiveLayer === "state") {
 				if (!ruleOrAncestorHasState(rule)) {
 					stylelint.utils.report({
 						message: layerDisciplineMessages.unconditionalInState(

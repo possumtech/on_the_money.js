@@ -52,9 +52,11 @@ try {
 		"runtime-consumer",
 		"stylelint-consumer",
 		"eslint-consumer",
+		"build-consumer",
 	]) {
 		const withStylelint = name === "stylelint-consumer";
 		const withESLint = name === "eslint-consumer";
+		const withBuild = name === "build-consumer";
 		const cwd = path.join(temporary, name);
 		await fs.mkdir(cwd);
 		await fs.writeFile(
@@ -73,6 +75,7 @@ try {
 							}
 						: {}),
 					...(withESLint ? { eslint: pkg.devDependencies.eslint } : {}),
+					...(withBuild ? { esbuild: pkg.devDependencies.esbuild } : {}),
 				},
 				...(withStylelint || withESLint ? { overrides: pkg.overrides } : {}),
 			}),
@@ -81,6 +84,9 @@ try {
 		const audit = JSON.parse(await npm(["audit", "--json"], cwd));
 		assert.equal(audit.metadata.vulnerabilities.total, 0);
 		const installed = path.join(cwd, "node_modules", pkg.name);
+		const manifest = JSON.parse(
+			await fs.readFile(path.join(installed, "package.json")),
+		);
 		const example = withESLint
 			? contentExample(
 					await fs.readFile(path.join(installed, "README.md"), "utf8"),
@@ -107,11 +113,19 @@ try {
 				const bad = await stylelint.lint({code: ".active { color: red !important; }", config});
 				assert.deepEqual(bad.results[0].warnings.map(({rule}) => rule).sort(),
 					["declaration-no-important", "otm/prefer-attribute-selector"]);
+				const unlayered = await stylelint.lint({
+					code: "main { display: grid; }",
+					codeFilename: "structure.css",
+					config,
+				});
+				assert.deepEqual(unlayered.results[0].warnings.map(({rule}) => rule),
+					["otm/layer-discipline"]);
 				const {createRequire} = await import("node:module");
 				const require = createRequire(import.meta.url);
 
 				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
+				assert.throws(() => require.resolve("esbuild"), {code: "MODULE_NOT_FOUND"});
 				const files = await stylelint.lint({
 					files: "**/*.css",
 					config: {...config, extends: ["stylelint-config-standard"]},
@@ -122,9 +136,12 @@ try {
 			: withESLint
 				? `
 				import assert from "node:assert/strict";
+				import {createRequire} from "node:module";
 				import {ESLint, Linter} from "eslint";
 				import config from "on_the_money/eslint-config";
 				import plugin from "on_the_money/eslint-plugin";
+				const require = createRequire(import.meta.url);
+				assert.throws(() => require.resolve("esbuild"), {code: "MODULE_NOT_FOUND"});
 				assert.equal(Object.hasOwn(plugin.rules, "prefer-the-set"), false);
 				const linter = new Linter();
 				for (const rules of [config, [plugin.configs.recommended]]) {
@@ -144,7 +161,14 @@ try {
 				assert.equal(fileResults.length, 1);
 				assert.deepEqual(fileResults[0].messages, []);
 			`
-				: `
+				: withBuild
+					? `
+				import assert from "node:assert/strict";
+				import {createRequire} from "node:module";
+				const require = createRequire(import.meta.url);
+				assert.ok(require.resolve("esbuild").includes("esbuild"));
+			`
+					: `
 				import assert from "node:assert/strict";
 				import {createRequire} from "node:module";
 				import {the} from "on_the_money";
@@ -153,6 +177,7 @@ try {
 				assert.ok(require.resolve("on_the_money/css").endsWith("src/css/index.css"));
 				assert.ok(require.resolve("on_the_money/css/schema").endsWith("src/css/schema.css"));
 				assert.ok(require.resolve("on_the_money/css/schemes/jade").endsWith("src/css/schemes/jade.css"));
+				assert.throws(() => require.resolve("esbuild"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("stylelint"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
@@ -161,11 +186,21 @@ try {
 			cwd,
 			timeout: 10000,
 		});
+		if (name === "runtime-consumer") {
+			await assert.rejects(
+				exec(
+					process.execPath,
+					[path.join(installed, manifest.bin["otm-build"]), "."],
+					{ cwd, timeout: 10000 },
+				),
+				(error) => {
+					assert.match(error.stderr, /optional peer dependency "esbuild"/);
+					return true;
+				},
+			);
+		}
 		if (withESLint) {
 			const fixture = path.join(cwd, "content");
-			const manifest = JSON.parse(
-				await fs.readFile(path.join(installed, "package.json")),
-			);
 			await exec(
 				process.execPath,
 				[path.join(installed, manifest.bin["otm-lint"]), "--check", fixture],
@@ -174,6 +209,8 @@ try {
 					timeout: 10000,
 				},
 			);
+		}
+		if (withBuild) {
 			const buildFixture = path.join(cwd, "build-smoke");
 			await fs.mkdir(buildFixture);
 			await fs.writeFile(
@@ -206,7 +243,13 @@ try {
 				"utf8",
 			);
 			assert.match(builtHtml, /assets\/index\.[0-9a-f]{8}\.css/);
-			assert.match(builtHtml, /assets\/app\.[0-9a-f]{8}\.js/);
+			assert.match(builtHtml, /assets\/app\.[0-9A-Za-z]{8}\.js/);
+			const cssHref = builtHtml.match(/href="([^"]+)"/)?.[1];
+			const builtCss = await fs.readFile(
+				path.join(cwd, "dist-smoke", cssHref),
+				"utf8",
+			);
+			assert.match(builtCss, /\btable\{/);
 		}
 		console.log(
 			`${name}: packed imports, public contracts, and full audit passed`,
