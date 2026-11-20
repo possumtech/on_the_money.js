@@ -875,6 +875,31 @@ The rules' job is to catch the *first* mistake and surface a teaching message ("
 | Runtime a11y | `axe-core` via Playwright/Cypress against the rendered page |
 | Supply-chain | `npm audit`, `osv-scanner` |
 
+## Production builds (`otm-build`)
+
+`on_the_money` ships a zero-config production bundler backed directly by `esbuild` plus HTML-aware CSS pruning (no Vite, no config files):
+
+```bash
+npx otm-build ./src --out ./dist
+```
+
+Flags: `--out <dir>` (default `dist`), `--no-prune` (keep all CSS rules), `--no-hash` (omit 8-char content hashes).
+
+What `otm-build` does:
+1. Discovers `.html` entry files and walks their DOM — **including all `<template>` contents** — via `parse5` to collect every HTML element tag used by the app.
+2. Collapses all local `<link rel="stylesheet">` layers (`schema`, `scheme`, `structure`, `style`, `state`) into one bundle via `esbuild`, prunes rules for unused HTML elements, minifies, and rewrites the HTML to a single content-hashed `<link>`.
+3. Bundles and minifies each local `<script type="module" src="...">` via `esbuild` and rewrites `src` to its content-hashed output.
+4. Copies static companion files (such as `locales/*.json` and media assets) into the output directory.
+
+> **Why HTML-aware CSS pruning is sound — and what it forbids:**
+> OTM’s architecture forbids JS-driven HTML injection (`innerHTML`, `insertAdjacentHTML`, `document.createElement` strings — enforced by `otm/no-innerhtml` and `otm/no-dom-building`). Because every dynamic UI fragment is declared statically inside `<template>` tags, the static HTML + `<template>` universe is complete. **JS-driven HTML injection is incompatible with this architecture:** tags conjured only inside JavaScript strings will have their substrate rules pruned away unless you pass `--no-prune`.
+
+**NOT-list (explicitly out of scope for `otm-build`):**
+- No dev server, HMR, or WebSocket live-reload runtime.
+- No config file (`otm.config.js`) or plugin API.
+- No JSX, TypeScript transpilation, SCSS/LESS, or legacy browser polyfills.
+- No lock-in: `on_the_money` and `on_the_money/css` remain standard ESM + CSS subpath exports usable with raw `esbuild`, Vite, or no bundler at all.
+
 ## Testing your app
 
 `on_the_money/test` ships the same harness this repo's own suite runs on: a [linkedom](https://github.com/WebReflection/linkedom) DOM with every global an OTM app touches installed on `globalThis` — `document`, `window` (with `location`/`history` stubs the router drives), `navigator`, `localStorage`, and the DOM constructors. Install `linkedom` as a dev dependency (it's an optional peer).

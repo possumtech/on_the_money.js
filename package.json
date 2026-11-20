@@ -6,7 +6,8 @@
 	"main": "src/core/index.js",
 	"module": "src/core/index.js",
 	"bin": {
-		"otm-lint": "src/linter/main.js"
+		"otm-lint": "src/linter/main.js",
+		"otm-build": "src/build/main.js"
 	},
 	"exports": {
 		".": {
@@ -60,11 +61,11 @@
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
 		"size": "node scripts/measure-bundle.js",
-		"test": "node --test --test-concurrency=1 src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
+		"test": "node --test --test-concurrency=1 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"test:browser": "playwright test",
 		"test:types": "tsc --project tsconfig.types.json",
 		"test:package": "node scripts/check-package.js",
-		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
+		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage && npm run test:types && npm run test:browser && npm run test:package",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:examples": "eslint examples/ && stylelint \"src/css/**/*.css\" \"examples/**/*.css\"",
@@ -77,6 +78,7 @@
 		"node": ">=24.15.0"
 	},
 	"dependencies": {
+		"esbuild": "0.28.2",
 		"parse5": "8.1.1",
 		"postcss-selector-parser": "7.2.1"
 	},
@@ -99,7 +101,6 @@
 	"devDependencies": {
 		"@biomejs/biome": "2.6.7",
 		"@playwright/test": "1.65.0",
-		"esbuild": "0.28.2",
 		"eslint": "10.14.0",
 		"linkedom": "0.18.15",
 		"stylelint": "18.0.0",
