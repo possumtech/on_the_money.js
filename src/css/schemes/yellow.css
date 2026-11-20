@@ -1,0 +1,13 @@
+/*!
+ * on_the_money.js — scheme: yellow
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: light-dark(#7a6100, #f2df0d);
+		--otm-primary-background: light-dark(#f2df0d, #f2df0d);
+		--otm-primary-inverse: light-dark(#000, #000);
+	}
+}

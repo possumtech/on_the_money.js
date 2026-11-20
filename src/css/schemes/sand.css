@@ -1,0 +1,13 @@
+/*!
+ * on_the_money.js — scheme: sand
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: light-dark(#6e6550, #ccc0a1);
+		--otm-primary-background: light-dark(#ccc0a1, #ccc0a1);
+		--otm-primary-inverse: light-dark(#000, #000);
+	}
+}

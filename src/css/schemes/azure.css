@@ -1,0 +1,13 @@
+/*!
+ * on_the_money.js — scheme: azure
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: light-dark(#0172ad, #01aaff);
+		--otm-primary-background: light-dark(#0172ad, #0172ad);
+		--otm-primary-inverse: light-dark(#fff, #fff);
+	}
+}

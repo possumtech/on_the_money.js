@@ -1,2 +1,2 @@
-declare const plugin: object;
-export default plugin;
+declare const plugins: object[];
+export default plugins;

@@ -150,6 +150,9 @@ try {
 				import {the} from "on_the_money";
 				const require = createRequire(import.meta.url);
 				assert.equal(typeof the.boot, "function");
+				assert.ok(require.resolve("on_the_money/css").endsWith("src/css/index.css"));
+				assert.ok(require.resolve("on_the_money/css/schema").endsWith("src/css/schema.css"));
+				assert.ok(require.resolve("on_the_money/css/schemes/jade").endsWith("src/css/schemes/jade.css"));
 				assert.throws(() => require.resolve("stylelint"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
@@ -171,6 +174,39 @@ try {
 					timeout: 10000,
 				},
 			);
+			const buildFixture = path.join(cwd, "build-smoke");
+			await fs.mkdir(buildFixture);
+			await fs.writeFile(
+				path.join(buildFixture, "index.html"),
+				'<!DOCTYPE html><html><head><link rel="stylesheet" href="app.css"><script type="module" src="app.js"></script></head><body><main><button>Hi</button></main></body></html>',
+			);
+			await fs.writeFile(
+				path.join(buildFixture, "app.css"),
+				'@import "on_the_money/css";\n',
+			);
+			await fs.writeFile(
+				path.join(buildFixture, "app.js"),
+				'import { the } from "on_the_money";\nthe("ready", true);\n',
+			);
+			await exec(
+				process.execPath,
+				[
+					path.join(installed, manifest.bin["otm-build"]),
+					buildFixture,
+					"--out",
+					path.join(cwd, "dist-smoke"),
+				],
+				{
+					cwd,
+					timeout: 10000,
+				},
+			);
+			const builtHtml = await fs.readFile(
+				path.join(cwd, "dist-smoke", "index.html"),
+				"utf8",
+			);
+			assert.match(builtHtml, /assets\/index\.[0-9a-f]{8}\.css/);
+			assert.match(builtHtml, /assets\/app\.[0-9a-f]{8}\.js/);
 		}
 		console.log(
 			`${name}: packed imports, public contracts, and full audit passed`,

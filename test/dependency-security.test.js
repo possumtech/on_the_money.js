@@ -42,7 +42,7 @@ test("Stylelint still lints real example files through brace expansion", async (
 		config,
 	});
 	assert.equal(result.errored, false);
-	assert.equal(result.results.length, 2);
+	assert.equal(result.results.length, 6);
 	assert.deepEqual(
 		result.results.flatMap(({ warnings }) => warnings),
 		[],

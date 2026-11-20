@@ -1,0 +1,13 @@
+/*!
+ * on_the_money.js — scheme: slate
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: light-dark(#525f7a, #8896b3);
+		--otm-primary-background: light-dark(#525f7a, #525f7a);
+		--otm-primary-inverse: light-dark(#fff, #fff);
+	}
+}

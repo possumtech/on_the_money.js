@@ -1081,3 +1081,78 @@ test("header-authenticated sse streams named events and forwards authorization i
 		lastEventId: "9",
 	});
 });
+
+test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), scoped theme, and ARIA states in real browsers", async ({
+	page,
+}) => {
+	await page.addStyleTag({ url: "/src/css/schema.css" });
+	await page.addStyleTag({ url: "/src/css/schemes/jade.css" });
+	await page.addStyleTag({
+		content: `
+			@layer structure { main > section { display: none; } }
+			@layer state { body[data-panel="open"] main > section[data-panel] { display: block; } }
+		`,
+	});
+	const result = await page.evaluate(async () => {
+		const { the } = await import("/src/core/index.js");
+		document.body.innerHTML = `
+			<main>
+				<section data-panel>
+					<a id="link" href="#top">Link</a>
+					<input id="email" type="email" aria-invalid="true">
+					<button id="go" aria-busy="true">Go</button>
+					<aside id="scoped" data-theme="dark"><a id="scoped-link" href="#x">Dark</a></aside>
+				</section>
+			</main>
+		`;
+		the("theme", "light");
+		const lightBg = getComputedStyle(document.body).backgroundColor;
+		const jadeLightLink = getComputedStyle(
+			document.querySelector("#link"),
+		).color;
+		const scopedDarkLink = getComputedStyle(
+			document.querySelector("#scoped-link"),
+		).color;
+		const hiddenDisplay = getComputedStyle(
+			document.querySelector("section[data-panel]"),
+		).display;
+
+		the("theme", "dark");
+		const darkBg = getComputedStyle(document.body).backgroundColor;
+		const jadeDarkLink = getComputedStyle(
+			document.querySelector("#link"),
+		).color;
+
+		the("panel", "open");
+		const openDisplay = getComputedStyle(
+			document.querySelector("section[data-panel]"),
+		).display;
+
+		const invalidBorder = getComputedStyle(
+			document.querySelector("#email"),
+		).borderTopColor;
+		const busyCursor = getComputedStyle(document.querySelector("#go")).cursor;
+
+		return {
+			lightBg,
+			darkBg,
+			jadeLightLink,
+			scopedDarkLink,
+			jadeDarkLink,
+			hiddenDisplay,
+			openDisplay,
+			invalidBorder,
+			busyCursor,
+		};
+	});
+
+	expect(result.lightBg).toBe("rgb(255, 255, 255)");
+	expect(result.darkBg).toBe("rgb(19, 23, 31)");
+	expect(result.jadeLightLink).toBe("rgb(0, 122, 80)");
+	expect(result.scopedDarkLink).toBe("rgb(0, 180, 120)");
+	expect(result.jadeDarkLink).toBe("rgb(0, 180, 120)");
+	expect(result.hiddenDisplay).toBe("none");
+	expect(result.openDisplay).toBe("block");
+	expect(result.invalidBorder).toBe("rgb(224, 112, 112)");
+	expect(result.busyCursor).toBe("progress");
+});

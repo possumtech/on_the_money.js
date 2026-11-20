@@ -1,0 +1,13 @@
+/*!
+ * on_the_money.js — scheme: indigo
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: light-dark(#524ed2, #8480f0);
+		--otm-primary-background: light-dark(#524ed2, #524ed2);
+		--otm-primary-inverse: light-dark(#fff, #fff);
+	}
+}
