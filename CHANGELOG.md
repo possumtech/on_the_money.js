@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-11-20
+
+This pre-1.0 minor release resolves post-`0.13.0` substrate, 5-S Stylelint, packaging, and `otm-build` contract defects surfaced during downstream integration planning. Runtime-only and Vite consumers no longer pull `esbuild` (now an optional peer dependency), and `otm-build` keeps the full bundled stylesheet by default so sanitized rich fragments and server-rendered pages sharing the stylesheet never lose semantic styling (`--prune` is now opt-in). Core JS runtime size is unchanged (`12.3 KB` minified / `4.8 KB` gzipped).
+
 ### Fixed
 
 - **CSS substrate (`on_the_money/css/schema`):** removed `[aria-hidden="true"]` from `[hidden] { display: none; }` so decorative icons stay visible; added surface/text color evaluation (`background-color` / `color`) on scoped `[data-theme="dark"|"light"]` subtrees while keeping `--otm-*` tokens on `:root` so `@layer style` overrides survive `the("theme", ...)`; kept `display: inline-block` on `kbd` only so long inline `<code>` spans wrap normally. (#23)
