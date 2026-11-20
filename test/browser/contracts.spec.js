@@ -1082,7 +1082,7 @@ test("header-authenticated sse streams named events and forwards authorization i
 	});
 });
 
-test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme') and ARIA states in real browsers", async ({
+test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), scoped theme, and ARIA states in real browsers", async ({
 	page,
 }) => {
 	await page.addStyleTag({ url: "/src/css/schema.css" });
@@ -1098,25 +1098,30 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme') and 
 		document.body.innerHTML = `
 			<main>
 				<section data-panel>
+					<a id="link" href="#top">Link</a>
 					<input id="email" type="email" aria-invalid="true">
 					<button id="go" aria-busy="true">Go</button>
+					<aside id="scoped" data-theme="dark"><a id="scoped-link" href="#x">Dark</a></aside>
 				</section>
 			</main>
 		`;
 		the("theme", "light");
 		const lightBg = getComputedStyle(document.body).backgroundColor;
-		const jadePrimary = getComputedStyle(document.documentElement)
-			.getPropertyValue("--otm-primary")
-			.trim();
+		const jadeLightLink = getComputedStyle(
+			document.querySelector("#link"),
+		).color;
+		const scopedDarkLink = getComputedStyle(
+			document.querySelector("#scoped-link"),
+		).color;
 		const hiddenDisplay = getComputedStyle(
 			document.querySelector("section[data-panel]"),
 		).display;
 
 		the("theme", "dark");
 		const darkBg = getComputedStyle(document.body).backgroundColor;
-		const darkPrimary = getComputedStyle(document.documentElement)
-			.getPropertyValue("--otm-primary")
-			.trim();
+		const jadeDarkLink = getComputedStyle(
+			document.querySelector("#link"),
+		).color;
 
 		the("panel", "open");
 		const openDisplay = getComputedStyle(
@@ -1131,8 +1136,9 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme') and 
 		return {
 			lightBg,
 			darkBg,
-			jadePrimary,
-			darkPrimary,
+			jadeLightLink,
+			scopedDarkLink,
+			jadeDarkLink,
 			hiddenDisplay,
 			openDisplay,
 			invalidBorder,
@@ -1142,10 +1148,11 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme') and 
 
 	expect(result.lightBg).toBe("rgb(255, 255, 255)");
 	expect(result.darkBg).toBe("rgb(19, 23, 31)");
-	expect(result.jadePrimary).toBe("#007a50");
-	expect(result.darkPrimary).toBe("#00b478");
+	expect(result.jadeLightLink).toBe("rgb(0, 122, 80)");
+	expect(result.scopedDarkLink).toBe("rgb(0, 180, 120)");
+	expect(result.jadeDarkLink).toBe("rgb(0, 180, 120)");
 	expect(result.hiddenDisplay).toBe("none");
 	expect(result.openDisplay).toBe("block");
-	expect(result.invalidBorder).toBe("rgb(150, 74, 80)");
+	expect(result.invalidBorder).toBe("rgb(224, 112, 112)");
 	expect(result.busyCursor).toBe("progress");
 });

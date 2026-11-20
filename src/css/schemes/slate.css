@@ -6,38 +6,8 @@
 
 @layer scheme {
 	:root {
-		--otm-primary: #525f7a;
-		--otm-primary-hover: #3f4a60;
-		--otm-primary-background: #525f7a;
-		--otm-primary-hover-background: #3f4a60;
-		--otm-primary-underline: rgb(82 95 122 / 50%);
-		--otm-primary-focus: rgb(82 95 122 / 37.5%);
-		--otm-primary-inverse: #fff;
-		--otm-text-selection-color: rgb(82 95 122 / 25%);
-	}
-
-	@media only screen and (prefers-color-scheme: dark) {
-		:root:not([data-theme="light"]):not(:has(> body[data-theme="light"])) {
-			--otm-primary: #8896b3;
-			--otm-primary-hover: #a2aec7;
-			--otm-primary-background: #525f7a;
-			--otm-primary-hover-background: #637291;
-			--otm-primary-underline: rgb(136 150 179 / 50%);
-			--otm-primary-focus: rgb(136 150 179 / 37.5%);
-			--otm-primary-inverse: #fff;
-			--otm-text-selection-color: rgb(136 150 179 / 25%);
-		}
-	}
-
-	[data-theme="dark"],
-	:root:has(> body[data-theme="dark"]) {
-		--otm-primary: #8896b3;
-		--otm-primary-hover: #a2aec7;
-		--otm-primary-background: #525f7a;
-		--otm-primary-hover-background: #637291;
-		--otm-primary-underline: rgb(136 150 179 / 50%);
-		--otm-primary-focus: rgb(136 150 179 / 37.5%);
-		--otm-primary-inverse: #fff;
-		--otm-text-selection-color: rgb(136 150 179 / 25%);
+		--otm-primary: light-dark(#525f7a, #8896b3);
+		--otm-primary-background: light-dark(#525f7a, #525f7a);
+		--otm-primary-inverse: light-dark(#fff, #fff);
 	}
 }

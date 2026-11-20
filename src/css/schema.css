@@ -1,221 +1,107 @@
 /*!
- * on_the_money.js — schema.css (classless semantic HTML foundation)
+ * on_the_money.js — schema.css (modern classless semantic HTML foundation)
  * Distilled from Pico CSS Classless (MIT License, https://picocss.com).
- * Zero classes. Zero !important. Semantic HTML + ARIA + [data-theme].
+ * Evergreen browsers only. Zero classes. Zero !important. Logical properties.
  */
 @layer schema, scheme, structure, style, state;
 
 @layer schema {
 	:root {
 		color-scheme: light dark;
+		interpolate-size: allow-keywords;
 
 		/* Typography */
 		--otm-font-family:
-			system-ui, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, Helvetica, Arial,
-			"Helvetica Neue", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-			"Segoe UI Symbol", "Noto Color Emoji";
+			system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 		--otm-font-family-monospace:
-			ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-			"Liberation Mono", monospace;
+			ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 		--otm-font-size: 100%;
 		--otm-line-height: 1.5;
 		--otm-font-weight: 400;
 
-		/* Layout & rhythm */
+		/* Rhythm & geometry */
 		--otm-spacing: 1rem;
-		--otm-typography-spacing-vertical: 1rem;
-		--otm-block-spacing-vertical: var(--otm-spacing);
-		--otm-block-spacing-horizontal: var(--otm-spacing);
-		--otm-border-radius: 0.25rem;
+		--otm-border-radius: 0.375rem;
 		--otm-border-width: 0.0625rem;
 		--otm-outline-width: 0.125rem;
-		--otm-transition: 0.2s ease-in-out;
+		--otm-transition: 0.18s ease;
 		--otm-container-max-width: 68rem;
+		--otm-form-element-spacing-block: 0.625rem;
+		--otm-form-element-spacing-inline: 0.875rem;
 
-		/* Form rhythm */
-		--otm-form-element-spacing-vertical: 0.75rem;
-		--otm-form-element-spacing-horizontal: 1rem;
+		/* Irreducible palette tokens (overridden by scheme.css or style.css) */
+		--otm-primary: light-dark(#0172ad, #01aaff);
+		--otm-primary-background: light-dark(#0172ad, #0172ad);
+		--otm-primary-inverse: light-dark(#fff, #fff);
 
-		/* Default primary fallback (overridden by scheme.css) */
-		--otm-primary: #0172ad;
-		--otm-primary-hover: #015887;
-		--otm-primary-background: #0172ad;
-		--otm-primary-hover-background: #015887;
-		--otm-primary-underline: rgb(1 114 173 / 50%);
-		--otm-primary-focus: rgb(1 114 173 / 37.5%);
-		--otm-primary-inverse: #fff;
-		--otm-text-selection-color: rgb(2 154 232 / 25%);
+		/* Derived primary tokens (oklch color-mix — zero scheme duplication) */
+		--otm-primary-hover: color-mix(
+			in oklch,
+			var(--otm-primary) 82%,
+			CanvasText
+		);
+		--otm-primary-hover-background: color-mix(
+			in oklch,
+			var(--otm-primary-background) 85%,
+			CanvasText
+		);
+		--otm-primary-underline: color-mix(
+			in oklch,
+			var(--otm-primary) 50%,
+			transparent
+		);
+		--otm-primary-focus: color-mix(
+			in oklch,
+			var(--otm-primary) 35%,
+			transparent
+		);
+		--otm-text-selection-color: color-mix(
+			in oklch,
+			var(--otm-primary) 24%,
+			transparent
+		);
 
-		/* Light surface & semantic tokens */
-		--otm-background-color: #fff;
-		--otm-color: #373c44;
-		--otm-h1-color: #2d3138;
-		--otm-h2-color: #373c44;
-		--otm-h3-color: #424751;
-		--otm-h4-color: #4d535e;
-		--otm-h5-color: #5c6370;
-		--otm-h6-color: #646b79;
-		--otm-muted-color: #646b79;
-		--otm-muted-border-color: #e7eaf0;
-		--otm-card-background-color: var(--otm-background-color);
-		--otm-card-border-color: var(--otm-muted-border-color);
-		--otm-card-sectioning-background-color: #fbfcfc;
+		/* Surface & semantic tokens via native light-dark() */
+		--otm-background-color: light-dark(#fff, #13171f);
+		--otm-color: light-dark(#373c44, #c2c7d0);
+		--otm-heading-color: light-dark(#23272f, #eef0f4);
+		--otm-muted-color: light-dark(#646b79, #8891a4);
+		--otm-muted-border-color: light-dark(#e7eaf0, #232a36);
+		--otm-card-background-color: light-dark(#fff, #181c25);
+		--otm-card-sectioning-background-color: light-dark(#fbfcfc, #1c212c);
 		--otm-card-box-shadow:
-			0.0145rem 0.029rem 0.174rem rgb(129 145 181 / 1.698%),
-			0.0335rem 0.067rem 0.402rem rgb(129 145 181 / 2.4%),
-			0.0625rem 0.125rem 0.75rem rgb(129 145 181 / 3%),
-			0.1125rem 0.225rem 1.35rem rgb(129 145 181 / 3.6%),
-			0.2085rem 0.417rem 2.502rem rgb(129 145 181 / 4.302%),
-			0.5rem 1rem 6rem rgb(129 145 181 / 6%),
-			0 0 0 0.0625rem rgb(129 145 181 / 1.5%);
-		--otm-code-background-color: #f3f5f7;
-		--otm-code-color: #646b79;
-		--otm-code-kbd-background-color: var(--otm-color);
-		--otm-code-kbd-color: var(--otm-background-color);
-		--otm-table-border-color: var(--otm-muted-border-color);
-		--otm-table-row-stripped-background-color: rgb(111 120 135 / 3.75%);
-		--otm-blockquote-border-color: var(--otm-muted-border-color);
-		--otm-blockquote-footer-color: var(--otm-muted-color);
-		--otm-mark-background-color: #fde7c0;
-		--otm-mark-color: #0f1114;
-		--otm-ins-color: #1d6a54;
-		--otm-del-color: #883935;
-		--otm-modal-overlay-background-color: rgb(232 234 237 / 75%);
-		--otm-progress-background-color: #dfe3eb;
-		--otm-progress-color: var(--otm-primary-background);
-		--otm-form-element-background-color: #fbfcfc;
-		--otm-form-element-active-background-color: #fff;
-		--otm-form-element-border-color: #cfd5e2;
-		--otm-form-element-active-border-color: var(--otm-primary-background);
-		--otm-form-element-color: #23262c;
-		--otm-form-element-placeholder-color: var(--otm-muted-color);
-		--otm-form-element-disabled-opacity: 0.5;
-		--otm-form-element-invalid-border-color: #b86a6b;
-		--otm-form-element-invalid-active-border-color: #c84f48;
-		--otm-form-element-invalid-focus-color: rgb(200 79 72 / 25%);
-		--otm-form-element-valid-border-color: #4c9b8a;
-		--otm-form-element-valid-active-border-color: #279977;
-		--otm-form-element-valid-focus-color: rgb(39 153 119 / 25%);
-		--otm-switch-background-color: #bfc7d9;
-		--otm-switch-checked-background-color: var(--otm-primary-background);
-		--otm-switch-color: #fff;
-		--otm-range-border-color: #dfe3eb;
-		--otm-range-active-border-color: #bfc7d9;
-		--otm-range-thumb-color: var(--otm-primary-background);
+			0 1px 2px color-mix(in oklch, CanvasText 6%, transparent),
+			0 8px 24px color-mix(in oklch, CanvasText 8%, transparent);
+		--otm-code-background-color: light-dark(#f3f5f7, #1c212c);
+		--otm-table-row-stripped-background-color: color-mix(
+			in oklch,
+			var(--otm-muted-color) 6%,
+			transparent
+		);
+		--otm-mark-background-color: light-dark(#fde7c0, #014063);
+		--otm-mark-color: light-dark(#0f1114, #fff);
+		--otm-ins-color: light-dark(#1d6a54, #62af9a);
+		--otm-del-color: light-dark(#b4342d, #e07a74);
+		--otm-invalid-color: light-dark(#c53030, #e07070);
+		--otm-valid-color: light-dark(#248265, #38b28b);
+		--otm-modal-overlay-background-color: color-mix(
+			in oklch,
+			var(--otm-background-color) 72%,
+			transparent
+		);
+		--otm-form-element-background-color: light-dark(#fbfcfc, #1c212c);
+		--otm-form-element-active-background-color: light-dark(#fff, #181c25);
+		--otm-form-element-border-color: light-dark(#cfd5e2, #2d3545);
+		--otm-form-element-color: light-dark(#23262c, #e6e9ef);
+		--otm-switch-background-color: light-dark(#bfc7d9, #333c4e);
 	}
 
-	/* Dark theme via OS preference (unless explicitly forced to light) */
-	@media only screen and (prefers-color-scheme: dark) {
-		:root:not([data-theme="light"]):not(:has(> body[data-theme="light"])) {
-			color-scheme: dark;
-			--otm-background-color: #13171f;
-			--otm-color: #c2c7d0;
-			--otm-h1-color: #f0f1f3;
-			--otm-h2-color: #e0e3e7;
-			--otm-h3-color: #c2c7d0;
-			--otm-h4-color: #b3b9c5;
-			--otm-h5-color: #a4acba;
-			--otm-h6-color: #8891a4;
-			--otm-muted-color: #7b8495;
-			--otm-muted-border-color: #202632;
-			--otm-card-background-color: #181c25;
-			--otm-card-border-color: var(--otm-card-background-color);
-			--otm-card-sectioning-background-color: #1a1f28;
-			--otm-card-box-shadow:
-				0.0145rem 0.029rem 0.174rem rgb(7 9 12 / 1.698%),
-				0.0335rem 0.067rem 0.402rem rgb(7 9 12 / 2.4%),
-				0.0625rem 0.125rem 0.75rem rgb(7 9 12 / 3%),
-				0.1125rem 0.225rem 1.35rem rgb(7 9 12 / 3.6%),
-				0.2085rem 0.417rem 2.502rem rgb(7 9 12 / 4.302%),
-				0.5rem 1rem 6rem rgb(7 9 12 / 6%),
-				0 0 0 0.0625rem rgb(7 9 12 / 1.5%);
-			--otm-code-background-color: #1a1f28;
-			--otm-code-color: #8891a4;
-			--otm-code-kbd-background-color: var(--otm-color);
-			--otm-code-kbd-color: var(--otm-background-color);
-			--otm-table-border-color: var(--otm-muted-border-color);
-			--otm-table-row-stripped-background-color: rgb(111 120 135 / 3.75%);
-			--otm-blockquote-border-color: var(--otm-muted-border-color);
-			--otm-blockquote-footer-color: var(--otm-muted-color);
-			--otm-mark-background-color: #014063;
-			--otm-mark-color: #fff;
-			--otm-ins-color: #62af9a;
-			--otm-del-color: #ce7e7b;
-			--otm-modal-overlay-background-color: rgb(8 9 10 / 75%);
-			--otm-progress-background-color: #202632;
-			--otm-form-element-background-color: #1c212c;
-			--otm-form-element-active-background-color: #1a1f28;
-			--otm-form-element-border-color: #2a3140;
-			--otm-form-element-color: #e0e3e7;
-			--otm-form-element-placeholder-color: #8891a4;
-			--otm-form-element-invalid-border-color: #964a50;
-			--otm-form-element-invalid-active-border-color: #b7403b;
-			--otm-form-element-invalid-focus-color: rgb(183 64 59 / 25%);
-			--otm-form-element-valid-border-color: #2a7b6f;
-			--otm-form-element-valid-active-border-color: #16896a;
-			--otm-form-element-valid-focus-color: rgb(22 137 106 / 25%);
-			--otm-switch-background-color: #333c4e;
-			--otm-range-border-color: #202632;
-			--otm-range-active-border-color: #2a3140;
-		}
-	}
-
-	/* Explicit dark theme via the("theme", "dark") on body or :root */
+	/* Explicit theme flip on :root, body via the("theme", ...), or any scoped subtree */
 	[data-theme="dark"],
 	:root:has(> body[data-theme="dark"]) {
 		color-scheme: dark;
-		--otm-background-color: #13171f;
-		--otm-color: #c2c7d0;
-		--otm-h1-color: #f0f1f3;
-		--otm-h2-color: #e0e3e7;
-		--otm-h3-color: #c2c7d0;
-		--otm-h4-color: #b3b9c5;
-		--otm-h5-color: #a4acba;
-		--otm-h6-color: #8891a4;
-		--otm-muted-color: #7b8495;
-		--otm-muted-border-color: #202632;
-		--otm-card-background-color: #181c25;
-		--otm-card-border-color: var(--otm-card-background-color);
-		--otm-card-sectioning-background-color: #1a1f28;
-		--otm-card-box-shadow:
-			0.0145rem 0.029rem 0.174rem rgb(7 9 12 / 1.698%),
-			0.0335rem 0.067rem 0.402rem rgb(7 9 12 / 2.4%),
-			0.0625rem 0.125rem 0.75rem rgb(7 9 12 / 3%),
-			0.1125rem 0.225rem 1.35rem rgb(7 9 12 / 3.6%),
-			0.2085rem 0.417rem 2.502rem rgb(7 9 12 / 4.302%),
-			0.5rem 1rem 6rem rgb(7 9 12 / 6%),
-			0 0 0 0.0625rem rgb(7 9 12 / 1.5%);
-		--otm-code-background-color: #1a1f28;
-		--otm-code-color: #8891a4;
-		--otm-code-kbd-background-color: var(--otm-color);
-		--otm-code-kbd-color: var(--otm-background-color);
-		--otm-table-border-color: var(--otm-muted-border-color);
-		--otm-table-row-stripped-background-color: rgb(111 120 135 / 3.75%);
-		--otm-blockquote-border-color: var(--otm-muted-border-color);
-		--otm-blockquote-footer-color: var(--otm-muted-color);
-		--otm-mark-background-color: #014063;
-		--otm-mark-color: #fff;
-		--otm-ins-color: #62af9a;
-		--otm-del-color: #ce7e7b;
-		--otm-modal-overlay-background-color: rgb(8 9 10 / 75%);
-		--otm-progress-background-color: #202632;
-		--otm-form-element-background-color: #1c212c;
-		--otm-form-element-active-background-color: #1a1f28;
-		--otm-form-element-border-color: #2a3140;
-		--otm-form-element-color: #e0e3e7;
-		--otm-form-element-placeholder-color: #8891a4;
-		--otm-form-element-invalid-border-color: #964a50;
-		--otm-form-element-invalid-active-border-color: #b7403b;
-		--otm-form-element-invalid-focus-color: rgb(183 64 59 / 25%);
-		--otm-form-element-valid-border-color: #2a7b6f;
-		--otm-form-element-valid-active-border-color: #16896a;
-		--otm-form-element-valid-focus-color: rgb(22 137 106 / 25%);
-		--otm-switch-background-color: #333c4e;
-		--otm-range-border-color: #202632;
-		--otm-range-active-border-color: #2a3140;
 	}
 
-	/* Explicit light theme via the("theme", "light") */
 	[data-theme="light"],
 	:root:has(> body[data-theme="light"]) {
 		color-scheme: light;
@@ -244,7 +130,7 @@
 	}
 
 	body {
-		width: 100%;
+		inline-size: 100%;
 		margin: 0;
 		background-color: var(--otm-background-color);
 		color: var(--otm-color);
@@ -254,48 +140,53 @@
 	body > header,
 	body > main,
 	body > footer {
-		width: 100%;
-		max-width: var(--otm-container-max-width);
+		inline-size: 100%;
+		max-inline-size: var(--otm-container-max-width);
 		margin-inline: auto;
-		padding: var(--otm-block-spacing-vertical)
-			var(--otm-block-spacing-horizontal);
+		padding-block: var(--otm-spacing);
+		padding-inline: var(--otm-spacing);
 	}
 
-	section {
-		margin-bottom: calc(var(--otm-block-spacing-vertical) * 2);
+	section,
+	search {
+		display: block;
+		margin-block-end: calc(var(--otm-spacing) * 2);
 	}
 
 	/* Cards (<article>) */
 	article {
-		margin-bottom: var(--otm-block-spacing-vertical);
-		padding: var(--otm-block-spacing-vertical)
-			var(--otm-block-spacing-horizontal);
+		margin-block-end: var(--otm-spacing);
+		padding-block: var(--otm-spacing);
+		padding-inline: var(--otm-spacing);
+		border: var(--otm-border-width) solid var(--otm-muted-border-color);
 		border-radius: var(--otm-border-radius);
-		background: var(--otm-card-background-color);
+		background-color: var(--otm-card-background-color);
 		box-shadow: var(--otm-card-box-shadow);
 
 		& > header,
 		& > footer {
-			margin-inline: calc(var(--otm-block-spacing-horizontal) * -1);
-			padding: calc(var(--otm-block-spacing-vertical) * 0.66)
-				var(--otm-block-spacing-horizontal);
+			margin-inline: calc(var(--otm-spacing) * -1);
+			padding-block: calc(var(--otm-spacing) * 0.66);
+			padding-inline: var(--otm-spacing);
 			background-color: var(--otm-card-sectioning-background-color);
 		}
 
 		& > header {
-			margin-top: calc(var(--otm-block-spacing-vertical) * -1);
-			margin-bottom: var(--otm-block-spacing-vertical);
-			border-bottom: var(--otm-border-width) solid var(--otm-card-border-color);
-			border-top-left-radius: var(--otm-border-radius);
-			border-top-right-radius: var(--otm-border-radius);
+			margin-block-start: calc(var(--otm-spacing) * -1);
+			margin-block-end: var(--otm-spacing);
+			border-block-end: var(--otm-border-width) solid
+				var(--otm-muted-border-color);
+			border-start-start-radius: var(--otm-border-radius);
+			border-start-end-radius: var(--otm-border-radius);
 		}
 
 		& > footer {
-			margin-top: var(--otm-block-spacing-vertical);
-			margin-bottom: calc(var(--otm-block-spacing-vertical) * -1);
-			border-top: var(--otm-border-width) solid var(--otm-card-border-color);
-			border-bottom-left-radius: var(--otm-border-radius);
-			border-bottom-right-radius: var(--otm-border-radius);
+			margin-block-start: var(--otm-spacing);
+			margin-block-end: calc(var(--otm-spacing) * -1);
+			border-block-start: var(--otm-border-width) solid
+				var(--otm-muted-border-color);
+			border-end-start-radius: var(--otm-border-radius);
+			border-end-end-radius: var(--otm-border-radius);
 		}
 	}
 
@@ -306,48 +197,45 @@
 	h4,
 	h5,
 	h6 {
-		margin-top: 0;
-		margin-bottom: var(--otm-typography-spacing-vertical);
+		margin-block-start: 0;
+		margin-block-end: var(--otm-spacing);
+		color: var(--otm-heading-color);
 		font-weight: 700;
 		line-height: 1.2;
+		text-wrap: balance;
+		overflow-wrap: break-word;
 	}
 
 	h1 {
 		font-size: 2rem;
-		color: var(--otm-h1-color);
 	}
 
 	h2 {
-		font-size: 1.75rem;
-		color: var(--otm-h2-color);
+		font-size: 1.625rem;
 	}
 
 	h3 {
-		font-size: 1.5rem;
-		color: var(--otm-h3-color);
+		font-size: 1.375rem;
 	}
 
 	h4 {
-		font-size: 1.25rem;
-		color: var(--otm-h4-color);
+		font-size: 1.1875rem;
 	}
 
 	h5 {
-		font-size: 1.125rem;
-		color: var(--otm-h5-color);
+		font-size: 1.0625rem;
 	}
 
 	h6 {
 		font-size: 1rem;
-		color: var(--otm-h6-color);
+		color: var(--otm-muted-color);
 	}
 
 	hgroup {
-		margin-bottom: var(--otm-typography-spacing-vertical);
+		margin-block-end: var(--otm-spacing);
 
 		& > * {
-			margin-top: 0;
-			margin-bottom: 0;
+			margin-block: 0;
 		}
 
 		& > :not(:first-child):last-child {
@@ -359,13 +247,29 @@
 	p,
 	ul,
 	ol,
+	menu,
 	dl,
 	table,
 	blockquote,
 	pre,
 	figure {
-		margin-top: 0;
-		margin-bottom: var(--otm-typography-spacing-vertical);
+		margin-block-start: 0;
+		margin-block-end: var(--otm-spacing);
+	}
+
+	p {
+		text-wrap: pretty;
+		overflow-wrap: break-word;
+	}
+
+	dt {
+		font-weight: 600;
+		color: var(--otm-heading-color);
+	}
+
+	dd {
+		margin-inline-start: 0;
+		margin-block-end: calc(var(--otm-spacing) * 0.5);
 	}
 
 	a {
@@ -375,7 +279,6 @@
 		text-underline-offset: 0.125em;
 		transition:
 			color var(--otm-transition),
-			background-color var(--otm-transition),
 			text-decoration-color var(--otm-transition);
 
 		&:hover,
@@ -397,10 +300,9 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		overflow: visible;
+		gap: var(--otm-spacing);
 
-		& ol,
-		& ul {
+		& :where(ol, ul, menu) {
 			display: flex;
 			align-items: center;
 			margin: 0;
@@ -417,7 +319,8 @@
 		& a {
 			text-decoration: none;
 
-			&[aria-current="page"] {
+			&[aria-current="page"],
+			&[aria-current="true"] {
 				font-weight: 700;
 				text-decoration: underline;
 			}
@@ -427,8 +330,7 @@
 	aside nav {
 		display: block;
 
-		& ol,
-		& ul {
+		& :where(ol, ul, menu) {
 			flex-direction: column;
 			align-items: stretch;
 			gap: calc(var(--otm-spacing) * 0.5);
@@ -440,7 +342,8 @@
 	}
 
 	mark {
-		padding: 0.125rem 0.25rem;
+		padding-block: 0.125rem;
+		padding-inline: 0.25rem;
 		background-color: var(--otm-mark-background-color);
 		color: var(--otm-mark-color);
 		border-radius: var(--otm-border-radius);
@@ -456,7 +359,7 @@
 	}
 
 	abbr[title] {
-		border-bottom: 1px dotted;
+		border-block-end: 1px dotted;
 		text-decoration: none;
 		cursor: help;
 	}
@@ -464,19 +367,20 @@
 	blockquote {
 		margin-inline: 0;
 		padding: var(--otm-spacing);
-		border-inline-start: 0.25rem solid var(--otm-blockquote-border-color);
+		border-inline-start: 0.25rem solid var(--otm-muted-border-color);
 
 		& footer {
-			margin-top: calc(var(--otm-spacing) * 0.5);
-			color: var(--otm-blockquote-footer-color);
+			margin-block-start: calc(var(--otm-spacing) * 0.5);
+			color: var(--otm-muted-color);
 		}
 	}
 
 	hr {
-		height: 0;
-		margin: var(--otm-typography-spacing-vertical) 0;
+		block-size: 0;
+		margin-block: var(--otm-spacing);
 		border: 0;
-		border-top: var(--otm-border-width) solid var(--otm-muted-border-color);
+		border-block-start: var(--otm-border-width) solid
+			var(--otm-muted-border-color);
 	}
 
 	img,
@@ -485,15 +389,15 @@
 	canvas,
 	audio,
 	iframe {
-		max-width: 100%;
-		height: auto;
+		max-inline-size: 100%;
+		block-size: auto;
 	}
 
 	figure {
 		margin-inline: 0;
 
 		& figcaption {
-			padding-top: calc(var(--otm-spacing) * 0.5);
+			padding-block-start: calc(var(--otm-spacing) * 0.5);
 			color: var(--otm-muted-color);
 			font-size: 0.875rem;
 		}
@@ -511,15 +415,16 @@
 	code,
 	kbd {
 		display: inline-block;
-		padding: 0.125rem 0.375rem;
+		padding-block: 0.125rem;
+		padding-inline: 0.375rem;
 		border-radius: var(--otm-border-radius);
 		background-color: var(--otm-code-background-color);
-		color: var(--otm-code-color);
+		color: var(--otm-muted-color);
 	}
 
 	kbd {
-		background-color: var(--otm-code-kbd-background-color);
-		color: var(--otm-code-kbd-color);
+		background-color: var(--otm-color);
+		color: var(--otm-background-color);
 		font-weight: 700;
 	}
 
@@ -539,7 +444,7 @@
 
 	/* Tables */
 	table {
-		width: 100%;
+		inline-size: 100%;
 		border-collapse: collapse;
 		border-spacing: 0;
 		text-indent: 0;
@@ -547,14 +452,16 @@
 
 	th,
 	td {
-		padding: calc(var(--otm-spacing) * 0.75) var(--otm-spacing);
-		border-bottom: var(--otm-border-width) solid var(--otm-table-border-color);
-		text-align: left;
+		padding-block: calc(var(--otm-spacing) * 0.75);
+		padding-inline: var(--otm-spacing);
+		border-block-end: var(--otm-border-width) solid
+			var(--otm-muted-border-color);
+		text-align: start;
 		vertical-align: middle;
 	}
 
 	thead th {
-		border-bottom-width: calc(var(--otm-border-width) * 2);
+		border-block-end-width: calc(var(--otm-border-width) * 2);
 		font-weight: 700;
 	}
 
@@ -564,16 +471,14 @@
 
 	/* Buttons */
 	button,
-	input[type="submit"],
-	input[type="button"],
-	input[type="reset"],
+	input:where([type="submit"], [type="button"], [type="reset"]),
 	[role="button"] {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
 		gap: 0.5rem;
-		padding: var(--otm-form-element-spacing-vertical)
-			var(--otm-form-element-spacing-horizontal);
+		padding-block: var(--otm-form-element-spacing-block);
+		padding-inline: var(--otm-form-element-spacing-inline);
 		border: var(--otm-border-width) solid var(--otm-primary-background);
 		border-radius: var(--otm-border-radius);
 		background-color: var(--otm-primary-background);
@@ -618,19 +523,20 @@
 
 	/* Form controls */
 	fieldset {
-		margin: 0 0 var(--otm-spacing);
+		margin-block: 0 var(--otm-spacing);
+		margin-inline: 0;
 		padding: 0;
 		border: 0;
 	}
 
 	legend {
-		margin-bottom: calc(var(--otm-spacing) * 0.5);
+		margin-block-end: calc(var(--otm-spacing) * 0.5);
 		font-weight: 600;
 	}
 
 	label {
 		display: block;
-		margin-bottom: calc(var(--otm-spacing) * 0.375);
+		margin-block-end: calc(var(--otm-spacing) * 0.375);
 		font-weight: 500;
 	}
 
@@ -649,10 +555,10 @@
 	select,
 	textarea {
 		display: block;
-		width: 100%;
-		margin-bottom: var(--otm-spacing);
-		padding: var(--otm-form-element-spacing-vertical)
-			var(--otm-form-element-spacing-horizontal);
+		inline-size: 100%;
+		margin-block-end: var(--otm-spacing);
+		padding-block: var(--otm-form-element-spacing-block);
+		padding-inline: var(--otm-form-element-spacing-inline);
 		border: var(--otm-border-width) solid var(--otm-form-element-border-color);
 		border-radius: var(--otm-border-radius);
 		background-color: var(--otm-form-element-background-color);
@@ -666,26 +572,25 @@
 			box-shadow var(--otm-transition);
 
 		&::placeholder {
-			color: var(--otm-form-element-placeholder-color);
+			color: var(--otm-muted-color);
 		}
 
 		&:focus {
 			outline: none;
 			background-color: var(--otm-form-element-active-background-color);
-			border-color: var(--otm-form-element-active-border-color);
+			border-color: var(--otm-primary-background);
 			box-shadow: 0 0 0 var(--otm-outline-width) var(--otm-primary-focus);
 		}
 	}
 
 	textarea {
 		resize: vertical;
-		min-height: 5rem;
+		min-block-size: 5rem;
 	}
 
-	input[type="checkbox"],
-	input[type="radio"] {
-		width: 1.125rem;
-		height: 1.125rem;
+	input:where([type="checkbox"], [type="radio"]) {
+		inline-size: 1.125rem;
+		block-size: 1.125rem;
 		margin-inline-end: 0.375rem;
 		vertical-align: middle;
 		accent-color: var(--otm-primary-background);
@@ -694,8 +599,8 @@
 
 	input[type="checkbox"][role="switch"] {
 		appearance: none;
-		width: 2.25rem;
-		height: 1.25rem;
+		inline-size: 2.25rem;
+		block-size: 1.25rem;
 		border-radius: 1.25rem;
 		background-color: var(--otm-switch-background-color);
 		position: relative;
@@ -704,47 +609,53 @@
 		&::before {
 			content: "";
 			position: absolute;
-			top: 0.125rem;
-			left: 0.125rem;
-			width: 1rem;
-			height: 1rem;
+			inset-block-start: 0.125rem;
+			inset-inline-start: 0.125rem;
+			inline-size: 1rem;
+			block-size: 1rem;
 			border-radius: 50%;
-			background-color: var(--otm-switch-color);
-			transition: transform var(--otm-transition);
+			background-color: #fff;
+			transition: translate var(--otm-transition);
 		}
 
 		&:checked {
-			background-color: var(--otm-switch-checked-background-color);
+			background-color: var(--otm-primary-background);
 
 			&::before {
-				transform: translateX(1rem);
+				translate: 1rem 0;
 			}
 		}
 	}
 
 	input[type="range"] {
-		width: 100%;
-		accent-color: var(--otm-range-thumb-color);
+		inline-size: 100%;
+		accent-color: var(--otm-primary-background);
 		cursor: pointer;
 	}
 
-	progress {
+	progress,
+	meter {
 		display: block;
-		width: 100%;
-		height: 0.5rem;
-		margin-bottom: var(--otm-spacing);
+		inline-size: 100%;
+		block-size: 0.5rem;
+		margin-block-end: var(--otm-spacing);
 		border: 0;
 		border-radius: var(--otm-border-radius);
-		background-color: var(--otm-progress-background-color);
-		accent-color: var(--otm-progress-color);
+		accent-color: var(--otm-primary-background);
+	}
+
+	output {
+		display: inline-block;
+		font-variant-numeric: tabular-nums;
 	}
 
 	/* Disclosure (<details>) */
 	details {
 		display: block;
-		margin-bottom: var(--otm-spacing);
-		padding-bottom: calc(var(--otm-spacing) * 0.5);
-		border-bottom: var(--otm-border-width) solid var(--otm-muted-border-color);
+		margin-block-end: var(--otm-spacing);
+		padding-block-end: calc(var(--otm-spacing) * 0.5);
+		border-block-end: var(--otm-border-width) solid
+			var(--otm-muted-border-color);
 
 		& summary {
 			font-weight: 600;
@@ -753,56 +664,77 @@
 		}
 
 		&[open] > summary {
-			margin-bottom: calc(var(--otm-spacing) * 0.5);
+			margin-block-end: calc(var(--otm-spacing) * 0.5);
 		}
 	}
 
-	/* Modal (<dialog>) */
-	dialog {
-		max-width: min(36rem, calc(100vw - 2rem));
-		width: 100%;
-		padding: 0;
-		border: var(--otm-border-width) solid var(--otm-card-border-color);
+	/* Modal (<dialog>) & native Popover API ([popover]) */
+	dialog,
+	[popover] {
+		max-inline-size: min(36rem, calc(100vi - 2rem));
+		inline-size: 100%;
+		padding: var(--otm-spacing);
+		border: var(--otm-border-width) solid var(--otm-muted-border-color);
 		border-radius: var(--otm-border-radius);
 		background-color: var(--otm-card-background-color);
 		color: var(--otm-color);
 		box-shadow: var(--otm-card-box-shadow);
+		opacity: 0;
+		transition:
+			opacity var(--otm-transition),
+			overlay var(--otm-transition) allow-discrete,
+			display var(--otm-transition) allow-discrete;
 
 		&::backdrop {
 			background-color: var(--otm-modal-overlay-background-color);
 			backdrop-filter: blur(0.25rem);
 		}
 
+		&:popover-open,
+		&[open] {
+			opacity: 1;
+
+			@starting-style {
+				opacity: 0;
+			}
+		}
+	}
+
+	dialog:has(> article) {
+		padding: 0;
+
 		& > article {
 			margin: 0;
+			border: 0;
 			box-shadow: none;
 		}
 	}
 
 	/* ARIA & native interactive states (substrate contract clause 2) */
-	[aria-invalid="true"] {
-		border-color: var(--otm-form-element-invalid-border-color);
+	[aria-invalid="true"],
+	:user-invalid {
+		border-color: var(--otm-invalid-color);
 
 		&:focus {
-			border-color: var(--otm-form-element-invalid-active-border-color);
+			border-color: var(--otm-invalid-color);
 			box-shadow: 0 0 0 var(--otm-outline-width)
-				var(--otm-form-element-invalid-focus-color);
+				color-mix(in oklch, var(--otm-invalid-color) 30%, transparent);
 		}
 	}
 
 	[aria-invalid="false"] {
-		border-color: var(--otm-form-element-valid-border-color);
+		border-color: var(--otm-valid-color);
 
 		&:focus {
-			border-color: var(--otm-form-element-valid-active-border-color);
+			border-color: var(--otm-valid-color);
 			box-shadow: 0 0 0 var(--otm-outline-width)
-				var(--otm-form-element-valid-focus-color);
+				color-mix(in oklch, var(--otm-valid-color) 30%, transparent);
 		}
 	}
 
 	[disabled],
 	[aria-disabled="true"] {
-		opacity: var(--otm-form-element-disabled-opacity);
+		opacity: 0.5;
 		cursor: not-allowed;
 		pointer-events: none;
 	}
@@ -813,11 +745,11 @@
 		&::before {
 			content: "";
 			display: inline-block;
-			width: 1em;
-			height: 1em;
+			inline-size: 1em;
+			block-size: 1em;
 			margin-inline-end: 0.5em;
 			border: 0.15em solid currentcolor;
-			border-right-color: transparent;
+			border-inline-end-color: transparent;
 			border-radius: 50%;
 			vertical-align: -0.125em;
 			animation: otm-spin 0.75s linear infinite;
@@ -831,7 +763,7 @@
 
 	@keyframes otm-spin {
 		to {
-			transform: rotate(360deg);
+			rotate: 1turn;
 		}
 	}
 

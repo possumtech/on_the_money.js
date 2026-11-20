@@ -52,6 +52,19 @@ test("on_the_money/css ships schema, index, and all 20 Pico color schemes", asyn
 	assert.match(schemaCss, /\[aria-invalid="true"\]/);
 	assert.match(schemaCss, /\[aria-busy="true"\]/);
 	assert.match(schemaCss, /\[data-theme="dark"\]/);
+	assert.match(schemaCss, /light-dark\(/);
+	assert.match(schemaCss, /color-mix\(in oklch,/);
+	assert.doesNotMatch(schemaCss, /prefers-color-scheme/);
+
+	for (const name of EXPECTED_SCHEMES) {
+		const schemeCss = await fs.readFile(
+			path.join(schemesDir, `${name}.css`),
+			"utf8",
+		);
+		assert.match(schemeCss, /@layer\s+scheme\s*\{/);
+		assert.match(schemeCss, /light-dark\(/);
+		assert.doesNotMatch(schemeCss, /prefers-color-scheme/);
+	}
 });
 
 test("every shipped CSS file passes OTM stylelint (zero classes, zero !important)", async () => {
