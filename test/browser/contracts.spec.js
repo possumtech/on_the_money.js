@@ -1090,6 +1090,7 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), sco
 	await page.addStyleTag({
 		content: `
 			@layer structure { main > section { display: none; } }
+			@layer style { :root { --otm-heading-color: light-dark(rgb(170, 0, 85), rgb(255, 102, 178)); } }
 			@layer state { body[data-panel="open"] main > section[data-panel] { display: block; } }
 		`,
 	});
@@ -1098,29 +1099,72 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), sco
 		document.body.innerHTML = `
 			<main>
 				<section data-panel>
+					<h1 id="brand-heading">Brand</h1>
 					<a id="link" href="#top">Link</a>
+					<p>Inline <code id="inline-code">very-long-identifier</code> and <kbd id="key">Ctrl</kbd></p>
+					<pre><code id="block-code">const x = 1;</code></pre>
 					<input id="email" type="email" aria-invalid="true">
 					<button id="go" aria-busy="true">Go</button>
-					<aside id="scoped" data-theme="dark"><a id="scoped-link" href="#x">Dark</a></aside>
+					<button id="icon-btn" aria-label="Sign out"><svg id="decorative-icon" aria-hidden="true" width="16" height="16"></svg></button>
+					<div id="native-hidden" hidden>Hidden</div>
+					<aside id="scoped-dark" data-theme="dark">
+						<h2 id="scoped-dark-heading">Dark heading</h2>
+						<p id="scoped-dark-text">Dark copy</p>
+						<article id="scoped-dark-card">Card</article>
+						<a id="scoped-dark-link" href="#x">Dark</a>
+					</aside>
+					<aside id="scoped-light" data-theme="light">
+						<p id="scoped-light-text">Light copy</p>
+					</aside>
 				</section>
 			</main>
 		`;
 		the("theme", "light");
 		const lightBg = getComputedStyle(document.body).backgroundColor;
+		const lightHeading = getComputedStyle(
+			document.querySelector("#brand-heading"),
+		).color;
 		const jadeLightLink = getComputedStyle(
 			document.querySelector("#link"),
 		).color;
-		const scopedDarkLink = getComputedStyle(
-			document.querySelector("#scoped-link"),
+		const jadeLightUnderline = getComputedStyle(
+			document.querySelector("#link"),
+		).textDecorationColor;
+		const scopedDarkBg = getComputedStyle(
+			document.querySelector("#scoped-dark"),
+		).backgroundColor;
+		const scopedDarkHeading = getComputedStyle(
+			document.querySelector("#scoped-dark-heading"),
 		).color;
+		const scopedDarkText = getComputedStyle(
+			document.querySelector("#scoped-dark-text"),
+		).color;
+		const scopedDarkCardBg = getComputedStyle(
+			document.querySelector("#scoped-dark-card"),
+		).backgroundColor;
+		const scopedDarkLink = getComputedStyle(
+			document.querySelector("#scoped-dark-link"),
+		).color;
+		const scopedDarkUnderline = getComputedStyle(
+			document.querySelector("#scoped-dark-link"),
+		).textDecorationColor;
 		const hiddenDisplay = getComputedStyle(
 			document.querySelector("section[data-panel]"),
 		).display;
 
 		the("theme", "dark");
 		const darkBg = getComputedStyle(document.body).backgroundColor;
+		const darkHeading = getComputedStyle(
+			document.querySelector("#brand-heading"),
+		).color;
 		const jadeDarkLink = getComputedStyle(
 			document.querySelector("#link"),
+		).color;
+		const scopedLightBg = getComputedStyle(
+			document.querySelector("#scoped-light"),
+		).backgroundColor;
+		const scopedLightText = getComputedStyle(
+			document.querySelector("#scoped-light-text"),
 		).color;
 
 		the("panel", "open");
@@ -1132,27 +1176,69 @@ test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme'), sco
 			document.querySelector("#email"),
 		).borderTopColor;
 		const busyCursor = getComputedStyle(document.querySelector("#go")).cursor;
+		const decorativeIconDisplay = getComputedStyle(
+			document.querySelector("#decorative-icon"),
+		).display;
+		const nativeHiddenDisplay = getComputedStyle(
+			document.querySelector("#native-hidden"),
+		).display;
+		const inlineCodeDisplay = getComputedStyle(
+			document.querySelector("#inline-code"),
+		).display;
+		const kbdDisplay = getComputedStyle(document.querySelector("#key")).display;
+		const blockCodeDisplay = getComputedStyle(
+			document.querySelector("#block-code"),
+		).display;
 
 		return {
 			lightBg,
 			darkBg,
+			lightHeading,
+			darkHeading,
+			scopedDarkHeading,
 			jadeLightLink,
+			jadeLightUnderline,
+			scopedDarkBg,
+			scopedDarkText,
+			scopedDarkCardBg,
 			scopedDarkLink,
+			scopedDarkUnderline,
+			scopedLightBg,
+			scopedLightText,
 			jadeDarkLink,
 			hiddenDisplay,
 			openDisplay,
 			invalidBorder,
 			busyCursor,
+			decorativeIconDisplay,
+			nativeHiddenDisplay,
+			inlineCodeDisplay,
+			kbdDisplay,
+			blockCodeDisplay,
 		};
 	});
 
 	expect(result.lightBg).toBe("rgb(255, 255, 255)");
 	expect(result.darkBg).toBe("rgb(19, 23, 31)");
+	expect(result.lightHeading).toBe("rgb(170, 0, 85)");
+	expect(result.darkHeading).toBe("rgb(255, 102, 178)");
+	expect(result.scopedDarkHeading).toBe("rgb(255, 102, 178)");
 	expect(result.jadeLightLink).toBe("rgb(0, 122, 80)");
+	expect(result.scopedDarkBg).toBe("rgb(19, 23, 31)");
+	expect(result.scopedDarkText).toBe("rgb(194, 199, 208)");
+	expect(result.scopedDarkCardBg).toBe("rgb(24, 28, 37)");
 	expect(result.scopedDarkLink).toBe("rgb(0, 180, 120)");
+	expect(result.scopedDarkUnderline).not.toBe(result.jadeLightUnderline);
+	expect(result.scopedLightBg).toBe("rgb(255, 255, 255)");
+	expect(result.scopedLightText).toBe("rgb(55, 60, 68)");
 	expect(result.jadeDarkLink).toBe("rgb(0, 180, 120)");
 	expect(result.hiddenDisplay).toBe("none");
 	expect(result.openDisplay).toBe("block");
 	expect(result.invalidBorder).toBe("rgb(224, 112, 112)");
 	expect(result.busyCursor).toBe("progress");
+	expect(result.decorativeIconDisplay).not.toBe("none");
+	expect(result.nativeHiddenDisplay).toBe("none");
+	expect(result.inlineCodeDisplay).toBe("inline");
+	expect(result.kbdDisplay).toBe("inline-block");
+	expect(result.blockCodeDisplay).toBe("block");
 });

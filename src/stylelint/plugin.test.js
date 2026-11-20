@@ -56,9 +56,15 @@ test("prefer-attribute-selector: respects rule disabled", async () => {
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: allows pure layout rules in structure.css", async () => {
+test("layer-discipline: allows pure layout rules and sublayers in structure.css", async () => {
 	const { results } = await lint(
-		"@layer structure { main { display: grid; gap: 1rem; max-width: 48rem; } }",
+		`@layer structure {
+			main { display: grid; gap: 1rem; max-inline-size: 48rem; }
+			main:has(> footer) { grid-template-rows: 1fr auto; }
+		}
+		@layer structure.grid {
+			section { display: flex; }
+		}`,
 		{
 			codeFilename: "styles/structure.css",
 			rules: { "otm/layer-discipline": true },
@@ -67,30 +73,139 @@ test("layer-discipline: allows pure layout rules in structure.css", async () => 
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: flags state selectors and skin props in structure.css", async () => {
+test("layer-discipline: rejects unlayered and mismatched @layer blocks in 5-S files", async () => {
+	const { results: unlayered } = await lint("main { display: grid; }", {
+		codeFilename: "styles/structure.css",
+		rules: { "otm/layer-discipline": true },
+	});
+	assert.strictEqual(unlayered[0].warnings.length, 1);
+	assert.match(
+		unlayered[0].warnings[0].text,
+		/must be wrapped in "@layer structure \{ \.\.\. \}"/,
+	);
+
+	const { results: mismatched } = await lint(
+		"@layer state { main { display: grid; } }",
+		{
+			codeFilename: "styles/structure.css",
+			rules: { "otm/layer-discipline": true },
+		},
+	);
+	assert.strictEqual(mismatched[0].warnings.length, 1);
+	assert.match(
+		mismatched[0].warnings[0].text,
+		/is in "@layer state" inside structure\.css/,
+	);
+
+	const { results: anon } = await lint("@layer { main { display: grid; } }", {
+		codeFilename: "styles/structure.css",
+		rules: { "otm/layer-discipline": true },
+	});
+	assert.strictEqual(anon[0].warnings.length, 1);
+	assert.match(
+		anon[0].warnings[0].text,
+		/is in "@layer \(anonymous\)" inside structure\.css/,
+	);
+});
+
+test("layer-discipline: rejects unlayered rules in layered non-5-S entry files and enforces inline @layer blocks", async () => {
+	const { results: entry } = await lint(
+		`@import "on_the_money/css";
+		button { color: red; }`,
+		{
+			codeFilename: "styles/index.css",
+			rules: { "otm/layer-discipline": true },
+		},
+	);
+	assert.strictEqual(entry[0].warnings.length, 1);
+	assert.match(
+		entry[0].warnings[0].text,
+		/Unlayered rule "button" overrides @layer state/,
+	);
+
+	const { results: inlineLayers } = await lint(
+		`@layer structure {
+			main { color: red; }
+		}
+		@layer style {
+			article { display: flex; }
+		}
+		@layer state {
+			main { opacity: 0.5; }
+		}`,
+		{
+			codeFilename: "styles/app.css",
+			rules: { "otm/layer-discipline": true },
+		},
+	);
+	const texts = inlineLayers[0].warnings.map((w) => w.text);
+	assert.strictEqual(texts.length, 3);
+	assert.match(texts[0], /Stylistic property "color" belongs in style\.css/);
+	assert.match(
+		texts[1],
+		/Structural layout property "display" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[2],
+		/Unconditional selector "main" does not belong in state\.css/,
+	);
+});
+
+test("layer-discipline: flags state selectors, interactive pseudos, and skin props/shorthands in structure.css", async () => {
 	const { results } = await lint(
-		'[data-open="true"] { display: block; color: red; background: white; }',
+		`@layer structure {
+			[data-open="true"] { display: block; color: red; background: white; }
+			dialog[open] { border: 1px solid red; outline: 2px solid blue; }
+			button:hover { padding: 1rem; }
+			input:checked { margin: 0; }
+		}`,
 		{
 			codeFilename: "styles/app-structure.css",
 			rules: { "otm/layer-discipline": true },
 		},
 	);
 	const texts = results[0].warnings.map((w) => w.text);
-	assert.strictEqual(texts.length, 3);
+	assert.strictEqual(texts.length, 8);
 	assert.match(
 		texts[0],
-		/State selector "\[data-open\]" is forbidden in structure\.css/,
+		/State selector "\[data-open\]" is forbidden in @layer structure/,
 	);
 	assert.match(texts[1], /Stylistic property "color" belongs in style\.css/);
 	assert.match(
 		texts[2],
 		/Stylistic property "background" belongs in style\.css/,
 	);
+	assert.match(
+		texts[3],
+		/State selector "\[open\]" is forbidden in @layer structure/,
+	);
+	assert.match(texts[4], /Stylistic property "border" belongs in style\.css/);
+	assert.match(texts[5], /Stylistic property "outline" belongs in style\.css/);
+	assert.match(
+		texts[6],
+		/State selector ":hover" is forbidden in @layer structure/,
+	);
+	assert.match(
+		texts[7],
+		/State selector ":checked" is forbidden in @layer structure/,
+	);
 });
 
-test("layer-discipline: allows skin and custom-property rules in style.css", async () => {
+test("layer-discipline: allows skin, custom properties, and ephemeral hover/focus pseudos in style.css", async () => {
 	const { results } = await lint(
-		"@layer style { :root { --otm-border-radius: 0.5rem; } article { background: white; box-shadow: none; } }",
+		`@layer style {
+			:root { --otm-border-radius: 0.5rem; }
+			article { background: white; box-shadow: none; }
+			a {
+				color: var(--otm-primary);
+				&:hover,
+				&:active,
+				&:focus-visible {
+					color: var(--otm-primary-hover);
+				}
+			}
+			main:has(> footer) { background: canvas; }
+		}`,
 		{
 			codeFilename: "styles/style.css",
 			rules: { "otm/layer-discipline": true },
@@ -99,19 +214,24 @@ test("layer-discipline: allows skin and custom-property rules in style.css", asy
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: flags layout props and state selectors in style.css", async () => {
+test("layer-discipline: flags DOM state selectors and physical/logical layout props in style.css", async () => {
 	const { results } = await lint(
-		'[aria-expanded="true"] { display: flex; gap: 0.5rem; }',
+		`@layer style {
+			[aria-expanded="true"] { display: flex; gap: 0.5rem; }
+			details[open] { inset-block-start: 0; inset-inline-end: 1rem; }
+			[popover]:popover-open { align-self: center; justify-self: end; place-self: stretch; order: 2; }
+			form:has([aria-invalid="true"]) { border-color: red; }
+		}`,
 		{
 			codeFilename: "styles/app-style.css",
 			rules: { "otm/layer-discipline": true },
 		},
 	);
 	const texts = results[0].warnings.map((w) => w.text);
-	assert.strictEqual(texts.length, 3);
+	assert.strictEqual(texts.length, 12);
 	assert.match(
 		texts[0],
-		/State selector "\[aria-expanded\]" is forbidden in style\.css/,
+		/State selector "\[aria-expanded\]" is forbidden in @layer style/,
 	);
 	assert.match(
 		texts[1],
@@ -120,6 +240,42 @@ test("layer-discipline: flags layout props and state selectors in style.css", as
 	assert.match(
 		texts[2],
 		/Structural layout property "gap" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[3],
+		/State selector "\[open\]" is forbidden in @layer style/,
+	);
+	assert.match(
+		texts[4],
+		/Structural layout property "inset-block-start" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[5],
+		/Structural layout property "inset-inline-end" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[6],
+		/State selector ":popover-open" is forbidden in @layer style/,
+	);
+	assert.match(
+		texts[7],
+		/Structural layout property "align-self" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[8],
+		/Structural layout property "justify-self" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[9],
+		/Structural layout property "place-self" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[10],
+		/Structural layout property "order" belongs in structure\.css/,
+	);
+	assert.match(
+		texts[11],
+		/State selector "\[aria-invalid\]" is forbidden in @layer style/,
 	);
 });
 
@@ -132,6 +288,7 @@ test("layer-discipline: allows state-driven rules and nested children in state.c
 				&::before { content: "x"; }
 			}
 			dialog[open] { display: block; }
+			form:has([aria-invalid="true"]) { border-color: red; }
 			button:focus-visible { outline: 2px solid; }
 			@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 		}`,
@@ -143,19 +300,35 @@ test("layer-discipline: allows state-driven rules and nested children in state.c
 	assert.strictEqual(results[0].warnings.length, 0);
 });
 
-test("layer-discipline: flags unconditional rules in state.css", async () => {
-	const { results } = await lint("main { display: flex; }", {
-		codeFilename: "styles/app-state.css",
-		rules: { "otm/layer-discipline": true },
-	});
-	assert.strictEqual(results[0].warnings.length, 1);
+test("layer-discipline: flags unconditional selectors including structural :has() and mixed lists in state.css", async () => {
+	const { results } = await lint(
+		`@layer state {
+			main { display: flex; }
+			main:has(> footer) { display: grid; }
+			article, [data-open="true"] { display: block; }
+		}`,
+		{
+			codeFilename: "styles/app-state.css",
+			rules: { "otm/layer-discipline": true },
+		},
+	);
+	const texts = results[0].warnings.map((w) => w.text);
+	assert.strictEqual(texts.length, 3);
 	assert.match(
-		results[0].warnings[0].text,
+		texts[0],
 		/Unconditional selector "main" does not belong in state\.css/,
+	);
+	assert.match(
+		texts[1],
+		/Unconditional selector "main:has\(> footer\)" does not belong in state\.css/,
+	);
+	assert.match(
+		texts[2],
+		/Unconditional selector "article, \[data-open="true"\]" does not belong in state\.css/,
 	);
 });
 
-test("layer-discipline: ignores non-layer filenames and disabled option", async () => {
+test("layer-discipline: ignores standalone non-layer filenames and disabled option", async () => {
 	const { results: other } = await lint("main { display: flex; color: red; }", {
 		codeFilename: "styles/custom.css",
 		rules: { "otm/layer-discipline": true },

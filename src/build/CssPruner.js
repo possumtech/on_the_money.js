@@ -21,10 +21,13 @@ const CONTAINER_AT_RULES = new Set([
 	"scope",
 ]);
 
+const DISJUNCTIVE_PSEUDOS = new Set([":is", ":where", ":matches", ":has"]);
+
 export default class CssPruner {
-	// Pure parse5 walk across HTML documents and their <template> contents.
-	// Sound because OTM forbids JS-driven HTML injection (otm/no-innerhtml,
-	// otm/no-dom-building) — all dynamic markup lives statically in <template>.
+	// Opt-in pure parse5 walk across scanned HTML documents and their <template>
+	// contents. Disabled by default in otm-build because sanitized rich fragments
+	// (replaceChildren) and un-scanned server-rendered pages can introduce semantic
+	// elements absent from static .html files.
 	static collectUsedTags(htmlSources = []) {
 		const tags = new Set(ALWAYS_KEEP_TAGS);
 
@@ -44,26 +47,25 @@ export default class CssPruner {
 	}
 
 	static selectorIsUsed(selectorNode, usedTags) {
-		let used = true;
-		selectorNode.walkTags((tagNode) => {
-			if (!used) return;
-			// Ignore tags inside :not(...) — negations don't require the negated tag to exist.
-			let cur = tagNode.parent;
-			while (cur && cur !== selectorNode) {
-				if (
-					cur.type === "pseudo" &&
-					(cur.value === ":not" || cur.value === ":has")
-				) {
-					return;
+		for (const child of selectorNode.nodes || []) {
+			if (child.type === "tag") {
+				const name = child.value.toLowerCase();
+				if (name !== "*" && !usedTags.has(name)) {
+					return false;
 				}
-				cur = cur.parent;
+			} else if (child.type === "pseudo" && child.nodes?.length > 0) {
+				const pseudo = child.value.toLowerCase();
+				// Negations (:not) do not require the negated tag to exist.
+				if (pseudo === ":not") continue;
+				if (DISJUNCTIVE_PSEUDOS.has(pseudo)) {
+					const anyBranchUsed = child.nodes.some((branch) =>
+						CssPruner.selectorIsUsed(branch, usedTags),
+					);
+					if (!anyBranchUsed) return false;
+				}
 			}
-			const name = tagNode.value.toLowerCase();
-			if (name !== "*" && !usedTags.has(name)) {
-				used = false;
-			}
-		});
-		return used;
+		}
+		return true;
 	}
 
 	static filterSelectorList(selectorText, usedTags) {
@@ -83,10 +85,10 @@ export default class CssPruner {
 	}
 
 	static prune(css, usedTags) {
-		return CssPruner.#pruneBlock(css, usedTags, false);
+		return CssPruner.#pruneBlock(css, usedTags);
 	}
 
-	static #pruneBlock(css, usedTags, insideStyleRule) {
+	static #pruneBlock(css, usedTags) {
 		const out = [];
 		let i = 0;
 		const len = css.length;
@@ -153,11 +155,7 @@ export default class CssPruner {
 				const atMatch = trimmed.match(/^@([a-zA-Z-]+)/);
 				const atName = atMatch ? atMatch[1].toLowerCase() : "";
 				if (CONTAINER_AT_RULES.has(atName)) {
-					const prunedBody = CssPruner.#pruneBlock(
-						body,
-						usedTags,
-						insideStyleRule,
-					);
+					const prunedBody = CssPruner.#pruneBlock(body, usedTags);
 					if (prunedBody.trim().length > 0) {
 						out.push(`${prelude}{${prunedBody}}`);
 					}
@@ -165,13 +163,6 @@ export default class CssPruner {
 					// @keyframes, @font-face, @property, etc. — always keep intact
 					out.push(`${prelude}{${body}}`);
 				}
-				continue;
-			}
-
-			// Nested rules inside an already-kept parent style rule are preserved as-is
-			// (nesting `&` selectors inherit parent context).
-			if (insideStyleRule) {
-				out.push(`${prelude}{${body}}`);
 				continue;
 			}
 

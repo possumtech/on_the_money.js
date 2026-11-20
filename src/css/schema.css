@@ -107,6 +107,12 @@
 		color-scheme: light;
 	}
 
+	[data-theme="dark"],
+	[data-theme="light"] {
+		background-color: var(--otm-background-color);
+		color: var(--otm-color);
+	}
+
 	/* Document reset */
 	*,
 	*::before,
@@ -414,7 +420,6 @@
 
 	code,
 	kbd {
-		display: inline-block;
 		padding-block: 0.125rem;
 		padding-inline: 0.375rem;
 		border-radius: var(--otm-border-radius);
@@ -423,6 +428,7 @@
 	}
 
 	kbd {
+		display: inline-block;
 		background-color: var(--otm-color);
 		color: var(--otm-background-color);
 		font-weight: 700;
@@ -756,8 +762,7 @@
 		}
 	}
 
-	[hidden],
-	[aria-hidden="true"] {
+	[hidden] {
 		display: none;
 	}
 

@@ -90,7 +90,7 @@ styles/ (app-authored)
 └── state.css           # @layer state     — the ONLY OTM-aware layer: [data-*] / [aria-*] rules
 ```
 
-Because cascade precedence follows `@layer schema, scheme, structure, style, state;`, there are zero specificity wars and zero `!important` hacks: `state.css` always beats `style.css` and `structure.css`, and `otm/layer-discipline` rejects layout rules in `style.css`, skin/state rules in `structure.css`, and unconditional baseline rules in `state.css`. Keeping `state.css` isolated keeps the state vocabulary greppable and auditable by `otm-lint` (HTML-106/107) and the deletion test.
+Because cascade precedence follows `@layer schema, scheme, structure, style, state;`, there are zero specificity wars and zero `!important` hacks: `state.css` always beats `style.css` and `structure.css`. Each 5-S file wraps its rules in its own `@layer <name> { ... }` block (unlayered CSS beats every `@layer` in browsers). `otm/layer-discipline` enforces those `@layer` wrappers, rejects layout rules and DOM state selectors in `style.css` (while keeping ephemeral interaction pseudos like `:hover` and `:focus-visible` in `style.css`), rejects skin/state rules in `structure.css`, and rejects unconditional baseline rules in `state.css`. Keeping `state.css` isolated keeps the state vocabulary greppable and auditable by `otm-lint` (HTML-106/107) and the deletion test.
 
 ## Exports
 
@@ -827,7 +827,7 @@ export default {
 | Rule | Source | Behavior |
 | --- | --- | --- |
 | `otm/prefer-attribute-selector` | bundled in `on_the_money` | Ban `.class` selectors; use `[data-state="..."]`. |
-| `otm/layer-discipline` | bundled in `on_the_money` | Enforce 5-S boundaries across `structure.css`, `style.css`, and `state.css` (and `*-structure`/`*-style`/`*-state.css`). |
+| `otm/layer-discipline` | bundled in `on_the_money` | Enforce 5-S `@layer` wrappers and layer boundaries across `structure.css`, `style.css`, and `state.css` (plus `@layer` blocks and unlayered rules in layered stylesheets). |
 | `declaration-no-important` | stylelint built-in | Ban `!important`. |
 
 ### 3. HTML / cross-file — `otm-lint`
@@ -877,22 +877,23 @@ The rules' job is to catch the *first* mistake and surface a teaching message ("
 
 ## Production builds (`otm-build`)
 
-`on_the_money` ships a zero-config production bundler backed directly by `esbuild` plus HTML-aware CSS pruning (no Vite, no config files):
+`on_the_money` ships a zero-config production bundler backed by `esbuild` as an optional peer dependency (no Vite, no config files, and zero binary weight for runtime-only or Vite consumers):
 
 ```bash
+npm install -D esbuild
 npx otm-build ./src --out ./dist
 ```
 
-Flags: `--out <dir>` (default `dist`), `--no-prune` (keep all CSS rules), `--no-hash` (omit 8-char content hashes).
+Flags: `--out <dir>` (default `dist`), `--prune` (opt-in HTML + `<template>` tag pruning), `--no-hash` (omit 8-char content hashes).
 
 What `otm-build` does:
-1. Discovers `.html` entry files and walks their DOM — **including all `<template>` contents** — via `parse5` to collect every HTML element tag used by the app.
-2. Collapses all local `<link rel="stylesheet">` layers (`schema`, `scheme`, `structure`, `style`, `state`) into one bundle via `esbuild`, prunes rules for unused HTML elements, minifies, and rewrites the HTML to a single content-hashed `<link>`.
-3. Bundles and minifies each local `<script type="module" src="...">` via `esbuild` and rewrites `src` to its content-hashed output.
+1. Discovers `.html` entry files (supporting both relative and root-relative `/...` asset URLs and collision-free multi-page outputs).
+2. Collapses all local `<link rel="stylesheet">` layers (`schema`, `scheme`, `structure`, `style`, `state`) into one minified stylesheet per page via `esbuild`, emits referenced `url()` font/image assets, and rewrites the HTML to a single content-hashed `<link>`.
+3. Bundles and minifies local `<script type="module" src="...">` entries via `esbuild` with native ESM code-splitting (`await import(...)` and shared chunks) and rewrites `src` to its content-hashed output.
 4. Copies static companion files (such as `locales/*.json` and media assets) into the output directory.
 
-> **Why HTML-aware CSS pruning is sound — and what it forbids:**
-> OTM’s architecture forbids JS-driven HTML injection (`innerHTML`, `insertAdjacentHTML`, `document.createElement` strings — enforced by `otm/no-innerhtml` and `otm/no-dom-building`). Because every dynamic UI fragment is declared statically inside `<template>` tags, the static HTML + `<template>` universe is complete. **JS-driven HTML injection is incompatible with this architecture:** tags conjured only inside JavaScript strings will have their substrate rules pruned away unless you pass `--no-prune`.
+> **Why CSS pruning is opt-in (`--prune`):**
+> `otm-build` keeps the full bundled stylesheet by default so sanitized rich fragments (`outlet.replaceChildren(sanitizedFragment)`) and server-rendered pages sharing the compiled CSS never silently lose styling for semantic elements (`<table>`, `<blockquote>`, `<dl>`, `<mark>`, `<figure>`, etc.) absent from static `.html` files. Pass `--prune` only when your scanned `.html` files and `<template>` tags form a closed static markup universe (without runtime rich fragments or external server templates).
 
 **NOT-list (explicitly out of scope for `otm-build`):**
 - No dev server, HMR, or WebSocket live-reload runtime.

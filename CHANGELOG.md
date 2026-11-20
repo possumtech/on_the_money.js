@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Fixed
+
+- **CSS substrate (`on_the_money/css/schema`):** removed `[aria-hidden="true"]` from `[hidden] { display: none; }` so decorative icons stay visible; added surface/text color evaluation (`background-color` / `color`) on scoped `[data-theme="dark"|"light"]` subtrees while keeping `--otm-*` tokens on `:root` so `@layer style` overrides survive `the("theme", ...)`; kept `display: inline-block` on `kbd` only so long inline `<code>` spans wrap normally. (#23)
+- **5-S Stylelint enforcement (`otm/layer-discipline`):** required matching `@layer <name> { ... }` wrappers in `structure.css`, `style.css`, and `state.css` and rejected unlayered rules in layered stylesheets; added missing logical layout properties (`inset-block*`, `inset-inline*`, `align-self`, `justify-self`, `place-self`, `order`, `flex-*`, `grid-*-start`/`end`) to `STRUCTURE_ONLY_PROPS` and `border`/`outline` shorthands to `STYLE_ONLY_PROPS`; banned persistent DOM/widget state selectors (`[open]`, `[disabled]`, `:checked`, `:popover-open`, etc.) in `structure.css` and `style.css` while keeping ephemeral interaction pseudos (`:hover`, `:active`, `:focus*`) permitted in `style.css`; removed unconditional `:has()` from state pseudos and enforced per-branch state checks in `state.css` selector lists. (#23)
+- **Production bundler (`otm-build` / `CssPruner`):** resolved root-relative `/...` asset URLs against `srcDir` (preserving root-relative `/assets/...` rewrites for SPA/MPA routing); eliminated multi-page basename collisions (`about/index.html`, `a/page.js` vs `b/page.js`); switched to `esbuild` `outdir` + `metafile` + native ESM `splitting: true` and `url()` asset loaders (`.woff2`, `.svg`, images); fixed `CssPruner` `:has()` handling, `:is()`/`:where()` disjunctions, and dead `insideStyleRule` parameter. (#23)
+
+### Changed
+
+- **Optional `esbuild` peer dependency:** moved `esbuild` out of runtime `dependencies` into optional `peerDependencies` (matching `linkedom` and `stylelint`) so browser-only and Vite consumers do not install `esbuild`'s native binary or `postinstall` script; `otm-build` loads `esbuild` lazily with an actionable error when absent. (#23)
+- **Opt-in CSS pruning (`--prune`):** `otm-build` now keeps the full bundled stylesheet by default (`prune = false`) so sanitized rich fragments (`replaceChildren`) and server-rendered pages sharing the stylesheet never lose semantic element styling; pass `--prune` explicitly for closed static HTML + `<template>` apps. (#23)
+
 ## [0.13.0] — 2026-11-20
 
 This pre-1.0 minor release ships a first-party, evergreen, zero-class CSS substrate distilled from Pico Classless, enforces the 5-S CSS layer stack in Stylelint, and adds the zero-config `otm-build` production CLI backed by `esbuild` and template-aware CSS pruning. Core JS runtime size is unchanged (`12.3 KB` minified / `4.8 KB` gzipped).
