@@ -187,6 +187,15 @@ try {
 			timeout: 10000,
 		});
 		if (name === "runtime-consumer") {
+			const llmsSource = await fs.readFile(
+				path.join(installed, "llms.txt"),
+				"utf8",
+			);
+			assert.match(llmsSource, /^# on_the_money\.js/m);
+			for (const [, target] of llmsSource.matchAll(/\[[^\]]+\]\(([^)]+)\)/g)) {
+				if (/^(?:https?:|\/\/|#)/i.test(target)) continue;
+				await fs.access(path.resolve(installed, target));
+			}
 			await assert.rejects(
 				exec(
 					process.execPath,

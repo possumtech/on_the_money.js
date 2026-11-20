@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import LintCli from "../linter/cli.js";
 import Builder from "./Builder.js";
 import CssPruner from "./CssPruner.js";
 import BuildCli from "./cli.js";
@@ -296,5 +297,88 @@ test("BuildCli: runs end-to-end, supports --prune, prints help, and fails cleanl
 	} finally {
 		await fs.rm(emptyDir, { recursive: true, force: true });
 		await fs.rm(outDir, { recursive: true, force: true });
+	}
+});
+
+test("Builder: composes cleanly with upstream Markdown/content filters (preserves alternate links, .md companions, llms.txt, and passes otm-lint)", async (t) => {
+	t.mock.method(console, "log", () => {});
+	t.mock.method(console, "error", () => {});
+	const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "otm-build-agentic-"));
+	const srcDir = path.join(tmp, "stage");
+	const outDir = path.join(tmp, "dist");
+	try {
+		await fs.mkdir(path.join(srcDir, "posts"), { recursive: true });
+		await fs.writeFile(
+			path.join(srcDir, "llms.txt"),
+			`# Example Docs\n\n> Canonical Markdown docs rendered to semantic HTML.\n\n## Posts\n\n- [Hello World](/posts/hello.md): First post\n`,
+		);
+		await fs.writeFile(
+			path.join(srcDir, "posts/hello.md"),
+			"# Hello World\n\n> Quoted prose.\n\n| A | B |\n| - | - |\n| 1 | 2 |\n",
+		);
+		await fs.writeFile(
+			path.join(srcDir, "styles.css"),
+			`@import "${path.join(root, "src/css/index.css").split(path.sep).join("/")}";\n`,
+		);
+		await fs.writeFile(
+			path.join(srcDir, "posts/hello.html"),
+			`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hello World</title>
+  <link rel="alternate" type="text/markdown" href="./hello.md">
+  <link rel="stylesheet" href="../styles.css">
+</head>
+<body>
+  <header><nav aria-label="Primary"><a href="/">Home</a></nav></header>
+  <main>
+    <article>
+      <h1>Hello World</h1>
+      <blockquote><p>Quoted prose.</p></blockquote>
+      <table><thead><tr><th>A</th><th>B</th></tr></thead><tbody><tr><td>1</td><td>2</td></tr></tbody></table>
+    </article>
+  </main>
+  <footer><nav aria-label="Footer"><a href="/llms.txt">llms.txt</a></nav></footer>
+</body>
+</html>`,
+		);
+
+		const result = await Builder.build({ srcDir, outDir });
+		assert.equal(result.htmlCount, 1);
+
+		const builtHtml = await fs.readFile(
+			path.join(outDir, "posts/hello.html"),
+			"utf8",
+		);
+		// Alternate Markdown link stays intact; stylesheet is bundled & hashed
+		assert.match(
+			builtHtml,
+			/<link\b[^>]*rel="alternate"[^>]*type="text\/markdown"[^>]*href="\.\/hello\.md"/,
+		);
+		assert.match(
+			builtHtml,
+			/href="\.\.\/assets\/posts\/hello\.[0-9a-f]{8}\.css"/,
+		);
+
+		// Companion .md and llms.txt passed through untouched
+		const builtMd = await fs.readFile(
+			path.join(outDir, "posts/hello.md"),
+			"utf8",
+		);
+		assert.match(builtMd, /# Hello World/);
+		const builtLlms = await fs.readFile(path.join(outDir, "llms.txt"), "utf8");
+		assert.match(builtLlms, /\/posts\/hello\.md/);
+
+		// Full otm-lint pass against built output verifies HTML-028/029/108 + LLMS-001/002
+		const lintViolations = await LintCli.run([
+			"--check",
+			outDir,
+			"--public-root",
+			outDir,
+		]);
+		assert.equal(lintViolations, 0);
+	} finally {
+		await fs.rm(tmp, { recursive: true, force: true });
 	}
 });

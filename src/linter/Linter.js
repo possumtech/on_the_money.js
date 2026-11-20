@@ -1,5 +1,19 @@
 import Markup from "./Markup.js";
 
+const EXTERNAL_URL_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
+const TEMPLATE_EXPR_RE = /\{\{|\$\{|\s/;
+
+const isMarkdownAlternate = (attrs) => {
+	const rels = (attrs.rel || "").toLowerCase().split(/\s+/).filter(Boolean);
+	const mediaType = (attrs.type || "").split(";")[0].trim().toLowerCase();
+	return rels.includes("alternate") && mediaType === "text/markdown";
+};
+
+const stripQueryAndHash = (ref) => {
+	const idx = ref.search(/[?#]/);
+	return idx === -1 ? ref : ref.slice(0, idx);
+};
+
 export default class Linter {
 	static check(file, source, availableLocales = null) {
 		if (!file.endsWith(".html")) return [];
@@ -11,13 +25,118 @@ export default class Linter {
 		return violations;
 	}
 
+	static extractMarkdownAlternates(file, source) {
+		const document = Markup.parse(file, source, {
+			sourceCodeLocationInfo: true,
+		});
+		const links = [];
+		Linter.#traverse(document, (node) => {
+			if (node.nodeName !== "link") return;
+			const attrs = node.attrs
+				? Object.fromEntries(
+						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
+					)
+				: {};
+			if (!isMarkdownAlternate(attrs)) return;
+			const href = (attrs.href || "").trim();
+			if (!href) return;
+			const dynamic = Object.hasOwn(attrs, "data-otm-dynamic");
+			const loc = node.sourceCodeLocation?.attrs?.href ||
+				node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+			links.push({
+				file,
+				href,
+				dynamic,
+				line: loc.startLine,
+				column: loc.startCol,
+			});
+		});
+		return links;
+	}
+
+	static extractLlmsLinks(source) {
+		const links = [];
+		const lines = source.split(/\r?\n/);
+		let inFence = false;
+		for (let idx = 0; idx < lines.length; idx++) {
+			const line = lines[idx];
+			if (/^\s*(?:```|~~~)/.test(line)) {
+				inFence = !inFence;
+				continue;
+			}
+			if (inFence) continue;
+			// Blank out inline code spans so syntax examples don't trigger link checks.
+			const clean = line.replace(/`[^`]*`/g, (m) => " ".repeat(m.length));
+			for (const m of clean.matchAll(/(?<!!)\[([^\]]*)\]\(([^)]*)\)/g)) {
+				const rawTarget = m[2].trim();
+				// Allow optional Markdown link title after whitespace (e.g. README.md "Docs")
+				const closeAngle = rawTarget.indexOf(">");
+				const target = rawTarget.startsWith("<")
+					? closeAngle > 1
+						? rawTarget.slice(1, closeAngle).trim()
+						: ""
+					: rawTarget.split(/\s+/)[0] || "";
+				links.push({
+					label: m[1].trim(),
+					target,
+					rawTarget,
+					line: idx + 1,
+					column: m.index + 1,
+				});
+			}
+		}
+		return links;
+	}
+
+	static isCheckableLocalTarget(target, { checkRootRelative = false } = {}) {
+		if (!target || target.startsWith("#")) return false;
+		if (EXTERNAL_URL_RE.test(target)) return false;
+		const pathname = stripQueryAndHash(target);
+		if (!pathname || TEMPLATE_EXPR_RE.test(pathname)) return false;
+		if (pathname.startsWith("/")) return checkRootRelative;
+		return true;
+	}
+
+	static checkLlmsTxt(file, source) {
+		const violations = [];
+		const lines = source.split(/\r?\n/);
+		const firstNonEmptyIdx = lines.findIndex((l) => l.trim().length > 0);
+		if (
+			firstNonEmptyIdx === -1 ||
+			!/^#\s+\S/.test(lines[firstNonEmptyIdx].trim())
+		) {
+			Linter.#addViolation(
+				violations,
+				file,
+				{ line: firstNonEmptyIdx === -1 ? 1 : firstNonEmptyIdx + 1, column: 1 },
+				"LLMS-001",
+				'llms.txt must begin with an H1 title line ("# Project Name") per the llms.txt specification.',
+			);
+		}
+
+		for (const link of Linter.extractLlmsLinks(source)) {
+			if (!link.label || !link.target) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: link.line, column: link.column },
+					"LLMS-001",
+					"Malformed Markdown link in llms.txt; provide both non-empty link text and a target URL.",
+				);
+			}
+		}
+
+		return violations;
+	}
+
 	static #checkHtmlRules(document, violations, file, availableLocales) {
 		let hasI18nMeta = false;
 		let hasI18nPath = true;
 		let manifestMatches = true;
 		let isFullDocument = false;
+		const documentNavs = [];
 
-		Linter.#traverse(document, (node) => {
+		Linter.#traverse(document, (node, inTemplate) => {
 			if (
 				(node.nodeName === "html" || node.nodeName === "#documentType") &&
 				node.sourceCodeLocation
@@ -28,6 +147,30 @@ export default class Linter {
 			const attrs = node.attrs
 				? Object.fromEntries(node.attrs.map((a) => [a.name, a.value]))
 				: {};
+			const lowerAttrs = node.attrs
+				? Object.fromEntries(
+						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
+					)
+				: {};
+
+			if (node.nodeName === "nav" && !inTemplate) {
+				documentNavs.push({ node, attrs: lowerAttrs });
+			}
+
+			if (
+				node.nodeName === "link" &&
+				isMarkdownAlternate(lowerAttrs) &&
+				!lowerAttrs.href?.trim()
+			) {
+				const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-029",
+					'<link rel="alternate" type="text/markdown"> requires a non-empty href pointing to the canonical Markdown representation.',
+				);
+			}
 			const localeAttrs =
 				node.nodeName === "html"
 					? ["lang"]
@@ -133,6 +276,36 @@ export default class Linter {
 				);
 			}
 		});
+
+		if (documentNavs.length > 1) {
+			const seenLabels = new Set();
+			for (const { node, attrs } of documentNavs) {
+				const label = (attrs["aria-label"] || "").trim();
+				const labelledBy = (attrs["aria-labelledby"] || "").trim();
+				const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+				if (!label && !labelledBy) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-028",
+						"Multiple <nav> landmarks in one document require distinguishing aria-label or aria-labelledby attributes.",
+					);
+				} else if (label) {
+					const normalized = label.toLowerCase();
+					if (seenLabels.has(normalized)) {
+						Linter.#addViolation(
+							violations,
+							file,
+							{ line: loc.startLine, column: loc.startCol },
+							"HTML-028",
+							`Duplicate <nav aria-label="${label}"> landmark; use unique labels to distinguish sibling navigations.`,
+						);
+					}
+					seenLabels.add(normalized);
+				}
+			}
+		}
 
 		if (isFullDocument && hasI18nMeta) {
 			if (!hasI18nPath) {
@@ -525,13 +698,15 @@ export default class Linter {
 		return keys;
 	}
 
-	static #traverse(node, visitor) {
-		visitor(node);
+	static #traverse(node, visitor, inTemplate = false) {
+		visitor(node, inTemplate);
+		const childInTemplate = inTemplate || node.nodeName === "template";
 		// parse5 templates keep children under content.childNodes while
 		// childNodes stays a truthy empty array — walk both.
-		for (const child of node.childNodes || []) Linter.#traverse(child, visitor);
+		for (const child of node.childNodes || [])
+			Linter.#traverse(child, visitor, childInTemplate);
 		for (const child of node.content?.childNodes || [])
-			Linter.#traverse(child, visitor);
+			Linter.#traverse(child, visitor, true);
 	}
 
 	static #addViolation(violations, file, loc, ruleId, message, severity) {

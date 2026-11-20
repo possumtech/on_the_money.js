@@ -764,6 +764,40 @@ await the.boot();   // localStorage values, if any, override the server-rendered
 
 The framework reads existing attributes via `the(key)` without modification, so server-rendered state is observable immediately. `the.boot()` only mutates keys opted into `persistKeys` that have stored values. Keep fallback text inside `data-text` carriers (`<h1 data-text="user">Alice</h1>`) when practical, so the initial document remains useful before enhancement.
 
+### Server content-engine & agentic composition
+
+OTM is designed to compose cleanly with any upstream server-side content engine — Markdown → HTML filters (`goldmark`, `comrak`, Pandoc, Eleventy, Hugo), structured-data templates, or database-backed SSR — without client-side Markdown rendering or hydration:
+
+1. **The server renders plain semantic HTML** from your canonical documents (`.md`, JSON, DB rows). `on_the_money/css/schema` styles every standard Markdown element (`<h1>`–`<h6>`, `<p>`, `<table>`, `<blockquote>`, `<pre><code>`, `<dl>`, `<hr>`, `<figure>`) classlessly, and ordinary prose needs neither `data-i18n` nor `data-text` mirrors.
+2. **The server delivers canonical `text/markdown` to agents** (via `.md` URLs and/or HTTP `Accept: text/markdown` content negotiation in your server or reverse proxy), linked from HTML with `<link rel="alternate" type="text/markdown" href="...">` and indexed at `/llms.txt`.
+3. **Sibling landmarks carry explicit accessible names** (`aria-label` / `aria-labelledby`), giving screen readers, browser agents, and classless CSS (`nav[aria-label="Primary"]`) unambiguous hooks without class names.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Hello World</title>
+  <link rel="alternate" type="text/markdown" href="/posts/hello.md">
+  <link rel="stylesheet" href="/assets/index.css">
+</head>
+<body>
+  <header><nav aria-label="Primary"><a href="/">Home</a></nav></header>
+  <main>
+    <article>
+      <h1>Hello World</h1>
+      <p>Server-rendered semantic HTML from canonical Markdown or structured data.</p>
+    </article>
+  </main>
+  <footer><nav aria-label="Footer"><a href="/llms.txt">llms.txt</a></nav></footer>
+</body>
+</html>
+```
+
+For two-stage static pipelines (`your-filter ./content ./stage && npx otm-build ./stage --out ./dist`), `otm-build` keeps `<link rel="alternate" type="text/markdown">` intact, copies `.md` companions and `llms.txt` straight through, and keeps the full semantic stylesheet intact by default.
+
+**NOT in scope:** OTM ships no Markdown or frontmatter parser, no HTML sanitizer, no SSG/layout engine, no `otm-build` filter plugin API, no server HTTP `Accept: text/markdown` middleware, and no speculative pre-standard browser-agent runtime APIs.
+
 ## Lint stack
 
 on_the_money ships a three-tool stack. Each layer covers what the others can't.
@@ -844,6 +878,8 @@ npx otm-lint --check ./src
 | **HTML-025** | `data-i18n-type="currency"` without `data-i18n-currency` | `_t()` throws at runtime without an explicit ISO 4217 code — declare it on the element. |
 | **HTML-026** | Invalid source, available, or fallback locale identifier | Use Unicode locale tags accepted by `Intl.Locale`, such as `fr-CA` or `sr-Latn`. |
 | **HTML-027** | Active date formatting has a missing or invalid value | Supply ISO date text in `data-i18n-val` before activating `data-i18n-type="date"`. |
+| **HTML-028** | Multiple `<nav>` landmarks in one document without unique `aria-label` / `aria-labelledby` | Name each sibling `<nav>` with a distinct `aria-label` or `aria-labelledby` for assistive tech, browser agents, and classless CSS selectors. |
+| **HTML-029** | `<link rel="alternate" type="text/markdown">` without a non-empty `href` | Point `href` at the canonical Markdown representation. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
@@ -851,6 +887,9 @@ npx otm-lint --check ./src
 | **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
 | **HTML-106** | A globally written state key nothing consumes | The deletion test as lint: no CSS attribute selector, `[data-text]` slot, `"data-key"` JS string literal (e.g. MutationObserver `attributeFilter`), or `the("key")` read touches it — dead state or a missing CSS rule. Promoted from warn to error after a zero-false-positive production trial. |
 | **HTML-107** | A `data-K-key="V"` reveal span no state-CSS rule references, or a CSS `[data-K-key="V"]` reference no element carries | Pairing is by CSS reference — the state key revealing a span may be named anything (`body[data-form-error="V"] [data-error-key="V"]` is fine). Either half missing means the message silently never shows (or the rule is dead wiring); `data-otm-dynamic` opts a span out of the span→CSS direction. |
+| **HTML-108** | Local static `<link rel="alternate" type="text/markdown" href="...">` target missing on disk | Emit the companion `.md` file, fix the path, or mark dynamic SSR routes `data-otm-dynamic`. Relative paths are checked automatically; root-relative `/...` paths are checked only when `--public-root` is explicitly supplied so dynamic SSR servers do not false-positive. |
+| **LLMS-001** | Present `llms.txt` lacks a leading `# Title` H1 or has a malformed Markdown link | Follow the `llms.txt` specification: begin with `# Project Name` and ensure every link has non-empty label and URL. Checked only when `llms.txt` exists. |
+| **LLMS-002** | Local static target in `llms.txt` missing on disk | Fix stale `llms.txt` links after refactors. Relative links are checked automatically; root-relative `/...` links are checked only when `--public-root` is explicitly supplied. |
 
 `otm-lint` walks `.html`, `.ejs` (cross-file rules only — per-file rules stay `.html`), `.js`, `.css`, and locale `.json` files. HTML files get the per-file rules above (template content included); `.js` files contribute `$.clone` references, `the()` write/read keys, and `data-action` selectors; `.css` files contribute attribute-selector consumption for HTML-106; locale dicts get loaded per HTML file's `<meta name="i18n">` for HTML-102/103. Default excludes: `node_modules`, `dist`, `.git`, dotdirs. Exit code is nonzero when error-level violations are found.
 

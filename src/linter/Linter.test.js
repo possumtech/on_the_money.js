@@ -617,3 +617,129 @@ test("Linter.check: HTML-025 satisfied by data-i18n-currency; HTML-103 ignores t
 	});
 	assert.strictEqual(cross.filter((v) => v.ruleId === "HTML-103").length, 0);
 });
+
+test("Linter.check: HTML-028 requires unique aria-label or aria-labelledby on multiple <nav> landmarks", () => {
+	assert.deepStrictEqual(
+		Linter.check(
+			"single.html",
+			"<header><nav><a href='/'>Home</a></nav></header>",
+		),
+		[],
+	);
+	assert.deepStrictEqual(
+		Linter.check(
+			"labeled.html",
+			`<header><nav aria-label="Primary"><a href="/">Home</a></nav></header>
+			 <aside><h2 id="toc">On this page</h2><nav aria-labelledby="toc"></nav></aside>
+			 <template><nav></nav></template>`,
+		),
+		[],
+	);
+
+	const unlabeled = Linter.check(
+		"unlabeled.html",
+		"<header><nav></nav></header><footer><nav></nav></footer>",
+	);
+	assert.deepStrictEqual(
+		unlabeled.map((v) => v.ruleId),
+		["HTML-028", "HTML-028"],
+	);
+
+	const dup = Linter.check(
+		"dup.html",
+		'<header><nav aria-label="Primary"></nav></header><footer><nav aria-label="primary"></nav></footer>',
+	);
+	assert.deepStrictEqual(
+		dup.map((v) => v.ruleId),
+		["HTML-028"],
+	);
+	assert.match(dup[0].message, /Duplicate/);
+});
+
+test("Linter.check: HTML-029 requires non-empty href on <link rel=alternate type=text/markdown>", () => {
+	assert.deepStrictEqual(
+		Linter.check(
+			"good.html",
+			'<!doctype html><html lang="en"><head><link rel="alternate" type="text/markdown; charset=utf-8" href="/posts/hello.md"></head><body></body></html>',
+		),
+		[],
+	);
+	assert.deepStrictEqual(
+		Linter.check(
+			"rss.html",
+			'<!doctype html><html lang="en"><head><link rel="alternate" type="application/rss+xml"></head><body></body></html>',
+		),
+		[],
+	);
+
+	for (const html of [
+		'<head><link rel="alternate" type="text/markdown"></head>',
+		'<head><link rel="alternate" type="text/markdown" href="  "></head>',
+	]) {
+		const violations = Linter.check("bad.html", html);
+		assert.deepStrictEqual(
+			violations.map((v) => v.ruleId),
+			["HTML-029"],
+		);
+	}
+});
+
+test("Linter.checkLlmsTxt: LLMS-001 validates H1 header and Markdown links while ignoring code blocks", () => {
+	const valid = `# Demo Site
+
+> Summary line.
+
+## Docs
+
+- [Guide](README.md): Main docs
+- [External](https://example.com/spec.md "Spec")
+
+Inline syntax example: \`[empty]()\`
+
+\`\`\`markdown
+[ignored-in-fence]()
+\`\`\`
+`;
+	assert.deepStrictEqual(Linter.checkLlmsTxt("llms.txt", valid), []);
+
+	assert.deepStrictEqual(
+		Linter.checkLlmsTxt("llms.txt", "No heading here\n").map((v) => v.ruleId),
+		["LLMS-001"],
+	);
+	assert.deepStrictEqual(
+		Linter.checkLlmsTxt("llms.txt", "").map((v) => v.ruleId),
+		["LLMS-001"],
+	);
+	assert.deepStrictEqual(
+		Linter.checkLlmsTxt(
+			"llms.txt",
+			"# Title\n\n- [](README.md)\n- [Broken]()\n- [Unclosed](<bad)\n",
+		).map((v) => v.ruleId),
+		["LLMS-001", "LLMS-001", "LLMS-001"],
+	);
+});
+
+test("Linter.isCheckableLocalTarget: checks relative paths always and root-relative only when opted in", () => {
+	assert.strictEqual(Linter.isCheckableLocalTarget("./post.md"), true);
+	assert.strictEqual(Linter.isCheckableLocalTarget("README.md#api"), true);
+	assert.strictEqual(Linter.isCheckableLocalTarget("/posts/hello.md"), false);
+	assert.strictEqual(
+		Linter.isCheckableLocalTarget("/posts/hello.md", {
+			checkRootRelative: true,
+		}),
+		true,
+	);
+	assert.strictEqual(
+		Linter.isCheckableLocalTarget("https://example.com/doc.md", {
+			checkRootRelative: true,
+		}),
+		false,
+	);
+	assert.strictEqual(
+		Linter.isCheckableLocalTarget("/posts/{{slug}}.md", {
+			checkRootRelative: true,
+		}),
+		false,
+	);
+	assert.strictEqual(Linter.isCheckableLocalTarget("#section"), false);
+});

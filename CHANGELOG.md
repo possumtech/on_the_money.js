@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **Agentic & server content-engine composition (`otm-lint` + `llms.txt`):**
+  - Added declared-only, SSR-safe `otm-lint` contract rules: **`HTML-028`** (require unique `aria-label`/`aria-labelledby` across multiple `<nav>` landmarks in a document), **`HTML-029`** (require non-empty `href` on `<link rel="alternate" type="text/markdown">`), **`HTML-108`** (verify local static `<link rel="alternate" type="text/markdown">` targets without false-positiving on dynamic SSR routes), and **`LLMS-001` / `LLMS-002`** (validate `llms.txt` H1/link syntax and static local targets when present).
+  - Shipped a first-party `llms.txt` at the package root (included in npm artifacts and verified in `check-package.js`) pointing to `README.md`, public `.d.ts` contracts, and the 5-S CSS substrate.
+  - Documented the server-rendered content-engine composition pattern (`markdown → html` / `structured data → html` + `<link rel="alternate" type="text/markdown">` + `/llms.txt` + explicit NOT-list) in `README.md` and added end-to-end `otm-build` + `otm-lint` pass-through coverage. (#19)
+
 ## [0.14.0] — 2026-11-20
 
 This pre-1.0 minor release resolves post-`0.13.0` substrate, 5-S Stylelint, packaging, and `otm-build` contract defects surfaced during downstream integration planning. Runtime-only and Vite consumers no longer pull `esbuild` (now an optional peer dependency), and `otm-build` keeps the full bundled stylesheet by default so sanitized rich fragments and server-rendered pages sharing the stylesheet never lose semantic styling (`--prune` is now opt-in). Core JS runtime size is unchanged (`12.3 KB` minified / `4.8 KB` gzipped).

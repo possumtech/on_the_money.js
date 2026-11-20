@@ -54,6 +54,7 @@
 		"src/**/*.css",
 		"!src/**/*.test.js",
 		"dist",
+		"llms.txt",
 		"README.md",
 		"LICENSE",
 		"CHANGELOG.md"
