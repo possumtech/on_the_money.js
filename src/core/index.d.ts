@@ -68,6 +68,12 @@ export interface Route {
 	go(path: string, options?: RouteGoOptions): void;
 }
 
+export interface ReconcileOptions<T> {
+	key: (item: T, index: number) => string | number;
+	fill?: (element: HTMLElement, item: T, index: number) => void;
+	attr?: `data-${string}`;
+}
+
 export interface Select {
 	<E extends Element = Element>(selector: string): E | null;
 	<E extends Element = Element>(
@@ -84,6 +90,12 @@ export interface Select {
 		selector: string,
 		items: Iterable<T>,
 		fill?: (element: HTMLElement, item: T, index: number) => void,
+	): HTMLElement[];
+	reconcile<T>(
+		parent: Element | string,
+		selector: string,
+		items: Iterable<T>,
+		options: ReconcileOptions<T>,
 	): HTMLElement[];
 }
 

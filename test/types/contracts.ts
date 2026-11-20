@@ -65,5 +65,14 @@ const sseChannel = sse("/events", {
 });
 sseChannel.close();
 void clipboard({ resetMs: 1000 });
+void $.reconcile("#list", "#row", [{ id: "1", title: "One" }], {
+	key: (item) => item.id,
+	fill: (el, item, idx) => {
+		the(el, { title: item.title, "row-index": idx });
+	},
+	attr: "data-item-id",
+});
+// @ts-expect-error attr must be a data-* attribute name
+void $.reconcile("#list", "#row", ["a"], { key: (x) => x, attr: "id" });
 void setupDOM("<main></main>").document;
 void [elements, eslintConfig, eslintPlugin, stylelintConfig, stylelintPlugin];

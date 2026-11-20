@@ -10,34 +10,43 @@ test("the(key): reads global state from body", (_t) => {
 	assert.strictEqual(The.the("theme"), "dark");
 });
 
-test("the(key): camelCase keys convert to kebab-case attributes", (_t) => {
-	const { document } = setupDOM();
-	The.the("chapterHasNav", "true");
-	assert.strictEqual(
-		document.body.getAttribute("data-chapter-has-nav"),
-		"true",
+test("the(key): rejects non-kebab-case state keys at runtime", async (_t) => {
+	const { document } = setupDOM('<div id="el"></div>');
+	const el = document.querySelector("#el");
+	for (const bad of [
+		"chapterHasNav",
+		"chapter_has_nav",
+		"Theme",
+		"-leading",
+		"trailing-",
+		"double--dash",
+		"",
+		"1digit",
+	]) {
+		assert.throws(() => The.the(bad, "true"), /canonical kebab-case/);
+		assert.throws(() => The.the(bad), /canonical kebab-case/);
+		assert.throws(() => The.the(el, bad, "true"), /canonical kebab-case/);
+		assert.throws(() => The.the({ [bad]: "true" }), /canonical kebab-case/);
+	}
+	await assert.rejects(
+		() => The.boot({ persistKeys: ["myTheme"] }),
+		/canonical kebab-case/,
 	);
-	assert.strictEqual(The.the("chapterHasNav"), "true");
 });
 
-test("the(key): snake_case keys convert to kebab-case attributes", (_t) => {
-	const { document } = setupDOM();
-	The.the("chapter_has_nav", "true");
-	assert.strictEqual(
-		document.body.getAttribute("data-chapter-has-nav"),
-		"true",
-	);
-	assert.strictEqual(The.the("chapter_has_nav"), "true");
-});
-
-test("the(key): single-word and already-kebab keys pass through", (_t) => {
+test("the(key): canonical single-word and kebab-case keys pass through", (_t) => {
 	const { document } = setupDOM();
 	The.the("theme", "dark");
-	The.the("data-foo", "bar");
+	The.the("chapter-has-nav", "true");
 	assert.strictEqual(document.body.getAttribute("data-theme"), "dark");
+	assert.strictEqual(
+		document.body.getAttribute("data-chapter-has-nav"),
+		"true",
+	);
+	assert.strictEqual(The.the("chapter-has-nav"), "true");
 });
 
-test("the(key): ARIA shortcut keys still map correctly under kebab conversion", (_t) => {
+test("the(key): ARIA shortcut keys map cleanly on elements", (_t) => {
 	const { document } = setupDOM('<button id="b"></button>');
 	const el = document.querySelector("#b");
 	The.the(el, "expanded", true);
@@ -120,7 +129,7 @@ test("the(el, {k:v}): projects into descendant data-bind attributes", (_t) => {
 		'<article id="card"><a data-text="name" data-bind="href:profile-url">@x</a></article>',
 	);
 	const card = document.querySelector("#card");
-	The.the(card, { name: "@alice", profileUrl: "/@alice" });
+	The.the(card, { name: "@alice", "profile-url": "/@alice" });
 	const a = document.querySelector("a");
 	assert.strictEqual(a.textContent, "@alice");
 	assert.strictEqual(a.getAttribute("href"), "/@alice");
@@ -142,7 +151,7 @@ test("data-bind: multiple pairs on one element; null removes only the bound attr
 		'<time id="t" data-bind="datetime:at title:at-label"></time>',
 	);
 	const el = document.querySelector("#t");
-	The.the({ at: "2026-07-19", atLabel: "July" });
+	The.the({ at: "2026-07-19", "at-label": "July" });
 	assert.strictEqual(el.getAttribute("datetime"), "2026-07-19");
 	assert.strictEqual(el.getAttribute("title"), "July");
 	The.the("at", null);
@@ -208,12 +217,14 @@ test("the(key, val): syncs [data-text] descendants of body", (_t) => {
 	assert.strictEqual(document.querySelector("h1").textContent, "Alice");
 });
 
-test("the(el, {k:v}): batch-sets scoped state with aria mapping", (_t) => {
+test("the(el, {k:v}): batch-sets scoped state with 4-key ARIA mapping (hidden writes data-hidden)", (_t) => {
 	const { document } = setupDOM('<div id="el"></div>');
 	const el = document.querySelector("#el");
-	The.the(el, { selected: "true", hidden: "false" });
+	The.the(el, { selected: "true", hidden: "true", disabled: true });
 	assert.strictEqual(el.getAttribute("aria-selected"), "true");
-	assert.strictEqual(el.getAttribute("aria-hidden"), "false");
+	assert.strictEqual(el.getAttribute("aria-disabled"), "true");
+	assert.strictEqual(el.getAttribute("data-hidden"), "true");
+	assert.strictEqual(el.getAttribute("aria-hidden"), null);
 });
 
 test("the(el, key): ARIA mapping covers the closed widget-state set", (_t) => {
@@ -459,17 +470,22 @@ test("the.boot({ locales }): overrides meta-tag path", async (_t) => {
 	assert.strictEqual(The.dictionary.from, "override");
 });
 
-test("the.flat: flattens nested objects with default separator", (_t) => {
+test("the.flat: flattens nested objects with default kebab separator and composes directly with the()", (_t) => {
+	const { document } = setupDOM('<article id="card"></article>');
 	const out = The.flat({
 		user: { name: "Alice", email: "a@b" },
 		tags: ["x", "y"],
 	});
 	assert.deepStrictEqual(out, {
-		user_name: "Alice",
-		user_email: "a@b",
-		tags_0: "x",
-		tags_1: "y",
+		"user-name": "Alice",
+		"user-email": "a@b",
+		"tags-0": "x",
+		"tags-1": "y",
 	});
+	const card = document.querySelector("#card");
+	The.the(card, out);
+	assert.strictEqual(card.getAttribute("data-user-name"), "Alice");
+	assert.strictEqual(card.getAttribute("data-tags-1"), "y");
 });
 
 test("the.flat: respects a custom separator", (_t) => {

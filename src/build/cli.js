@@ -12,16 +12,13 @@ export default class BuildCli {
 				allowPositionals: true,
 				options: {
 					out: { type: "string", short: "o", default: "dist" },
-					prune: { type: "boolean", default: false },
 					"no-hash": { type: "boolean", default: false },
 					help: { type: "boolean", short: "h", default: false },
 				},
 			});
 
 			if (values.help) {
-				console.log(
-					"Usage: otm-build [srcDir] [--out <dir>] [--prune] [--no-hash]",
-				);
+				console.log("Usage: otm-build [srcDir] [--out <dir>] [--no-hash]");
 				return 0;
 			}
 
@@ -32,26 +29,12 @@ export default class BuildCli {
 			const result = await Builder.build({
 				srcDir: positionals[0] ?? ".",
 				outDir: values.out,
-				prune: values.prune,
 				hash: !values["no-hash"],
 			});
 
-			const saved =
-				result.cssBytesBefore > 0
-					? Math.round(
-							((result.cssBytesBefore - result.cssBytesAfter) /
-								result.cssBytesBefore) *
-								100,
-						)
-					: 0;
-
 			console.log(`on_the_money.js Build → ${result.outDir}`);
 			console.log(
-				`  HTML: ${result.htmlCount} | JS: ${formatBytes(result.jsBytes)} | CSS: ${formatBytes(result.cssBytesAfter)}${
-					result.cssBytesBefore > result.cssBytesAfter
-						? ` (pruned ${saved}% from ${formatBytes(result.cssBytesBefore)})`
-						: ""
-				}`,
+				`  HTML: ${result.htmlCount} | JS: ${formatBytes(result.jsBytes)} | CSS: ${formatBytes(result.cssBytes)}`,
 			);
 			return 0;
 		} catch (e) {

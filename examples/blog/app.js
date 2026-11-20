@@ -32,7 +32,7 @@ langSelect.value = the.locale.split("-")[0];
 
 const renderPostList = () => {
 	$.cloneEach("#post-list", "#post-list-item", posts, (el, post) => {
-		the(el, { title: post.title, postUrl: `#/post/${post.id}` });
+		the(el, { title: post.title, "post-url": `#/post/${post.id}` });
 	});
 	// data-i18n-qty is a directive, not projectable state — Discipline #2.
 	$('[data-i18n="post_count"]').setAttribute("data-i18n-qty", posts.length);

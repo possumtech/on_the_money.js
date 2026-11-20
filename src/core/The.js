@@ -21,14 +21,17 @@ export default class The {
 		];
 	}
 
-	// Normalize keys to kebab-case for DOM attributes and [data-text] lookups.
-	// chapterHasNav → chapter-has-nav. chapter_has_nav → chapter-has-nav.
-	// expanded / mounted / theme → unchanged.
-	static #kebab(key) {
-		return key
-			.replace(/_/g, "-")
-			.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-			.toLowerCase();
+	// Canonical lowercase kebab-case state keys only: one literal spelling across
+	// HTML, CSS, JS, and localStorage with zero silent translation.
+	static #KEY_RE = /^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/;
+
+	static #assertKey(key) {
+		if (typeof key !== "string" || !The.#KEY_RE.test(key)) {
+			throw new TypeError(
+				`the(${JSON.stringify(key)}): state keys must be canonical kebab-case (e.g. "model-offline")`,
+			);
+		}
+		return key;
 	}
 
 	static the(...args) {
@@ -46,7 +49,7 @@ export default class The {
 		const isGlobal = el === document.body;
 
 		if (args.length === 1 && typeof a === "string") {
-			return The.#get(el, The.#kebab(a));
+			return The.#get(el, The.#assertKey(a));
 		}
 		if (args.length === 2 && typeof a === "string") {
 			if (typeof b === "undefined") {
@@ -207,19 +210,19 @@ export default class The {
 		return { text: result, locale: language };
 	}
 
-	// ARIA mapping: HTML5 widget/form boolean states only. Closed set; no future
-	// expansion. Other ARIA attributes (aria-invalid, aria-controls, etc.) go
-	// through el.setAttribute("aria-...", val) like any HTML attribute.
+	// ARIA mapping: closed set of HTML5 widget boolean states only. `hidden` is
+	// intentionally excluded (aria-hidden does not hide visually; use native
+	// [hidden] or CSS [data-hidden="true"], and set aria-hidden explicitly for
+	// decorative elements). Other ARIA attributes go through el.setAttribute().
 	static #ariaMap = {
 		expanded: "aria-expanded",
 		selected: "aria-selected",
-		hidden: "aria-hidden",
 		checked: "aria-checked",
 		disabled: "aria-disabled",
 	};
 
 	// ARIA widget states are element-scoped; global state on body is always
-	// data-* (the("hidden", true) must never aria-hide the whole app).
+	// data-*.
 	static #attr(el, key) {
 		if (el === document.body) return `data-${key}`;
 		return The.#ariaMap[key] || `data-${key}`;
@@ -227,7 +230,7 @@ export default class The {
 
 	// null deletes; anything else sets. Persistence mirrors the same polarity.
 	static #write(el, isGlobal, rawKey, v) {
-		const k = The.#kebab(rawKey);
+		const k = The.#assertKey(rawKey);
 		if (v === null) {
 			The.#delete(el, k);
 			if (isGlobal && The.persistKeys.has(k))
@@ -282,12 +285,15 @@ export default class The {
 				? document.documentElement || document
 				: el;
 		if (root.querySelectorAll) {
-			for (const item of root.querySelectorAll(`[data-text="${key}"]`))
-				The.#projectText(item, out);
-			// data-bind="attr:key attr2:key2" — attribute projection. The *=
-			// selector over-matches on substrings; #bindApply parse-verifies.
-			for (const item of root.querySelectorAll(`[data-bind*="${key}"]`))
+			// Single combined query visits both [data-text] and [data-bind] targets
+			// in one tree walk while preserving #11's repair-on-unchanged contract.
+			// #bindApply parse-verifies [data-bind*=...] to avoid substring matches.
+			for (const item of root.querySelectorAll(
+				`[data-text="${key}"],[data-bind*="${key}"]`,
+			)) {
+				if (item.getAttribute("data-text") === key) The.#projectText(item, out);
 				The.#bindApply(item, key, out, removed);
+			}
 		}
 		if (el.getAttribute?.("data-text") === key) The.#projectText(el, out);
 		The.#bindApply(el, key, out, removed);
@@ -315,7 +321,7 @@ export default class The {
 	} = {}) {
 		if (namespace) The.prefix = `${namespace}:`;
 		if (persistKeys)
-			The.persistKeys = new Set(persistKeys.map((k) => The.#kebab(k)));
+			The.persistKeys = new Set(persistKeys.map((k) => The.#assertKey(k)));
 		const search =
 			typeof window !== "undefined" && window.location
 				? window.location.search

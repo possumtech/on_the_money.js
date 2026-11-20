@@ -32,7 +32,7 @@ const assign = (obj, key, value) => {
 	}
 };
 
-export function flat(obj, sep = "_") {
+export function flat(obj, sep = "-") {
 	if (obj === null || typeof obj !== "object") {
 		throw new TypeError("the.flat: input must be an object");
 	}

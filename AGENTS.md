@@ -34,13 +34,19 @@ are coordinated realizations of that contract.
   `textContent`, comparing the live value before writing to preserve unchanged
   nodes and selection. Rich fragments remain an application-owned sanitization
   boundary; the framework adds no renderer or content store.
-- Attribute state is a public interface. Global and scoped state-key collisions
-  are lint failures, and renaming a consumed `data-*` key is a contract change.
+- Attribute state is a public interface. State keys are canonical lowercase
+  kebab-case (`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`) across HTML, CSS, JS, and
+  storage — no silent camelCase/snake_case translation. Global and scoped
+  state-key collisions are lint failures, and renaming a consumed `data-*` key
+  is a contract change.
 - `the(key, null)` deletes state. `undefined` is a contract violation. Global
-  writes produce `data-*`; ARIA mapping applies only to element-scoped writes.
+  writes produce `data-*`; element-scoped ARIA mapping is the closed 4-key
+  widget-state set (`expanded`, `selected`, `checked`, `disabled`). `hidden`
+  writes `data-hidden`, never `aria-hidden`.
 - `the.form` mirrors browser submission shape. `[]` names always produce
   arrays, multi-selects include every selected value, files are skipped, and
-  prototype-bearing path segments are rejected.
+  prototype-bearing path segments are rejected. `the.flat` defaults to `"-"`
+  so flattened keys compose directly with `the()`.
 - Formatting directives mirror `Intl` option names. Currency is explicit;
   locale never implies one.
 - The package root resolves to source. `dist/` is a CDN artifact, not a second
@@ -67,6 +73,11 @@ zero-class, Pico-distilled semantic substrate (`on_the_money/css/schema`) and
 JS core bundle does not pay for. Any contract-satisfying classless stylesheet
 remains swappable. App-authored stylesheets split into `structure.css`,
 `style.css`, and `state.css`, enforced by `otm/layer-discipline` in Stylelint.
+
+`otm-build` is feature-complete as a minimal, lossless, optional-`esbuild`
+wrapper for small zero-config MPAs. Do not add a dev server, HMR, config file,
+plugin API, custom CSS pruner, preprocessors, or asset-pipeline knobs; apps
+needing richer build infrastructure use Vite or direct `esbuild`.
 
 ## Engineering procedure
 

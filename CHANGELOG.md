@@ -8,6 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- **Keyed, focus-preserving list reconciliation (`$.reconcile`):** added imperative, stateless `$.reconcile(parent, selector, items, { key, fill?, attr? })` in `src/core/Select.js` (with `HTML-101` recognition, TypeScript types, and Chromium/Firefox/WebKit Playwright coverage). Keys live in a DOM `data-*` attribute (`data-otm-key` by default), existing nodes are reused and reordered via native `Element.prototype.moveBefore` (falling back to `insertBefore`) to preserve focus, `<textarea>` edits, and `<details open>`, and duplicate or empty keys throw atomically before mutating the DOM. (#24)
+- **Canonical kebab-case state-key lint rule (`otm/kebab-state-keys`):** added to `on_the_money/eslint-plugin` and enabled in `on_the_money/eslint-config`. (#24)
 - **Agentic & server content-engine composition (`otm-lint` + `llms.txt`):**
   - Added declared-only, SSR-safe `otm-lint` contract rules: **`HTML-028`** (require unique `aria-label`/`aria-labelledby` across multiple `<nav>` landmarks in a document), **`HTML-029`** (require non-empty `href` on `<link rel="alternate" type="text/markdown">`), **`HTML-108`** (verify local static `<link rel="alternate" type="text/markdown">` targets without false-positiving on dynamic SSR routes), and **`LLMS-001` / `LLMS-002`** (validate `llms.txt` H1/link syntax and static local targets when present).
   - Shipped a first-party `llms.txt` at the package root (included in npm artifacts and verified in `check-package.js`) pointing to `README.md`, public `.d.ts` contracts, and the 5-S CSS substrate.
@@ -17,10 +19,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 - **True per-`(parent, event)` listener pooling (`On.js`):** `on()` now multiplexes registrations over a single native DOM listener per `(container, event)` pair via `WeakMap` (matching the documented contract), detaches the native listener when the last subscriber unsubscribes, and guards non-Element event targets (such as Text nodes) safely. (#25)
 - **Linter comment & nested-expression safety (`otm-lint`, `otm/prefer-submit`):** `Linter.crossCheck` now strips JS/CSS comments while preserving line numbers and parses balanced nested expressions in `the({ ... })` writes; `otm/prefer-submit` no longer false-positives on explicit `button[data-action="..."]`, `button[type="button"]`, or non-button attribute selectors containing `"button"`. (#25)
+- **Single-pass DOM mirroring (`The.#mirror`):** combined the separate `[data-text]` and `[data-bind]` `querySelectorAll` walks into a single combined query while preserving `#11`'s repair-on-unchanged projection contract, and documented scoped `the(containerEl, ...)` for high-frequency regions. (#24)
 
 ### Changed
 
+- **Breaking (pre-1.0) — Canonical kebab-case state keys & `the.flat` separator:** `the(...)` and `the.boot({ persistKeys })` now require canonical lowercase kebab-case keys (`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`) and throw `TypeError` on camelCase or snake_case keys instead of silently translating them; `the.flat(obj, sep = "-")` now defaults to `"-"` so flattened form objects compose directly with `the()`. (#24)
+- **Breaking (pre-1.0) — Removed `hidden` from element-scoped `#ariaMap`:** element-scoped ARIA mapping is now the closed 4-key set (`expanded`, `selected`, `checked`, `disabled`). `the(el, "hidden", true)` now writes `data-hidden="true"` consistently with global `the("hidden", true)`; use native `[hidden]` (or CSS `[data-hidden="true"]`) for visual hiding and explicit `el.setAttribute("aria-hidden", "true")` for decorative screen-reader hiding. (#24)
 - **Internal core modularity & README tightening:** extracted `src/core/Form.js` and `src/core/Router.js` from `src/core/The.js` with zero public API change; trimmed version-specific historical migration notes from `README.md` and updated the contributor/project layout maps. (#25)
+
+### Removed
+
+- **Breaking (pre-1.0) — Removed `CssPruner.js` and `otm-build --prune`:** `otm-build` is now strictly a lossless, feature-complete `esbuild` wrapper with zero custom CSS parser, and its scope guard is codified in `AGENTS.md`. (#24)
 
 ## [0.14.0] — 2026-11-20
 

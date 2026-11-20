@@ -7,6 +7,7 @@ const recommended = [
 		rules: {
 			"otm/prefer-on": "error",
 			"otm/flat-state": "error",
+			"otm/kebab-state-keys": "error",
 			"otm/prefer-submit": "warn",
 			"otm/no-style-mutation": "error",
 			"otm/no-server-dom": "error",

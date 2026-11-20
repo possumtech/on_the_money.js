@@ -156,11 +156,11 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 | `the(el, key, null)` | Delete the scoped attribute, clear descendant mirrors. | `el` |
 | `the(el, { k: v, ... })` | Batch scoped write; `null` values delete. | `el` |
 
-- **Key naming.** Keys auto-convert to kebab-case for attribute writes and `[data-text]` lookups. `the("chapterHasNav", x)` writes `data-chapter-has-nav`. snake_case (`chapter_has_nav`) normalizes to kebab too. Single-word keys (`theme`, `user`) pass through unchanged. Round-trips via the platform's `dataset` API: `el.dataset.chapterHasNav` reads the same attribute. CSS selectors and `[data-text="..."]` slot values must use kebab-case to match what JS writes.
-- **Projection is idempotent per target.** Every write visits its live bindings, but changes text or an attribute only when that target's current value differs from the normalized output. Equal `[data-text]` content retains its existing nodes and native selection; new or externally changed bindings still hydrate even when the owner's state is unchanged. Empty strings remain distinct from `null` deletion. Opted-in storage writes and their errors are unaffected. This is scalar projection, not subtree reconciliation or selection preservation across changed text or `$.cloneEach` replacement.
+- **Key naming.** State keys MUST be canonical lowercase kebab-case (`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`) — e.g. `"theme"`, `"model-offline"`, `"post-url"`. There is no silent camelCase or snake_case conversion: one literal spelling holds across HTML (`data-model-offline`, `data-text="model-offline"`), CSS (`[data-model-offline]`), JS (`the("model-offline", "1")`, `the({ "model-offline": "1" })`), and `localStorage`. Non-kebab keys throw a `TypeError` at runtime and fail `otm/kebab-state-keys` in ESLint.
+- **Projection is idempotent per target.** Every write visits its live bindings in one combined `[data-text],[data-bind]` scan, changing text or an attribute only when that target's current value differs from the normalized output. Equal `[data-text]` content retains its existing nodes and native selection; new or externally changed bindings still hydrate even when the owner's state is unchanged. Empty strings remain distinct from `null` deletion. Opted-in storage writes and their errors are unaffected. For high-frequency regions (streaming status bars, timers, counters on large transcripts), prefer **scoped** `the(containerEl, "status", val)` so DOM lookup stays $O(1)$ within that container rather than walking the full document.
 - **Persistence is opt-in.** Default behavior writes attributes only — nothing persists to `localStorage`. Declare `the.boot({ persistKeys: ["theme", "lang"] })` to opt specific keys in. The boot replay loads only those keys back. Common persistKeys for an i18n + theme app: `["theme", "lang"]`.
 - **Deletion is `null`.** `the(key, null)` removes the attribute, clears every `[data-text="key"]` mirror to empty, and removes the persisted `localStorage` entry if the key is in `persistKeys`. `undefined` still throws — a missing value is a bug, an explicit `null` is a delete.
-- **ARIA mapping is element-scoped only** (closed set, key → attribute): `expanded`, `selected`, `hidden`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** No future expansion. Global writes always produce `data-*` — `the("hidden", true)` writes `data-hidden` on body, never `aria-hidden` (which would hide the whole app from screen readers). Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) go through `el.setAttribute("aria-...", val)` like any other HTML attribute.
+- **ARIA mapping is element-scoped only** (closed 4-key set, key → attribute): `expanded`, `selected`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** `hidden` is deliberately **not** mapped — `aria-hidden="true"` hides from screen readers without visually hiding the element, so `the(el, "hidden", true)` writes `data-hidden="true"` just like global `the("hidden", true)`. Use native `[hidden]` (or CSS `[data-hidden="true"] { display: none; }`) to hide visually, and `el.setAttribute("aria-hidden", "true")` explicitly for decorative icons. Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) also use `el.setAttribute(...)`.
 - **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="page-title">Default</title>` in `<head>` and `the("page-title", "X")` updates it.
 - **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components. Never reuse a global key as a scoped slot key inside a `<template>`; `otm-lint` flags this as HTML-104.
 - **Attribute projection: `data-bind="attr:key"`.** The attribute-space sibling of `[data-text]` — state projects into plain attributes (`href`, `src`, `datetime`, `value`, `title`) declaratively. Space-separate multiple bindings; keys are kebab-case like every slot key; `the(el, { key: null })` removes the bound attribute.
@@ -176,7 +176,7 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 
   ```javascript
   const card = $.clone("#cards", "#profile-card");
-  the(card, { name: "@alice", profileUrl: "/@alice", joined: "May 2026", joinedAt: "2026-05-01" });
+  the(card, { name: "@alice", "profile-url": "/@alice", joined: "May 2026", "joined-at": "2026-05-01" });
   ```
 
 - **Truly one-off attributes** still use `el.setAttribute(name, val)` directly, colocated with the write (Discipline #2). `data-bind` is for attributes that carry per-element *state-derived data* (every card's link); `setAttribute` is for structural one-offs. If you're writing the same `setAttribute` line in every clone loop, that's a `data-bind`.
@@ -198,11 +198,11 @@ the.form(form);
 
 Returns a **nested** object (matches browser submission semantics). Compose with `the.flat` before feeding to `the(el, {...})`.
 
-### `the.flat(obj, sep = "_")` — nested-to-flat
+### `the.flat(obj, sep = "-")` — nested-to-flat
 
 ```javascript
 the.flat({ user: { name: "Alice" }, tags: ["a", "b"] });
-// → { user_name: "Alice", tags_0: "a", tags_1: "b" }
+// → { "user-name": "Alice", "tags-0": "a", "tags-1": "b" }
 
 the.flat({ a: { b: 1 } }, ".");
 // → { "a.b": 1 }
@@ -361,7 +361,7 @@ Clones the first element of `<template selector>`, runs `_t(el)` for i18n hydrat
 
 For `beforebegin` and `afterend`, the first argument is a sibling reference, not a true parent.
 
-### `$.cloneEach(parent, selector, items, fill?)` — list rendering
+### `$.cloneEach(parent, selector, items, fill?)` — replace-children list rendering
 
 ```javascript
 $.cloneEach("#posts", "#post-card", posts, (el, post) => {
@@ -369,7 +369,18 @@ $.cloneEach("#posts", "#post-card", posts, (el, post) => {
 });
 ```
 
-Clears `parent` (`replaceChildren`), clones the template once per item, calls `fill(el, item, index)`, returns the mounted elements. Replace-children semantics only — append flows (infinite scroll) stay a manual `$.clone` loop. Deliberately **not** reactive array-binding: no keyed diffing, no mutate-array-and-watch; that's framework territory and the wrong side of OTM's line. Composes with `data-bind` so `fill` is usually a single `the(el, {...})` call.
+Clears `parent` (`replaceChildren`), clones the template once per item, calls `fill(el, item, index)`, returns the mounted elements. Best for coarse-grained or static renders. Append flows (infinite scroll) stay a manual `$.clone` loop.
+
+### `$.reconcile(parent, selector, items, { key, fill?, attr? })` — keyed, focus-preserving list reconciliation
+
+```javascript
+$.reconcile("#turns", "#turn-card", turns, {
+  key: (turn) => turn.id,
+  fill: (el, turn) => the(el, { title: turn.title }),
+});
+```
+
+Imperative, stateless sibling to `$.cloneEach` for live or interactive lists (streaming feeds, tabs, cards with `<textarea>` drafts or `<details open>`). Stores each item's key in a DOM attribute (`attr`, default `data-otm-key`) — zero shadow trees or reactive array proxies — reuses existing matching nodes, reorders via native `Element.prototype.moveBefore` (falling back to `insertBefore`) so focus, selection, and control state survive updates, clones only missing keys via `$.clone`, removes stale children, and throws atomically on duplicate or empty keys. Composes directly with `the(el, ...)`'s idempotent projection. **NOT in scope:** reactive array proxies, virtual DOM, or nested subtree diffing.
 
 ## Batteries
 
@@ -392,7 +403,7 @@ const ch = live("/ws", {
   onMessage(type, data, at) {
     if (type === "status") the("model-offline", data.offline ? "1" : "");
   },
-  onDown() { the({ modelOffline: "1", rates: "" }); },  // fail closed
+  onDown() { the({ "model-offline": "1", rates: "" }); },  // fail closed
   onUp()   { /* colocated recovery, if any */ },
   signal: controller.signal,                            // teardown
 });
@@ -589,7 +600,7 @@ If you're searching online for "how to subscribe to OTM state changes" or "OTM r
 on("#todo-form", "submit", "form", (e) => {
   e.preventDefault();
   const data = the.form(e.target);                          // { task, tags: [...] }
-  the($.clone("#todo-list", "#todo-item"), the.flat(data)); // task, tags_0, tags_1 → attrs
+  the($.clone("#todo-list", "#todo-item"), the.flat(data)); // task, tags-0, tags-1 → attrs
 });
 ```
 
@@ -823,7 +834,8 @@ export default [
 | --- | --- | --- |
 | `otm/prefer-on` | bundled in `on_the_money` | Ban `addEventListener`; require `on(parent, event, selector, handler)` or `on.target(target, event, handler, options?)`. |
 | `otm/flat-state` | bundled in `on_the_money` | Ban nested objects/arrays in `the()` calls. |
-| `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(btn, "click", ...)` for form data. |
+| `otm/kebab-state-keys` | bundled in `on_the_money` | Require canonical lowercase kebab-case keys in `the()` and `the.boot({ persistKeys })`. |
+| `otm/prefer-submit` | bundled in `on_the_money` | Warn on `on(..., "click", "button", ...)` or `[type="submit"]` for form data (allows explicit `button[data-action]` and `button[type="button"]`). |
 | `otm/no-style-mutation` | bundled in `on_the_money` | Ban `el.style.* = ...`. |
 | `otm/no-server-dom` | bundled in `on_the_money` | Ban imports of `linkedom`, `jsdom`, `cheerio`, `parse5`, etc.; no out-of-browser OTM rendering. |
 | `otm/no-document-query` | bundled in `on_the_money` | Ban `document.querySelector`/`getElementById`/`createElement`/etc.; use `$`/`$$`/`$.clone`. Use `// eslint-disable-next-line otm/no-document-query` for legitimate bridge code (MutationObserver targets, etc.). |
@@ -872,7 +884,7 @@ npx otm-lint --check ./src
 | **HTML-027** | Active date formatting has a missing or invalid value | Supply ISO date text in `data-i18n-val` before activating `data-i18n-type="date"`. |
 | **HTML-028** | Multiple `<nav>` landmarks in one document without unique `aria-label` / `aria-labelledby` | Name each sibling `<nav>` with a distinct `aria-label` or `aria-labelledby` for assistive tech, browser agents, and classless CSS selectors. |
 | **HTML-029** | `<link rel="alternate" type="text/markdown">` without a non-empty `href` | Point `href` at the canonical Markdown representation. |
-| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")` or `$.cloneEach(_, "#X", ...)` | Either delete the orphan template or add the missing clone call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
+| **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")`, `$.cloneEach(_, "#X", ...)`, or `$.reconcile(_, "#X", ...)` | Either delete the orphan template or add the missing instantiation call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
 | **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
@@ -908,27 +920,24 @@ The rules' job is to catch the *first* mistake and surface a teaching message ("
 
 ## Production builds (`otm-build`)
 
-`on_the_money` ships a zero-config production bundler backed by `esbuild` as an optional peer dependency (no Vite, no config files, and zero binary weight for runtime-only or Vite consumers):
+`on_the_money` ships a minimal, lossless production bundler backed by `esbuild` as an optional peer dependency (no Vite, no config files, no custom CSS parser, and zero binary weight for runtime-only or Vite consumers):
 
 ```bash
 npm install -D esbuild
 npx otm-build ./src --out ./dist
 ```
 
-Flags: `--out <dir>` (default `dist`), `--prune` (opt-in HTML + `<template>` tag pruning), `--no-hash` (omit 8-char content hashes).
+Flags: `--out <dir>` (default `dist`), `--no-hash` (omit 8-char content hashes).
 
 What `otm-build` does:
 1. Discovers `.html` entry files (supporting both relative and root-relative `/...` asset URLs and collision-free multi-page outputs).
-2. Collapses all local `<link rel="stylesheet">` layers (`schema`, `scheme`, `structure`, `style`, `state`) into one minified stylesheet per page via `esbuild`, emits referenced `url()` font/image assets, and rewrites the HTML to a single content-hashed `<link>`.
+2. Collapses all local `<link rel="stylesheet">` layers (`schema`, `scheme`, `structure`, `style`, `state`) into one lossless minified stylesheet per page via `esbuild`, emits referenced `url()` font/image assets, and rewrites the HTML to a single content-hashed `<link>`.
 3. Bundles and minifies local `<script type="module" src="...">` entries via `esbuild` with native ESM code-splitting (`await import(...)` and shared chunks) and rewrites `src` to its content-hashed output.
-4. Copies static companion files (such as `locales/*.json` and media assets) into the output directory.
+4. Copies static companion files (such as `locales/*.json`, `.md` companions, `llms.txt`, and media assets) into the output directory.
 
-> **Why CSS pruning is opt-in (`--prune`):**
-> `otm-build` keeps the full bundled stylesheet by default so sanitized rich fragments (`outlet.replaceChildren(sanitizedFragment)`) and server-rendered pages sharing the compiled CSS never silently lose styling for semantic elements (`<table>`, `<blockquote>`, `<dl>`, `<mark>`, `<figure>`, etc.) absent from static `.html` files. Pass `--prune` only when your scanned `.html` files and `<template>` tags form a closed static markup universe (without runtime rich fragments or external server templates).
-
-**NOT-list (explicitly out of scope for `otm-build`):**
+**Scope guard & NOT-list (feature-complete for zero-config MPAs):**
 - No dev server, HMR, or WebSocket live-reload runtime.
-- No config file (`otm.config.js`) or plugin API.
+- No config file (`otm.config.js`), plugin API, or custom CSS pruner.
 - No JSX, TypeScript transpilation, SCSS/LESS, or legacy browser polyfills.
 - No lock-in: `on_the_money` and `on_the_money/css` remain standard ESM + CSS subpath exports usable with raw `esbuild`, Vite, or no bundler at all.
 

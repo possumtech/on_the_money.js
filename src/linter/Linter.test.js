@@ -574,12 +574,20 @@ test("Linter.crossCheck: HTML-107 ignores data-i18n-* params and honors data-otm
 	);
 });
 
-test("Linter.crossCheck: HTML-101 recognizes cloneEach references", (_t) => {
+test("Linter.crossCheck: HTML-101 recognizes cloneEach and reconcile references", (_t) => {
 	const htmlSources = [
-		{ file: "a.html", source: '<template id="row"></template>', dicts: [] },
+		{
+			file: "a.html",
+			source: '<template id="row"></template><template id="card"></template>',
+			dicts: [],
+		},
 	];
 	const jsSources = [
-		{ file: "a.js", source: '$.cloneEach("#list", "#row", items, fn);' },
+		{
+			file: "a.js",
+			source:
+				'$.cloneEach("#list", "#row", items, fn); $.reconcile("#cards", "#card", items, { key: (x) => x.id });',
+		},
 	];
 	const violations = Linter.crossCheck({ htmlSources, jsSources });
 	assert.strictEqual(

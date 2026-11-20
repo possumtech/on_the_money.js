@@ -523,7 +523,7 @@ export default class Linter {
 		const cloneRefs = new Set();
 		for (const { source } of cleanJsSources) {
 			const matches = source.matchAll(
-				/\$\.clone(?:Each)?\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
+				/\$\.(?:clone(?:Each)?|reconcile)\s*\([^,)]+,\s*['"]#([^'"]+)['"]/g,
 			);
 			for (const m of matches) cloneRefs.add(m[1]);
 		}
@@ -728,7 +728,7 @@ export default class Linter {
 			for (const m of source.matchAll(/["']data-([a-z0-9-]+)["']/g))
 				consumed.add(m[1]);
 			for (const m of source.matchAll(/\bthe\s*\(\s*["']([^"']+)["']\s*\)/g))
-				consumed.add(Linter.#kebab(m[1]));
+				consumed.add(m[1]);
 		}
 
 		for (const [key, writer] of globalWriteKeys) {
@@ -824,14 +824,6 @@ export default class Linter {
 		return violations;
 	}
 
-	// Mirrors The.#kebab — lint-time keys must match runtime attribute names.
-	static #kebab(key) {
-		return key
-			.replace(/_/g, "-")
-			.replace(/([a-z0-9])([A-Z])/g, "$1-$2")
-			.toLowerCase();
-	}
-
 	static #lineOf(source, index) {
 		return source.slice(0, index).split("\n").length;
 	}
@@ -842,14 +834,13 @@ export default class Linter {
 		const keys = new Map();
 		for (const { file, source } of jsSources) {
 			for (const m of source.matchAll(/\bthe\s*\(\s*["']([^"']+)["']\s*,/g)) {
-				const k = Linter.#kebab(m[1]);
+				const k = m[1];
 				if (!keys.has(k))
 					keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 			}
 			for (const m of source.matchAll(/\bthe\s*\(\s*\{/g)) {
 				const openBrace = m.index + m[0].length - 1;
-				for (const rawKey of extractTopLevelObjectKeys(source, openBrace)) {
-					const k = Linter.#kebab(rawKey);
+				for (const k of extractTopLevelObjectKeys(source, openBrace)) {
 					if (!keys.has(k))
 						keys.set(k, { file, line: Linter.#lineOf(source, m.index) });
 				}

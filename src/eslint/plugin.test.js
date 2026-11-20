@@ -90,6 +90,50 @@ test("flat-state", () => {
 	});
 });
 
+test("kebab-state-keys", () => {
+	tester.run("kebab-state-keys", plugin.rules["kebab-state-keys"], {
+		valid: [
+			{ code: 'the("theme", "dark");' },
+			{ code: 'the("model-offline", "1");' },
+			{ code: 'the(el, "post-url", "/x");' },
+			{ code: 'the({ theme: "dark", "post-url": "/x" });' },
+			{ code: 'the(el, { expanded: true, "tags-0": "a" });' },
+			{ code: 'the.boot({ persistKeys: ["theme", "model-offline"] });' },
+			{ code: "the(el, dynamicKey, val);" },
+		],
+		invalid: [
+			{
+				code: 'the("chapterHasNav", true);',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the("chapter_has_nav");',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the(el, "postUrl", "/x");',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the({ modelOffline: "1" });',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the(el, { profile_url: "/x" });',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the.boot({ persistKeys: ["myTheme"] });',
+				errors: [{ messageId: "notKebab" }],
+			},
+			{
+				code: 'the("bad--key", "1");',
+				errors: [{ messageId: "notKebab" }],
+			},
+		],
+	});
+});
+
 test("prefer-submit", () => {
 	tester.run("prefer-submit", plugin.rules["prefer-submit"], {
 		valid: [
