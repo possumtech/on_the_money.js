@@ -1,0 +1,16 @@
+@layer state {
+	[data-item][data-done="true"] [data-text="task"] {
+		color: var(--otm-muted-color);
+		text-decoration: line-through;
+	}
+
+	[data-item] button[data-action="delete-todo"] {
+		background-color: var(--otm-del-color);
+		border-color: var(--otm-del-color);
+
+		/* Presentation glyph lives in CSS; the accessible name is the aria-label. */
+		&::before {
+			content: "\00d7";
+		}
+	}
+}

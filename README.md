@@ -55,24 +55,42 @@ The lint stack bans class selectors, so an OTM site rides on a **classless subst
 
 1. Styles semantic HTML directly — zero classes required (`<main>`, `<nav>`, `<article>`, `<form>`, `<button>`, `<input>` with `<label>`).
 2. Responds to ARIA state attributes (`[aria-invalid]`, `[aria-busy]`, `[disabled]`, `<dialog open>`).
-3. Exposes its design tokens as CSS custom properties, so your `-style.css` themes by variable override.
-4. Hooks theme switching on a data attribute (`[data-theme="dark"]`), so `the("theme", ...)` switches it.
+3. Exposes its design tokens as CSS custom properties (`--otm-*`), so `style.css` themes by variable override.
+4. Hooks theme switching on a data attribute (`[data-theme="dark"]` / `[data-theme="light"]`), so `the("theme", ...)` switches it.
 
-Vendor a pinned copy as your `-vendor.css` (see [CSS architecture](#css-architecture)) rather than hotlinking a CDN. Any contract-satisfying sheet slots in; goes great with [Pico Classless](https://picocss.com)!
+`on_the_money` ships a distilled, zero-class, modern-CSS foundation derived from [Pico Classless](https://picocss.com) (MIT) plus all 20 Pico color schemes as CSS subpath exports (0 bytes to the JS core bundle):
 
-## CSS architecture
+```css
+/* Default: classless schema + azure scheme */
+@import "on_the_money/css";
 
-Both this framework's conventions and its lint assume a four-layer stylesheet split, one concern per file:
-
-```
-styles/
-├── app-vendor.css      # your pinned substrate copy — zero app knowledge
-├── app-structure.css   # layout scaffolding: grid/flex, gap, landmarks
-├── app-style.css       # brand: custom-property overrides of substrate tokens
-└── app-state.css       # the ONLY OTM-aware layer: attribute-selector reveals
+/* Or pick any of the 20 Pico schemes explicitly */
+@import "on_the_money/css/schema";
+@import "on_the_money/css/schemes/jade";
 ```
 
-`-state.css` is where `body[data-page="home"]`, reveal-key rules, and every state→visual correspondence live — the layer the deletion test exercises and HTML-106/107 audit. Keeping it separate keeps the state vocabulary greppable and the other three layers portable.
+Available schemes: `amber`, `azure`, `blue`, `cyan`, `fuchsia`, `green`, `grey`, `indigo`, `jade`, `lime`, `orange`, `pink`, `pumpkin`, `purple`, `red`, `sand`, `slate`, `violet`, `yellow`, `zinc`. Any other contract-satisfying classless stylesheet remains swappable.
+
+## CSS architecture (the 5-S stack)
+
+Both this framework's conventions and its dictatorial Stylelint rules enforce a **five-layer CSS cascade**, ordered explicitly via native `@layer`:
+
+```css
+@layer schema, scheme, structure, style, state;
+```
+
+```
+on_the_money/css/
+├── schema.css          # @layer schema    — classless semantic HTML + ARIA foundation
+└── schemes/<name>.css  # @layer scheme    — Pico color palette tokens (light & dark)
+
+styles/ (app-authored)
+├── structure.css       # @layer structure — layout scaffolding only: grid, flex, gap, landmarks
+├── style.css           # @layer style     — brand skin only: --otm-* overrides, fonts, surfaces
+└── state.css           # @layer state     — the ONLY OTM-aware layer: [data-*] / [aria-*] rules
+```
+
+Because cascade precedence follows `@layer schema, scheme, structure, style, state;`, there are zero specificity wars and zero `!important` hacks: `state.css` always beats `style.css` and `structure.css`, and `otm/layer-discipline` rejects layout rules in `style.css`, skin/state rules in `structure.css`, and unconditional baseline rules in `state.css`. Keeping `state.css` isolated keeps the state vocabulary greppable and auditable by `otm-lint` (HTML-106/107) and the deletion test.
 
 ## Exports
 
@@ -809,6 +827,7 @@ export default {
 | Rule | Source | Behavior |
 | --- | --- | --- |
 | `otm/prefer-attribute-selector` | bundled in `on_the_money` | Ban `.class` selectors; use `[data-state="..."]`. |
+| `otm/layer-discipline` | bundled in `on_the_money` | Enforce 5-S boundaries across `structure.css`, `style.css`, and `state.css` (and `*-structure`/`*-style`/`*-state.css`). |
 | `declaration-no-important` | stylelint built-in | Ban `!important`. |
 
 ### 3. HTML / cross-file — `otm-lint`

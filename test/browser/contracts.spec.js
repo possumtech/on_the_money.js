@@ -1081,3 +1081,71 @@ test("header-authenticated sse streams named events and forwards authorization i
 		lastEventId: "9",
 	});
 });
+
+test("5-S CSS substrate (schema + scheme + @layer) responds to the('theme') and ARIA states in real browsers", async ({
+	page,
+}) => {
+	await page.addStyleTag({ url: "/src/css/schema.css" });
+	await page.addStyleTag({ url: "/src/css/schemes/jade.css" });
+	await page.addStyleTag({
+		content: `
+			@layer structure { main > section { display: none; } }
+			@layer state { body[data-panel="open"] main > section[data-panel] { display: block; } }
+		`,
+	});
+	const result = await page.evaluate(async () => {
+		const { the } = await import("/src/core/index.js");
+		document.body.innerHTML = `
+			<main>
+				<section data-panel>
+					<input id="email" type="email" aria-invalid="true">
+					<button id="go" aria-busy="true">Go</button>
+				</section>
+			</main>
+		`;
+		the("theme", "light");
+		const lightBg = getComputedStyle(document.body).backgroundColor;
+		const jadePrimary = getComputedStyle(document.documentElement)
+			.getPropertyValue("--otm-primary")
+			.trim();
+		const hiddenDisplay = getComputedStyle(
+			document.querySelector("section[data-panel]"),
+		).display;
+
+		the("theme", "dark");
+		const darkBg = getComputedStyle(document.body).backgroundColor;
+		const darkPrimary = getComputedStyle(document.documentElement)
+			.getPropertyValue("--otm-primary")
+			.trim();
+
+		the("panel", "open");
+		const openDisplay = getComputedStyle(
+			document.querySelector("section[data-panel]"),
+		).display;
+
+		const invalidBorder = getComputedStyle(
+			document.querySelector("#email"),
+		).borderTopColor;
+		const busyCursor = getComputedStyle(document.querySelector("#go")).cursor;
+
+		return {
+			lightBg,
+			darkBg,
+			jadePrimary,
+			darkPrimary,
+			hiddenDisplay,
+			openDisplay,
+			invalidBorder,
+			busyCursor,
+		};
+	});
+
+	expect(result.lightBg).toBe("rgb(255, 255, 255)");
+	expect(result.darkBg).toBe("rgb(19, 23, 31)");
+	expect(result.jadePrimary).toBe("#007a50");
+	expect(result.darkPrimary).toBe("#00b478");
+	expect(result.hiddenDisplay).toBe("none");
+	expect(result.openDisplay).toBe("block");
+	expect(result.invalidBorder).toBe("rgb(150, 74, 80)");
+	expect(result.busyCursor).toBe("progress");
+});

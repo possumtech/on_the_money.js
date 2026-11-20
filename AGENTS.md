@@ -60,10 +60,13 @@ Server infrastructure is outside the package mandate. Do not absorb CSRF,
 CORS, canonical-host, JSON-LD, session, database, or product-domain policy into
 this browser framework merely because multiple consumers implement it.
 
-The styling contract assumes a classless substrate that styles semantic HTML
-without classes, responds to ARIA state, themes through custom properties, and
-switches themes through a data attribute. No particular third-party stylesheet
-is a dependency, and a first-party base stylesheet is out of scope.
+The styling contract is realized through a 5-layer CSS cascade
+(`@layer schema, scheme, structure, style, state;`). OTM ships a first-party,
+zero-class, Pico-distilled semantic substrate (`on_the_money/css/schema`) and
+20 color schemes (`on_the_money/css/schemes/*`) as CSS subpath exports that the
+JS core bundle does not pay for. Any contract-satisfying classless stylesheet
+remains swappable. App-authored stylesheets split into `structure.css`,
+`style.css`, and `state.css`, enforced by `otm/layer-discipline` in Stylelint.
 
 ## Engineering procedure
 

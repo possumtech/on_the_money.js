@@ -1,0 +1,7 @@
+@layer state {
+	body[data-page="home"] main > section[data-route="home"],
+	body[data-page="post"] main > section[data-route="post"],
+	body[data-page="about"] main > section[data-route="about"] {
+		display: block;
+	}
+}

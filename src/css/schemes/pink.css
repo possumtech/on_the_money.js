@@ -1,0 +1,43 @@
+/*!
+ * on_the_money.js — scheme: pink
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@layer schema, scheme, structure, style, state;
+
+@layer scheme {
+	:root {
+		--otm-primary: #c41e64;
+		--otm-primary-hover: #9e1650;
+		--otm-primary-background: #c41e64;
+		--otm-primary-hover-background: #9e1650;
+		--otm-primary-underline: rgb(196 30 100 / 50%);
+		--otm-primary-focus: rgb(196 30 100 / 37.5%);
+		--otm-primary-inverse: #fff;
+		--otm-text-selection-color: rgb(196 30 100 / 25%);
+	}
+
+	@media only screen and (prefers-color-scheme: dark) {
+		:root:not([data-theme="light"]):not(:has(> body[data-theme="light"])) {
+			--otm-primary: #f25c9b;
+			--otm-primary-hover: #f781b3;
+			--otm-primary-background: #c41e64;
+			--otm-primary-hover-background: #db2572;
+			--otm-primary-underline: rgb(242 92 155 / 50%);
+			--otm-primary-focus: rgb(242 92 155 / 37.5%);
+			--otm-primary-inverse: #fff;
+			--otm-text-selection-color: rgb(242 92 155 / 25%);
+		}
+	}
+
+	[data-theme="dark"],
+	:root:has(> body[data-theme="dark"]) {
+		--otm-primary: #f25c9b;
+		--otm-primary-hover: #f781b3;
+		--otm-primary-background: #c41e64;
+		--otm-primary-hover-background: #db2572;
+		--otm-primary-underline: rgb(242 92 155 / 50%);
+		--otm-primary-focus: rgb(242 92 155 / 37.5%);
+		--otm-primary-inverse: #fff;
+		--otm-text-selection-color: rgb(242 92 155 / 25%);
+	}
+}

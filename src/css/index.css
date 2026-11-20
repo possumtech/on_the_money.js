@@ -1,0 +1,6 @@
+/*!
+ * on_the_money.js — classless semantic substrate + default azure scheme
+ * Distilled from Pico CSS (MIT License, https://picocss.com).
+ */
+@import url("./schema.css");
+@import url("./schemes/azure.css");

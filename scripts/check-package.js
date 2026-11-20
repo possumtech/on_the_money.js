@@ -150,6 +150,9 @@ try {
 				import {the} from "on_the_money";
 				const require = createRequire(import.meta.url);
 				assert.equal(typeof the.boot, "function");
+				assert.ok(require.resolve("on_the_money/css").endsWith("src/css/index.css"));
+				assert.ok(require.resolve("on_the_money/css/schema").endsWith("src/css/schema.css"));
+				assert.ok(require.resolve("on_the_money/css/schemes/jade").endsWith("src/css/schemes/jade.css"));
 				assert.throws(() => require.resolve("stylelint"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("braces"), {code: "MODULE_NOT_FOUND"});
 				assert.throws(() => require.resolve("minimatch"), {code: "MODULE_NOT_FOUND"});
