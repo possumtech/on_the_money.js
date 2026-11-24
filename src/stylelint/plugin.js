@@ -167,6 +167,8 @@ const STATIC_ARIA_ATTRS = new Set([
 	"aria-describedby",
 	"aria-details",
 	"aria-roledescription",
+	"aria-controls",
+	"aria-autocomplete",
 ]);
 
 const NATIVE_STATE_ATTRS = new Set([

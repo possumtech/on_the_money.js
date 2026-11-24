@@ -723,6 +723,64 @@ test("Linter.check: HTML-029 requires non-empty href on <link rel=alternate type
 	}
 });
 
+test("Linter.check: HTML-030 validates WAI-ARIA APG combobox markup wiring", () => {
+	assert.deepStrictEqual(
+		Linter.check(
+			"good-combobox.html",
+			`<input role="combobox" aria-controls="models" aria-expanded="false" aria-autocomplete="list">
+			 <ul id="models" role="listbox" aria-label="Models" popover="manual"><li role="option">A</li></ul>`,
+		),
+		[],
+	);
+	assert.deepStrictEqual(
+		Linter.check(
+			"dynamic-combobox.html",
+			'<input role="combobox" data-otm-dynamic>',
+		),
+		[],
+	);
+
+	// Missing aria-expanded and aria-controls
+	const missingBoth = Linter.check("bad.html", '<input role="combobox">');
+	assert.deepStrictEqual(
+		missingBoth.map((v) => v.ruleId),
+		["HTML-030", "HTML-030"],
+	);
+
+	// Missing target listbox + invalid aria-autocomplete
+	const badTarget = Linter.check(
+		"bad.html",
+		'<input role="combobox" aria-controls="ghost" aria-expanded="false" aria-autocomplete="fuzzy">',
+	);
+	assert.deepStrictEqual(
+		badTarget.map((v) => v.ruleId),
+		["HTML-030", "HTML-030"],
+	);
+
+	// Target exists but lacks role="listbox"
+	const wrongRole = Linter.check(
+		"bad.html",
+		'<input role="combobox" aria-controls="box" aria-expanded="false"><ul id="box"></ul>',
+	);
+	assert.deepStrictEqual(
+		wrongRole.map((v) => v.ruleId),
+		["HTML-030"],
+	);
+	assert.match(wrongRole[0].message, /role="listbox"/);
+
+	// Listbox lacks accessible name and uses default auto popover
+	const badListbox = Linter.check(
+		"bad.html",
+		'<input role="combobox" aria-controls="box" aria-expanded="false"><ul id="box" role="listbox" popover></ul>',
+	);
+	assert.deepStrictEqual(
+		badListbox.map((v) => v.ruleId),
+		["HTML-030", "HTML-030"],
+	);
+	assert.match(badListbox[0].message, /accessible name/);
+	assert.match(badListbox[1].message, /popover="manual"/);
+});
+
 test("Linter.checkLlmsTxt: LLMS-001 validates H1 header and Markdown links while ignoring code blocks", () => {
 	const valid = `# Demo Site
 

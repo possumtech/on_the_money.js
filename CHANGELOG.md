@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Added
+
+- **WAI-ARIA APG Combobox subpath battery (`on_the_money/combobox`):** added a zero-core-cost, DOM-native WAI-ARIA APG Combobox controller (`src/combobox/Combobox.js`, `src/combobox/index.js`, `src/combobox/index.d.ts`) operating directly over semantic `[role="combobox"]` / `[role="listbox"]` / `[role="option"]` markup (`0 B` added to core `on_the_money`). Owns `aria-expanded`, `aria-activedescendant`, `data-active` highlight projection, `aria-selected`, APG keyboard navigation (preserving native `Home`/`End`/`ArrowLeft`/`ArrowRight` caret movement in editable `<input>` comboboxes and supporting `Home`/`End`/`Space` in select-only comboboxes), pointer focus preservation, outside-click/blur dismissal, optional native `popover="manual"` Top Layer toggling, `sync()` for dynamic SSR/`$.reconcile()` updates, and `AbortSignal` teardown. Added `otm-lint` rule **`HTML-030`** for combobox markup wiring, permitted static `aria-controls` / `aria-autocomplete` in `otm/layer-discipline`, documented the explicit NOT-list and anti-widget-kit boundary in `README.md` and `AGENTS.md`, and verified across Chromium, Firefox, and WebKit. (#27)
+
+### Fixed
+
+- **Nested scope boundaries in `The.#mirror` (`data-otm-scope`):** scoped writes (`the(el, ...)`) now stop at nested `[data-otm-scope]` descendants (including self-scoped child roots) uniformly across SSR, `$.clone()`, `$.cloneEach()`, and `$.reconcile()` without coupling to `[data-otm-key]`, while global `the(...)` writes remain document-wide. Extended `otm-lint` **`HTML-104`** to detect global-vs-scoped slot collisions inside SSR `[data-otm-scope]` subtrees as well as `<template>` without double-reporting. (#26)
+
 ## [0.15.0] — 2026-11-20
 
 This pre-1.0 minor release tightens OTM's core contracts, adds imperative keyed list reconciliation (`$.reconcile`), adds SSR-safe agentic/content-engine contract linting and a first-party `llms.txt`, pools delegated DOM listeners per `(parent, event)` pair, and freezes `otm-build` as a minimal lossless `esbuild` wrapper by removing `CssPruner`. Core JS runtime size is `14.3 KB` minified / `5.4 KiB` (`5,581 B`) gzipped. Review the breaking pre-1.0 items below (canonical kebab-case keys, `the.flat` `"-"` separator, `hidden` writing `data-hidden`, and `--prune` removal) when upgrading.

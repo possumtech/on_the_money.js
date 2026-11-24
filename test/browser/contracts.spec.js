@@ -1402,3 +1402,198 @@ test("scoped writes respect nested [data-otm-scope] boundaries while global writ
 		sessionBanner: "Synced",
 	});
 });
+
+test("on_the_money/combobox honors WAI-ARIA APG keyboard, focus preservation, dialog Escape, $.reconcile sync, and popover=manual in real browsers", async ({
+	page,
+}) => {
+	await page.evaluate(async () => {
+		const { $, on, the } = await import("/src/core/index.js");
+		const { combobox } = await import("/src/combobox/index.js");
+
+		document.body.innerHTML = `
+			<dialog id="picker-dialog">
+				<button id="before-btn" type="button">Before</button>
+				<input
+					id="combo-input"
+					type="text"
+					role="combobox"
+					aria-controls="combo-list"
+					aria-expanded="false"
+					aria-autocomplete="list"
+					value="cl"
+				>
+				<ul id="combo-list" role="listbox" aria-label="Models" popover="manual"></ul>
+			</dialog>
+			<template id="combo-opt">
+				<li role="option"><strong data-text="name"></strong></li>
+			</template>
+		`;
+
+		const dialog = document.getElementById("picker-dialog");
+		const input = document.getElementById("combo-input");
+		const listbox = document.getElementById("combo-list");
+
+		const render = (items) =>
+			$.reconcile(listbox, "#combo-opt", items, {
+				key: (item) => item.id,
+				fill: (el, item) => {
+					the(el, { name: item.name });
+					if (item.disabled) el.setAttribute("aria-disabled", "true");
+					else el.removeAttribute("aria-disabled");
+				},
+			});
+
+		render([
+			{ id: "m1", name: "Claude" },
+			{ id: "m2", name: "Disabled", disabled: true },
+			{ id: "m3", name: "Gemini" },
+		]);
+
+		const selected = [];
+		const ac = new AbortController();
+		const ctrl = combobox(input, {
+			signal: ac.signal,
+			onSelect(option, el) {
+				selected.push(option.getAttribute("data-otm-key"));
+				el.value = option.querySelector("strong").textContent;
+			},
+		});
+
+		let inputEvents = 0;
+		const offInput = on(input, "input", '[role="combobox"]', () => {
+			inputEvents += 1;
+		});
+
+		dialog.showModal();
+		globalThis.__comboState = {
+			dialog,
+			input,
+			listbox,
+			ctrl,
+			render,
+			selected,
+			getInputEvents: () => inputEvents,
+			cleanup: () => {
+				offInput();
+				ac.abort();
+				dialog.close();
+			},
+		};
+	});
+
+	// Focus moves from #before-btn onto #combo-input -> opens listbox in Top Layer
+	await page.locator("#combo-input").focus();
+	const openedOnFocus = await page.evaluate(() => {
+		const { input, listbox, ctrl } = globalThis.__comboState;
+		input.setSelectionRange(2, 2);
+		return (
+			ctrl.expanded &&
+			input.getAttribute("aria-expanded") === "true" &&
+			listbox.matches(":popover-open")
+		);
+	});
+	expect(openedOnFocus).toBe(true);
+
+	// Real ArrowDown -> m1, ArrowDown -> skips disabled m2 -> m3, focus stays on input
+	await page.keyboard.press("ArrowDown");
+	await page.keyboard.press("ArrowDown");
+	const afterArrows = await page.evaluate(() => {
+		const { input, ctrl } = globalThis.__comboState;
+		return {
+			hasActiveId: Boolean(input.getAttribute("aria-activedescendant")),
+			activeKey: ctrl.activeOption?.getAttribute("data-otm-key"),
+			activeAttr: ctrl.activeOption?.getAttribute("data-active"),
+			focusStayedOnInput: document.activeElement === input,
+		};
+	});
+	expect(afterArrows).toEqual({
+		hasActiveId: true,
+		activeKey: "m3",
+		activeAttr: "true",
+		focusStayedOnInput: true,
+	});
+
+	// Real Home in editable <input> clears activedescendant without hijacking native caret
+	await page.keyboard.press("Home");
+	const afterHome = await page.evaluate(() => {
+		const { input, ctrl } = globalThis.__comboState;
+		return {
+			activeOption: ctrl.activeOption,
+			activedescendant: input.getAttribute("aria-activedescendant"),
+			caretAtStart: input.selectionStart === 0,
+		};
+	});
+	expect(afterHome).toEqual({
+		activeOption: null,
+		activedescendant: null,
+		caretAtStart: true,
+	});
+
+	// ArrowDown to m1, then replace options via $.reconcile removing m1 + sync()
+	await page.keyboard.press("ArrowDown");
+	const clearedAfterSync = await page.evaluate(() => {
+		const { input, ctrl, render } = globalThis.__comboState;
+		render([
+			{ id: "m4", name: "OpenAI" },
+			{ id: "m5", name: "Mistral" },
+		]);
+		ctrl.sync();
+		return (
+			ctrl.activeOption === null &&
+			input.getAttribute("aria-activedescendant") === null
+		);
+	});
+	expect(clearedAfterSync).toBe(true);
+
+	// Real trusted Escape closes combobox WITHOUT dismissing the enclosing modal <dialog>
+	await page.keyboard.press("Escape");
+	const closedKeepingDialog = await page.evaluate(() => {
+		const { dialog, listbox, ctrl } = globalThis.__comboState;
+		return !ctrl.expanded && !listbox.matches(":popover-open") && dialog.open;
+	});
+	expect(closedKeepingDialog).toBe(true);
+
+	// Re-open via click and select an option via real mouse click: focus remains on input
+	await page.locator("#combo-input").click();
+	await page.locator('#combo-list [data-otm-key="m4"]').click();
+	const afterClick = await page.evaluate(() => {
+		const { input, listbox, ctrl, selected } = globalThis.__comboState;
+		const opt = listbox.querySelector('[data-otm-key="m4"]');
+		return {
+			selected: [...selected],
+			value: input.value,
+			ariaSelected: opt.getAttribute("aria-selected"),
+			expanded: ctrl.expanded,
+			focusStillOnInput: document.activeElement === input,
+		};
+	});
+	expect(afterClick).toEqual({
+		selected: ["m4"],
+		value: "OpenAI",
+		ariaSelected: "true",
+		expanded: false,
+		focusStillOnInput: true,
+	});
+
+	// Trusted Escape while closed clears input value and fires input without re-opening or closing <dialog>
+	await page.keyboard.press("Escape");
+	const afterEscapeClear = await page.evaluate(() => {
+		const { dialog, input, ctrl, getInputEvents, cleanup } =
+			globalThis.__comboState;
+		const snapshot = {
+			value: input.value,
+			inputEvents: getInputEvents(),
+			expanded: ctrl.expanded,
+			dialogStillOpen: dialog.open,
+		};
+		cleanup();
+		delete globalThis.__comboState;
+		return snapshot;
+	});
+	expect(afterEscapeClear).toEqual({
+		value: "",
+		inputEvents: 1,
+		expanded: false,
+		dialogStillOpen: true,
+	});
+});

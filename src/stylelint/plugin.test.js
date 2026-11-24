@@ -63,6 +63,8 @@ test("layer-discipline: allows pure layout rules, static ARIA landmarks, and sub
 			main:has(> footer) { grid-template-rows: 1fr auto; }
 			nav[aria-label="Main navigation"] { grid-area: menu; }
 			section[aria-labelledby="hero-title"] { display: flex; }
+			input[role="combobox"][aria-autocomplete="list"] { inline-size: 100%; }
+			[role="listbox"][aria-controls="items"] { position: relative; }
 		}
 		@layer structure.grid {
 			section { display: flex; }

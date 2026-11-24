@@ -288,6 +288,8 @@ export default class Linter {
 		let manifestMatches = true;
 		let isFullDocument = false;
 		const documentNavs = [];
+		const idElements = new Map();
+		const comboboxes = [];
 
 		Linter.#traverse(document, (node, inTemplate) => {
 			if (
@@ -305,6 +307,13 @@ export default class Linter {
 						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
 					)
 				: {};
+
+			if (lowerAttrs.id?.trim() && !idElements.has(lowerAttrs.id.trim())) {
+				idElements.set(lowerAttrs.id.trim(), { node, attrs: lowerAttrs });
+			}
+			if (lowerAttrs.role?.trim().toLowerCase() === "combobox") {
+				comboboxes.push({ node, attrs: lowerAttrs });
+			}
 
 			if (node.nodeName === "nav" && !inTemplate) {
 				documentNavs.push({ node, attrs: lowerAttrs });
@@ -456,6 +465,95 @@ export default class Linter {
 						);
 					}
 					seenLabels.add(normalized);
+				}
+			}
+		}
+
+		// HTML-030: WAI-ARIA APG Combobox markup wiring contract.
+		for (const { node, attrs } of comboboxes) {
+			if (Object.hasOwn(attrs, "data-otm-dynamic")) continue;
+			const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+			const expanded = attrs["aria-expanded"]?.trim().toLowerCase();
+			if (expanded !== "true" && expanded !== "false") {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					'role="combobox" requires an explicit aria-expanded="false" (or "true") attribute per WAI-ARIA APG.',
+				);
+			}
+			if (Object.hasOwn(attrs, "aria-autocomplete")) {
+				const ac = attrs["aria-autocomplete"].trim().toLowerCase();
+				if (!["none", "inline", "list", "both"].includes(ac)) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-030",
+						`Invalid aria-autocomplete="${attrs["aria-autocomplete"]}" on role="combobox"; expected "none", "inline", "list", or "both".`,
+					);
+				}
+			}
+			const controls = (attrs["aria-controls"] || "").trim();
+			if (!controls) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					'role="combobox" requires aria-controls referencing the controlled [role="listbox"] element id.',
+				);
+				continue;
+			}
+			if (TEMPLATE_EXPR_RE.test(controls)) continue;
+			const target = idElements.get(controls);
+			if (!target) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					`role="combobox" references aria-controls="${controls}", but no element with id="${controls}" exists in this document. Add the [role="listbox"] or mark the combobox data-otm-dynamic.`,
+				);
+				continue;
+			}
+			const targetLoc = target.node.sourceCodeLocation || {
+				startLine: 1,
+				startCol: 1,
+			};
+			if (target.attrs.role?.trim().toLowerCase() !== "listbox") {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: targetLoc.startLine, column: targetLoc.startCol },
+					"HTML-030",
+					`role="combobox" aria-controls="${controls}" must reference an element with role="listbox".`,
+				);
+				continue;
+			}
+			if (
+				!target.attrs["aria-label"]?.trim() &&
+				!target.attrs["aria-labelledby"]?.trim()
+			) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: targetLoc.startLine, column: targetLoc.startCol },
+					"HTML-030",
+					`Combobox listbox #${controls} requires an accessible name (aria-label or aria-labelledby) per WAI-ARIA APG.`,
+				);
+			}
+			if (Object.hasOwn(target.attrs, "popover")) {
+				const mode = target.attrs.popover.trim().toLowerCase();
+				if (mode !== "manual") {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: targetLoc.startLine, column: targetLoc.startCol },
+						"HTML-030",
+						`Combobox listbox #${controls} uses popover="${target.attrs.popover || "auto"}"; use popover="manual" so native light-dismiss does not conflict with combobox focus and Escape handling.`,
+					);
 				}
 			}
 		}

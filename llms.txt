@@ -4,7 +4,7 @@
 
 ## Authoring Context
 
-- [README.md](README.md): Complete single-file authoring context — core API (`on`, `the`, `_t`, `route`, `$`, `$$`), batteries (`on_the_money/live`, `on_the_money/clipboard`), 5-S CSS substrate (`on_the_money/css`), lint stack (`otm-lint`, ESLint, Stylelint), and zero-config `otm-build`.
+- [README.md](README.md): Complete single-file authoring context — core API (`on`, `the`, `_t`, `route`, `$`, `$$`), batteries (`on_the_money/live`, `on_the_money/clipboard`, `on_the_money/combobox`), 5-S CSS substrate (`on_the_money/css`), lint stack (`otm-lint`, ESLint, Stylelint), and zero-config `otm-build`.
 - [CHANGELOG.md](CHANGELOG.md): Release history, contract changes, and migration notes.
 
 ## Public Type Contracts
@@ -12,6 +12,7 @@
 - [src/core/index.d.ts](src/core/index.d.ts): Core runtime exports (`on`, `the`, `_t`, `route`, `$`, `$$`).
 - [src/live/index.d.ts](src/live/index.d.ts): WebSocket (`live`) and Server-Sent Events (`sse`) battery contracts.
 - [src/clipboard/index.d.ts](src/clipboard/index.d.ts): Capability-gated clipboard copy affordance contract.
+- [src/combobox/index.d.ts](src/combobox/index.d.ts): WAI-ARIA APG combobox subpath battery contract.
 - [src/test/index.d.ts](src/test/index.d.ts): `setupDOM` linkedom test harness contract.
 
 ## CSS Substrate (5-S Cascade)

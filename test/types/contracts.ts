@@ -1,5 +1,6 @@
 import { _t, $, $$, on, route, the } from "on_the_money";
 import { clipboard } from "on_the_money/clipboard";
+import { combobox } from "on_the_money/combobox";
 import eslintConfig from "on_the_money/eslint-config";
 import eslintPlugin from "on_the_money/eslint-plugin";
 import { live, sse } from "on_the_money/live";
@@ -65,6 +66,22 @@ const sseChannel = sse("/events", {
 });
 sseChannel.close();
 void clipboard({ resetMs: 1000 });
+const combo = combobox("#model-input", {
+	onSelect(option, input) {
+		void option.dataset.value;
+		void input.getAttribute("aria-expanded");
+	},
+	wrap: true,
+	openOnFocus: true,
+	clearOnEscape: true,
+	closeOnSelect: true,
+	signal: new AbortController().signal,
+});
+combo.open();
+combo.sync();
+if (combo.activeOption) combo.select(combo.activeOption);
+combo.close();
+combo.dispose();
 void $.reconcile("#list", "#row", [{ id: "1", title: "One" }], {
 	key: (item) => item.id,
 	fill: (el, item, idx) => {

@@ -69,6 +69,14 @@ Server infrastructure is outside the package mandate. Do not absorb CSRF,
 CORS, canonical-host, JSON-LD, session, database, or product-domain policy into
 this browser framework merely because multiple consumers implement it.
 
+Do not grow OTM into a UI component library. Patterns already covered by native
+HTML primitives (`<dialog>`, `<details name>`, `[popover]`, `<select>`,
+`<input type="date">`, `<input type="range">`, `role="switch"`) stay permanently
+out. `on_the_money/combobox` is admitted strictly as a DOM-native WAI-ARIA APG
+controller over semantic `[role="combobox"]` / `[role="listbox"]` /
+`[role="option"]` markup — never add query orchestration, debouncing, caching,
+template rendering, virtual scrolling, or JS positioning engines to it.
+
 The styling contract is realized through a 5-layer CSS cascade
 (`@layer schema, scheme, structure, style, state;`). OTM ships a first-party,
 zero-class, Pico-distilled semantic substrate (`on_the_money/css/schema`) and

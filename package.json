@@ -22,6 +22,10 @@
 			"types": "./src/clipboard/index.d.ts",
 			"default": "./src/clipboard/index.js"
 		},
+		"./combobox": {
+			"types": "./src/combobox/index.d.ts",
+			"default": "./src/combobox/index.js"
+		},
 		"./test": {
 			"types": "./src/test/index.d.ts",
 			"default": "./src/test/index.js"
@@ -62,11 +66,11 @@
 	"scripts": {
 		"build": "esbuild src/core/index.js --bundle --minify --format=esm --outfile=dist/on_the_money.min.js",
 		"size": "node scripts/measure-bundle.js",
-		"test": "node --test --test-concurrency=1 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
+		"test": "node --test --test-concurrency=1 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/combobox/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"test:browser": "playwright test",
 		"test:types": "tsc --project tsconfig.types.json",
 		"test:package": "node scripts/check-package.js",
-		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
+		"test:coverage": "node --test --test-concurrency=1 --experimental-test-coverage --test-coverage-lines=50 --test-coverage-branches=50 --test-coverage-functions=50 src/build/*.test.js src/core/*.test.js src/css/*.test.js src/live/*.test.js src/clipboard/*.test.js src/combobox/*.test.js src/linter/*.test.js src/eslint/*.test.js src/stylelint/*.test.js test/*.test.js",
 		"check": "npm run lint && npm run lint:examples && npm run build && npm run test && npm run test:coverage && npm run test:types && npm run test:browser && npm run test:package",
 		"lint": "biome check ./src ./test ./examples",
 		"lint:examples": "eslint examples/ && stylelint \"src/css/**/*.css\" \"examples/**/*.css\"",
