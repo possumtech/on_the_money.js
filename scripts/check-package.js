@@ -172,8 +172,10 @@ try {
 				import assert from "node:assert/strict";
 				import {createRequire} from "node:module";
 				import {the} from "on_the_money";
+				import {combobox} from "on_the_money/combobox";
 				const require = createRequire(import.meta.url);
 				assert.equal(typeof the.boot, "function");
+				assert.equal(typeof combobox, "function");
 				assert.ok(require.resolve("on_the_money/css").endsWith("src/css/index.css"));
 				assert.ok(require.resolve("on_the_money/css/schema").endsWith("src/css/schema.css"));
 				assert.ok(require.resolve("on_the_money/css/schemes/jade").endsWith("src/css/schemes/jade.css"));

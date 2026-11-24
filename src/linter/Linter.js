@@ -288,6 +288,8 @@ export default class Linter {
 		let manifestMatches = true;
 		let isFullDocument = false;
 		const documentNavs = [];
+		const idElements = new Map();
+		const comboboxes = [];
 
 		Linter.#traverse(document, (node, inTemplate) => {
 			if (
@@ -305,6 +307,13 @@ export default class Linter {
 						node.attrs.map((a) => [a.name.toLowerCase(), a.value]),
 					)
 				: {};
+
+			if (lowerAttrs.id?.trim() && !idElements.has(lowerAttrs.id.trim())) {
+				idElements.set(lowerAttrs.id.trim(), { node, attrs: lowerAttrs });
+			}
+			if (lowerAttrs.role?.trim().toLowerCase() === "combobox") {
+				comboboxes.push({ node, attrs: lowerAttrs });
+			}
 
 			if (node.nodeName === "nav" && !inTemplate) {
 				documentNavs.push({ node, attrs: lowerAttrs });
@@ -456,6 +465,95 @@ export default class Linter {
 						);
 					}
 					seenLabels.add(normalized);
+				}
+			}
+		}
+
+		// HTML-030: WAI-ARIA APG Combobox markup wiring contract.
+		for (const { node, attrs } of comboboxes) {
+			if (Object.hasOwn(attrs, "data-otm-dynamic")) continue;
+			const loc = node.sourceCodeLocation || { startLine: 1, startCol: 1 };
+			const expanded = attrs["aria-expanded"]?.trim().toLowerCase();
+			if (expanded !== "true" && expanded !== "false") {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					'role="combobox" requires an explicit aria-expanded="false" (or "true") attribute per WAI-ARIA APG.',
+				);
+			}
+			if (Object.hasOwn(attrs, "aria-autocomplete")) {
+				const ac = attrs["aria-autocomplete"].trim().toLowerCase();
+				if (!["none", "inline", "list", "both"].includes(ac)) {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-030",
+						`Invalid aria-autocomplete="${attrs["aria-autocomplete"]}" on role="combobox"; expected "none", "inline", "list", or "both".`,
+					);
+				}
+			}
+			const controls = (attrs["aria-controls"] || "").trim();
+			if (!controls) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					'role="combobox" requires aria-controls referencing the controlled [role="listbox"] element id.',
+				);
+				continue;
+			}
+			if (TEMPLATE_EXPR_RE.test(controls)) continue;
+			const target = idElements.get(controls);
+			if (!target) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: loc.startLine, column: loc.startCol },
+					"HTML-030",
+					`role="combobox" references aria-controls="${controls}", but no element with id="${controls}" exists in this document. Add the [role="listbox"] or mark the combobox data-otm-dynamic.`,
+				);
+				continue;
+			}
+			const targetLoc = target.node.sourceCodeLocation || {
+				startLine: 1,
+				startCol: 1,
+			};
+			if (target.attrs.role?.trim().toLowerCase() !== "listbox") {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: targetLoc.startLine, column: targetLoc.startCol },
+					"HTML-030",
+					`role="combobox" aria-controls="${controls}" must reference an element with role="listbox".`,
+				);
+				continue;
+			}
+			if (
+				!target.attrs["aria-label"]?.trim() &&
+				!target.attrs["aria-labelledby"]?.trim()
+			) {
+				Linter.#addViolation(
+					violations,
+					file,
+					{ line: targetLoc.startLine, column: targetLoc.startCol },
+					"HTML-030",
+					`Combobox listbox #${controls} requires an accessible name (aria-label or aria-labelledby) per WAI-ARIA APG.`,
+				);
+			}
+			if (Object.hasOwn(target.attrs, "popover")) {
+				const mode = target.attrs.popover.trim().toLowerCase();
+				if (mode !== "manual") {
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: targetLoc.startLine, column: targetLoc.startCol },
+						"HTML-030",
+						`Combobox listbox #${controls} uses popover="${target.attrs.popover || "auto"}"; use popover="manual" so native light-dismiss does not conflict with combobox focus and Escape handling.`,
+					);
 				}
 			}
 		}
@@ -615,42 +713,43 @@ export default class Linter {
 		}
 
 		// HTML-104: keys written globally in JS that also appear as data-text
-		// slots inside <template> subtrees — global writes walk the whole
-		// document and clobber every instance.
+		// or data-bind slots inside <template> or [data-otm-scope] subtrees —
+		// global writes walk the whole document and clobber every scoped slot.
 		const globalWriteKeys = Linter.#globalWriteKeys(cleanJsSources);
 
 		for (const { file, source } of htmlSources) {
 			const document = Markup.parse(file, source, {
 				sourceCodeLocationInfo: true,
 			});
-			Linter.#traverse(document, (node) => {
-				if (node.nodeName !== "template") return;
-				Linter.#traverse(node, (inner) => {
-					const slotKeys = [];
-					const dt = inner.attrs?.find((a) => a.name === "data-text");
-					if (dt?.value) slotKeys.push({ attr: "data-text", key: dt.value });
-					const db = inner.attrs?.find((a) => a.name === "data-bind");
-					for (const pair of db?.value?.split(/\s+/) ?? []) {
-						const i = pair.indexOf(":");
-						if (i >= 1)
-							slotKeys.push({ attr: "data-bind", key: pair.slice(i + 1) });
-					}
-					for (const { attr, key } of slotKeys) {
-						const writer = globalWriteKeys.get(key);
-						if (!writer) continue;
-						const loc = inner.sourceCodeLocation || {
-							startLine: 1,
-							startCol: 1,
-						};
-						Linter.#addViolation(
-							violations,
-							file,
-							{ line: loc.startLine, column: loc.startCol },
-							"HTML-104",
-							`Scoped slot ${attr} key "${key}" inside a <template> collides with the global the("${key}", ...) write in ${writer.file}:${writer.line} — the global write will clobber every cloned instance. Rename the template slot key or the global key.`,
-						);
-					}
-				});
+			Linter.#traverse(document, (inner, inTemplate, inScope) => {
+				if (!inTemplate && !inScope) return;
+				const slotKeys = [];
+				const dt = inner.attrs?.find((a) => a.name === "data-text");
+				if (dt?.value) slotKeys.push({ attr: "data-text", key: dt.value });
+				const db = inner.attrs?.find((a) => a.name === "data-bind");
+				for (const pair of db?.value?.split(/\s+/) ?? []) {
+					const i = pair.indexOf(":");
+					if (i >= 1)
+						slotKeys.push({ attr: "data-bind", key: pair.slice(i + 1) });
+				}
+				for (const { attr, key } of slotKeys) {
+					const writer = globalWriteKeys.get(key);
+					if (!writer) continue;
+					const loc = inner.sourceCodeLocation || {
+						startLine: 1,
+						startCol: 1,
+					};
+					const context = inTemplate
+						? "a <template>"
+						: "a [data-otm-scope] subtree";
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-104",
+						`Scoped slot ${attr} key "${key}" inside ${context} collides with the global the("${key}", ...) write in ${writer.file}:${writer.line} — the global write walks the whole document and will clobber it. Rename the scoped slot key or the global key.`,
+					);
+				}
 			});
 		}
 
@@ -849,15 +948,19 @@ export default class Linter {
 		return keys;
 	}
 
-	static #traverse(node, visitor, inTemplate = false) {
-		visitor(node, inTemplate);
+	static #traverse(node, visitor, inTemplate = false, inScope = false) {
+		const hasScope = Boolean(
+			node.attrs?.some((a) => a.name.toLowerCase() === "data-otm-scope"),
+		);
+		const nodeInScope = inScope || hasScope;
+		visitor(node, inTemplate, nodeInScope);
 		const childInTemplate = inTemplate || node.nodeName === "template";
 		// parse5 templates keep children under content.childNodes while
 		// childNodes stays a truthy empty array — walk both.
 		for (const child of node.childNodes || [])
-			Linter.#traverse(child, visitor, childInTemplate);
+			Linter.#traverse(child, visitor, childInTemplate, nodeInScope);
 		for (const child of node.content?.childNodes || [])
-			Linter.#traverse(child, visitor, true);
+			Linter.#traverse(child, visitor, true, nodeInScope);
 	}
 
 	static #addViolation(violations, file, loc, ruleId, message, severity) {

@@ -162,7 +162,23 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 - **Deletion is `null`.** `the(key, null)` removes the attribute, clears every `[data-text="key"]` mirror to empty, and removes the persisted `localStorage` entry if the key is in `persistKeys`. `undefined` still throws — a missing value is a bug, an explicit `null` is a delete.
 - **ARIA mapping is element-scoped only** (closed 4-key set, key → attribute): `expanded`, `selected`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** `hidden` is deliberately **not** mapped — `aria-hidden="true"` hides from screen readers without visually hiding the element, so `the(el, "hidden", true)` writes `data-hidden="true"` just like global `the("hidden", true)`. Use native `[hidden]` (or CSS `[data-hidden="true"] { display: none; }`) to hide visually, and `el.setAttribute("aria-hidden", "true")` explicitly for decorative icons. Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) also use `el.setAttribute(...)`.
 - **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="page-title">Default</title>` in `<head>` and `the("page-title", "X")` updates it.
-- **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components. Never reuse a global key as a scoped slot key inside a `<template>`; `otm-lint` flags this as HTML-104.
+- **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components and `[data-otm-scope]` subtrees. Never reuse a global key as a scoped slot key inside a `<template>` or `[data-otm-scope]`; `otm-lint` flags both as HTML-104.
+- **Nested scope boundaries (`data-otm-scope`).** Scoped writes (`the(el, ...)`) stop at any nested descendant carrying `data-otm-scope` (including self-scoped child roots such as `<a data-otm-scope data-text="name">`), so composing nested cards or nested `$.reconcile()` lists never clobbers child slots that share key names (`name`, `url`, `status`) with their parent. Works uniformly across SSR markup, `$.clone()`, `$.cloneEach()`, and `$.reconcile()`.
+
+  ```html
+  <article id="workspace-card" data-otm-scope>
+    <a data-text="name" data-bind="href:url">Workspace</a>
+    <section id="session-card" data-otm-scope>
+      <a data-text="name" data-bind="href:url">Session</a>
+    </section>
+  </article>
+  ```
+
+  ```javascript
+  the($("#session-card"), { name: "Session A", url: "/sessions/a" });
+  the($("#workspace-card"), { name: "Core", url: "/workspaces/core" });
+  // #session-card's name/url slots stay untouched.
+  ```
 - **Attribute projection: `data-bind="attr:key"`.** The attribute-space sibling of `[data-text]` — state projects into plain attributes (`href`, `src`, `datetime`, `value`, `title`) declaratively. Space-separate multiple bindings; keys are kebab-case like every slot key; `the(el, { key: null })` removes the bound attribute.
 
   ```html
@@ -471,6 +487,69 @@ const off = clipboard();   // null when the capability is absent
 ```
 
 Clicking any `[data-copy]` writes the attribute's value to the clipboard and pulses `data-copied="true"` on the button for two seconds (`{ resetMs }` to tune) — the confirmation flash is CSS's job. **Capability declaration generalizes**: feature-detect once, write one state attribute, and every dependent control is revealed by stylesheet rule instead of JS existence checks scattered per control.
+
+## `on_the_money/combobox` — WAI-ARIA APG combobox
+
+Native `<datalist>` cannot separate option IDs from labels, render multi-field options, or support predictable async filtering across browsers. `on_the_money/combobox` is a zero-core-cost subpath battery that implements the **W3C WAI-ARIA APG Combobox Pattern** directly over semantic DOM elements (`[role="combobox"]`, `[role="listbox"]`, `[role="option"]`).
+
+```html
+<label for="model-input">Model</label>
+<input
+  id="model-input"
+  type="text"
+  role="combobox"
+  aria-controls="model-listbox"
+  aria-expanded="false"
+  aria-autocomplete="list"
+  autocomplete="off"
+>
+<ul id="model-listbox" role="listbox" aria-label="Models" popover="manual">
+  <li role="option" data-value="claude">Claude</li>
+  <li role="option" data-value="gemini">Gemini</li>
+</ul>
+```
+
+```css
+@layer state {
+  [role="option"][data-active="true"] {
+    background-color: var(--otm-primary-focus);
+  }
+  [role="option"][aria-selected="true"] {
+    font-weight: 700;
+  }
+}
+```
+
+```javascript
+import { $$, on } from "on_the_money";
+import { combobox } from "on_the_money/combobox";
+
+const ac = new AbortController();
+const combo = combobox("#model-input", {
+  signal: ac.signal,
+  onSelect(option, input) {
+    input.value = option.textContent.trim();
+  },
+});
+
+on("#model-input", "input", '[role="combobox"]', (_e, input) => {
+  const q = input.value.trim().toLowerCase();
+  for (const opt of $$("#model-listbox [role='option']")) {
+    opt.hidden = Boolean(q) && !opt.textContent.toLowerCase().includes(q);
+  }
+  combo.sync();
+});
+```
+
+What `combobox(target, options?)` owns:
+- **ARIA wiring & reflection:** resolves the controlled `[role="listbox"]` from `aria-controls` (failing fast if missing), manages `aria-expanded`, assigns stable IDs to options lacking one, tracks `aria-activedescendant` + `data-active="true"` (CSS highlight hook) while keeping DOM focus on the combobox, and updates `aria-selected="true"` on selection.
+- **WAI-ARIA APG keyboard interaction:** `ArrowDown`, `ArrowUp`, `Alt+ArrowDown`/`Alt+ArrowUp`, `Enter`, `Escape` (closes when open; clears editable `<input>` and fires `"input"` when closed unless `clearOnEscape: false`), and `Tab` (closes without trapping focus). Skips `[hidden]` options, `[hidden]` parent groups, and `[aria-disabled="true"]`, ignores IME composition (`e.isComposing`), preserves native `Home`/`End`/`ArrowLeft`/`ArrowRight` caret movement in editable `<input>` comboboxes, and supports `Home`/`End`/`Space` on select-only `[role="combobox"]` buttons.
+- **Pointer & Top Layer:** preserves combobox focus on listbox `mousedown`, selects on option `click`, dismisses on outside click or blur, toggles `[hidden]` on standard listboxes, or calls native `showPopover()`/`hidePopover()` when the listbox carries `popover="manual"`.
+- **External DOM composition:** call `combo.sync()` after filtering via `[hidden]` or updating options with `$.reconcile()` / `$.cloneEach()` to assign missing option IDs and clear stale `aria-activedescendant`. `otm-lint` (`HTML-030`) statically validates combobox markup wiring.
+
+Options: `{ onSelect?, onOpen?, onClose?, wrap = true, openOnFocus = true, clearOnEscape = true, closeOnSelect = true, signal? }`. Returns `{ input, listbox, expanded, activeOption, open(), close(), sync(), select(option), dispose() }`.
+
+**NOT in scope:** network fetching or caching, query debouncing, client-side filter engines, option/template rendering (compose with SSR, `$.cloneEach()`, or `$.reconcile()`), custom JS positioning engines (use CSS / `[popover="manual"]` / CSS Anchor Positioning), virtual scrolling, or multi-select tag pills.
 
 ## The Discipline
 
@@ -884,10 +963,11 @@ npx otm-lint --check ./src
 | **HTML-027** | Active date formatting has a missing or invalid value | Supply ISO date text in `data-i18n-val` before activating `data-i18n-type="date"`. |
 | **HTML-028** | Multiple `<nav>` landmarks in one document without unique `aria-label` / `aria-labelledby` | Name each sibling `<nav>` with a distinct `aria-label` or `aria-labelledby` for assistive tech, browser agents, and classless CSS selectors. |
 | **HTML-029** | `<link rel="alternate" type="text/markdown">` without a non-empty `href` | Point `href` at the canonical Markdown representation. |
+| **HTML-030** | `role="combobox"` missing `aria-expanded`, `aria-controls` → `#id[role="listbox"]`, valid `aria-autocomplete`, listbox accessible name, or `popover="manual"` | Wire semantic WAI-ARIA APG combobox markup (`aria-controls` to a named `[role="listbox"]`, using `popover="manual"` if using Popover API), or mark the combobox `data-otm-dynamic`. |
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")`, `$.cloneEach(_, "#X", ...)`, or `$.reconcile(_, "#X", ...)` | Either delete the orphan template or add the missing instantiation call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
-| **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
+| **HTML-104** | A global `the("key", ...)` write collides with a `data-text` or `data-bind` slot inside a `<template>` or `[data-otm-scope]` subtree | Global writes walk the whole document and clobber every scoped instance (CSR and SSR alike). Rename the scoped slot key or the global key. |
 | **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
 | **HTML-106** | A globally written state key nothing consumes | The deletion test as lint: no CSS attribute selector, `[data-text]` slot, `"data-key"` JS string literal (e.g. MutationObserver `attributeFilter`), or `the("key")` read touches it — dead state or a missing CSS rule. Promoted from warn to error after a zero-false-positive production trial. |
 | **HTML-107** | A `data-K-key="V"` reveal span no state-CSS rule references, or a CSS `[data-K-key="V"]` reference no element carries | Pairing is by CSS reference — the state key revealing a span may be named anything (`body[data-form-error="V"] [data-error-key="V"]` is fine). Either half missing means the message silently never shows (or the rule is dead wiring); `data-otm-dynamic` opts a span out of the span→CSS direction. |
@@ -1000,6 +1080,7 @@ src/
 │   └── schemes/*.css       # 20 @layer scheme color palettes
 ├── live/                   # on_the_money/live (WebSocket + SSE battery)
 ├── clipboard/              # on_the_money/clipboard (copy affordance battery)
+├── combobox/               # on_the_money/combobox (WAI-ARIA APG combobox battery)
 ├── test/                   # on_the_money/test (setupDOM linkedom harness)
 ├── eslint/                 # eslint-plugin-otm + shareable flat config
 ├── stylelint/              # stylelint-plugin-otm (classless + 5-S layers)

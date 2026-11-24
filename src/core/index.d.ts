@@ -30,6 +30,8 @@ export interface BootOptions {
 /**
  * Writes visit every live binding and change only differing text/attributes.
  * Equal text preserves nodes and selection; equal attributes do not notify observers.
+ * Scoped writes (`the(el, ...)`) stop at nested `[data-otm-scope]` boundaries;
+ * global writes (`the(...)`) remain document-wide.
  * Opted-in persistence still runs on repeated writes and propagates storage errors.
  */
 export interface The {

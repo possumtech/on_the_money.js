@@ -279,9 +279,11 @@ export default class The {
 	static #mirror(el, key, out, removed) {
 		// Global writes (body) walk the whole document so [data-text="key"]
 		// slots in <head> (e.g. <title data-text="title">) hydrate too.
-		// Scoped writes stay within el.
+		// Scoped writes stay within el and stop at nested [data-otm-scope]
+		// boundaries (including self-scoped child roots).
+		const isGlobal = el === document.body;
 		const root =
-			el === document.body && typeof document !== "undefined"
+			isGlobal && typeof document !== "undefined"
 				? document.documentElement || document
 				: el;
 		if (root.querySelectorAll) {
@@ -291,6 +293,10 @@ export default class The {
 			for (const item of root.querySelectorAll(
 				`[data-text="${key}"],[data-bind*="${key}"]`,
 			)) {
+				if (!isGlobal) {
+					const boundary = item.closest?.("[data-otm-scope]");
+					if (boundary && boundary !== el && el.contains(boundary)) continue;
+				}
 				if (item.getAttribute("data-text") === key) The.#projectText(item, out);
 				The.#bindApply(item, key, out, removed);
 			}
