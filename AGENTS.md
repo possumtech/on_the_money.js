@@ -37,8 +37,11 @@ are coordinated realizations of that contract.
 - Attribute state is a public interface. State keys are canonical lowercase
   kebab-case (`^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`) across HTML, CSS, JS, and
   storage — no silent camelCase/snake_case translation. Global and scoped
-  state-key collisions are lint failures, and renaming a consumed `data-*` key
-  is a contract change.
+  state-key collisions are lint failures (`HTML-104` covers both `<template>`
+  and `[data-otm-scope]`), and renaming a consumed `data-*` key is a contract
+  change. Scoped `the(el, ...)` projection stops at nested `[data-otm-scope]`
+  boundaries (uniformly across SSR and CSR); global `the(...)` remains
+  document-wide.
 - `the(key, null)` deletes state. `undefined` is a contract violation. Global
   writes produce `data-*`; element-scoped ARIA mapping is the closed 4-key
   widget-state set (`expanded`, `selected`, `checked`, `disabled`). `hidden`

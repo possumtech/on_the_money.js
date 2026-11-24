@@ -162,7 +162,23 @@ Polymorphic on a single disambiguator: `args[0] instanceof Element`. Three call 
 - **Deletion is `null`.** `the(key, null)` removes the attribute, clears every `[data-text="key"]` mirror to empty, and removes the persisted `localStorage` entry if the key is in `persistKeys`. `undefined` still throws — a missing value is a bug, an explicit `null` is a delete.
 - **ARIA mapping is element-scoped only** (closed 4-key set, key → attribute): `expanded`, `selected`, `checked`, `disabled` → `aria-*` when writing via `the(el, ...)`. **Criterion: HTML5 widget/form boolean states only.** `hidden` is deliberately **not** mapped — `aria-hidden="true"` hides from screen readers without visually hiding the element, so `the(el, "hidden", true)` writes `data-hidden="true"` just like global `the("hidden", true)`. Use native `[hidden]` (or CSS `[data-hidden="true"] { display: none; }`) to hide visually, and `el.setAttribute("aria-hidden", "true")` explicitly for decorative icons. Other ARIA attributes (`aria-invalid`, `aria-controls`, etc.) also use `el.setAttribute(...)`.
 - **Dynamic `<title>` and other `<head>` slots:** global `the(key, val)` writes walk the entire document for `[data-text="key"]` matches, not just body. Put `<title data-text="page-title">Default</title>` in `<head>` and `the("page-title", "X")` updates it.
-- **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components. Never reuse a global key as a scoped slot key inside a `<template>`; `otm-lint` flags this as HTML-104.
+- **Global and scoped keys share one `[data-text]` namespace.** A global write updates every matching slot in the document — including slots inside cloned components and `[data-otm-scope]` subtrees. Never reuse a global key as a scoped slot key inside a `<template>` or `[data-otm-scope]`; `otm-lint` flags both as HTML-104.
+- **Nested scope boundaries (`data-otm-scope`).** Scoped writes (`the(el, ...)`) stop at any nested descendant carrying `data-otm-scope` (including self-scoped child roots such as `<a data-otm-scope data-text="name">`), so composing nested cards or nested `$.reconcile()` lists never clobbers child slots that share key names (`name`, `url`, `status`) with their parent. Works uniformly across SSR markup, `$.clone()`, `$.cloneEach()`, and `$.reconcile()`.
+
+  ```html
+  <article id="workspace-card" data-otm-scope>
+    <a data-text="name" data-bind="href:url">Workspace</a>
+    <section id="session-card" data-otm-scope>
+      <a data-text="name" data-bind="href:url">Session</a>
+    </section>
+  </article>
+  ```
+
+  ```javascript
+  the($("#session-card"), { name: "Session A", url: "/sessions/a" });
+  the($("#workspace-card"), { name: "Core", url: "/workspaces/core" });
+  // #session-card's name/url slots stay untouched.
+  ```
 - **Attribute projection: `data-bind="attr:key"`.** The attribute-space sibling of `[data-text]` — state projects into plain attributes (`href`, `src`, `datetime`, `value`, `title`) declaratively. Space-separate multiple bindings; keys are kebab-case like every slot key; `the(el, { key: null })` removes the bound attribute.
 
   ```html
@@ -887,7 +903,7 @@ npx otm-lint --check ./src
 | **HTML-101** | `<template id="X">` is never referenced by `$.clone(_, "#X")`, `$.cloneEach(_, "#X", ...)`, or `$.reconcile(_, "#X", ...)` | Either delete the orphan template or add the missing instantiation call. Catches dead-template drift after refactors. Detection is regex-based and matches the literal call shapes — dynamic IDs (`` `#${id}` ``), aliased calls, or templates instantiated through indirection are missed. Use `data-otm-dynamic` on the `<template>` to opt out. |
 | **HTML-102** | A key has neither source text nor an entry in any declared dictionary | Supply source fallback text, add the translation, or correct the key. Partial dictionaries are valid. |
 | **HTML-103** | `data-i18n-{var}` attr has no matching `{var}` placeholder in the dictionary template | The token is silently dropped at runtime. Either remove the unused attr or add `{var}` to the template. |
-| **HTML-104** | A global `the("key", ...)` write collides with a `data-text="key"` slot inside a `<template>` | Global writes walk the whole document and clobber every cloned instance. Rename the template slot key or the global key. |
+| **HTML-104** | A global `the("key", ...)` write collides with a `data-text` or `data-bind` slot inside a `<template>` or `[data-otm-scope]` subtree | Global writes walk the whole document and clobber every scoped instance (CSR and SSR alike). Rename the scoped slot key or the global key. |
 | **HTML-105** | `data-action` values and `on()` `[data-action="..."]` selector literals disagree | Both directions: a `data-action` no handler references is a dead control; a selector no element carries is an orphan handler. A generic `[data-action]` dispatch selector in JS waives the dead-control direction; `data-otm-dynamic` opts an element out. |
 | **HTML-106** | A globally written state key nothing consumes | The deletion test as lint: no CSS attribute selector, `[data-text]` slot, `"data-key"` JS string literal (e.g. MutationObserver `attributeFilter`), or `the("key")` read touches it — dead state or a missing CSS rule. Promoted from warn to error after a zero-false-positive production trial. |
 | **HTML-107** | A `data-K-key="V"` reveal span no state-CSS rule references, or a CSS `[data-K-key="V"]` reference no element carries | Pairing is by CSS reference — the state key revealing a span may be named anything (`body[data-form-error="V"] [data-error-key="V"]` is fine). Either half missing means the message silently never shows (or the rule is dead wiring); `data-otm-dynamic` opts a span out of the span→CSS direction. |

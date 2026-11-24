@@ -314,6 +314,37 @@ test("Linter.crossCheck: HTML-104 catches data-bind slot collisions in templates
 	assert.match(collisions[0].message, /data-bind key "link"/);
 });
 
+test("Linter.crossCheck: HTML-104 catches collisions inside SSR [data-otm-scope] subtrees without double-reporting", (_t) => {
+	const violations = Linter.crossCheck({
+		htmlSources: [
+			{
+				file: "ssr.html",
+				source: `
+					<article data-otm-scope>
+						<a data-text="name" data-bind="href:url">Workspace</a>
+						<section data-otm-scope>
+							<a data-otm-scope data-text="name">Self</a>
+						</section>
+					</article>
+					<template id="card" data-otm-dynamic>
+						<article data-otm-scope><span data-text="name"></span></article>
+					</template>
+				`,
+				dicts: [],
+			},
+		],
+		jsSources: [
+			{ file: "app.js", source: 'the("name", "Global"); the("url", "/");' },
+		],
+	});
+	const collisions = violations.filter((v) => v.ruleId === "HTML-104");
+	// 4 distinct colliding bindings: outer data-text="name", outer data-bind="href:url",
+	// inner self-scoped data-text="name", and template data-text="name" — each reported once.
+	assert.strictEqual(collisions.length, 4);
+	assert.match(collisions[0].message, /\[data-otm-scope\] subtree/);
+	assert.match(collisions[3].message, /<template>/);
+});
+
 test("Linter.crossCheck: HTML-106 counts data-bind consumption", (_t) => {
 	const violations = Linter.crossCheck({
 		htmlSources: [

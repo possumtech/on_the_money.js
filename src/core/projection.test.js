@@ -136,3 +136,89 @@ test("unchanged DOM state still repairs opted-in storage and preserves storage f
 		(error) => error === cause,
 	);
 });
+
+test("scoped writes stop at nested [data-otm-scope] boundaries while global writes remain document-wide", async () => {
+	const { document } = setupDOM(`
+		<article id="workspace" data-otm-scope>
+			<a id="ws-link" data-text="name" data-bind="href:url">Workspace</a>
+			<span id="ws-global" data-text="global-banner">Init</span>
+			<section id="session" data-otm-scope>
+				<a id="session-link" data-text="name" data-bind="href:url">Session</a>
+				<a id="self-scoped" data-otm-scope data-text="name" data-bind="href:url">Parent</a>
+				<span id="nested-global" data-text="global-banner">Init</span>
+			</section>
+			<div id="unscoped-wrapper">
+				<span id="ws-echo" data-text="name">Echo</span>
+			</div>
+		</article>
+	`);
+	await the.boot({ locale: "en", persistKeys: [] });
+
+	const workspace = document.querySelector("#workspace");
+	const session = document.querySelector("#session");
+	const selfScoped = document.querySelector("#self-scoped");
+	const wrapper = document.querySelector("#unscoped-wrapper");
+
+	// Seed inner scopes first, then write outer scope: outer must not clobber inner.
+	the(session, { name: "Session A", url: "/sessions/a" });
+	the(selfScoped, { name: "Parent Ref", url: "/sessions/parent" });
+	the(workspace, { name: "Workspace One", url: "/workspaces/1" });
+
+	assert.equal(document.querySelector("#ws-link").textContent, "Workspace One");
+	assert.equal(
+		document.querySelector("#ws-link").getAttribute("href"),
+		"/workspaces/1",
+	);
+	assert.equal(document.querySelector("#ws-echo").textContent, "Workspace One");
+	assert.equal(
+		document.querySelector("#session-link").textContent,
+		"Session A",
+	);
+	assert.equal(
+		document.querySelector("#session-link").getAttribute("href"),
+		"/sessions/a",
+	);
+	assert.equal(selfScoped.textContent, "Parent Ref");
+	assert.equal(selfScoped.getAttribute("href"), "/sessions/parent");
+
+	// Outer deletion clears only outer slots, leaving nested scopes untouched.
+	the(workspace, { name: null, url: null });
+	assert.equal(document.querySelector("#ws-link").textContent, "");
+	assert.equal(document.querySelector("#ws-link").getAttribute("href"), null);
+	assert.equal(document.querySelector("#ws-echo").textContent, "");
+	assert.equal(
+		document.querySelector("#session-link").textContent,
+		"Session A",
+	);
+	assert.equal(
+		document.querySelector("#session-link").getAttribute("href"),
+		"/sessions/a",
+	);
+	assert.equal(selfScoped.textContent, "Parent Ref");
+	assert.equal(selfScoped.getAttribute("href"), "/sessions/parent");
+
+	// An unscoped intermediate element inside an outer [data-otm-scope] still projects to its own descendants.
+	the(wrapper, "name", "Wrapper Override");
+	assert.equal(
+		document.querySelector("#ws-echo").textContent,
+		"Wrapper Override",
+	);
+
+	// Middle scope updates its own slot without touching its self-scoped descendant.
+	the(session, { name: "Session B", url: "/sessions/b" });
+	assert.equal(
+		document.querySelector("#session-link").textContent,
+		"Session B",
+	);
+	assert.equal(
+		document.querySelector("#session-link").getAttribute("href"),
+		"/sessions/b",
+	);
+	assert.equal(selfScoped.textContent, "Parent Ref");
+	assert.equal(selfScoped.getAttribute("href"), "/sessions/parent");
+
+	// Global writes stay document-wide, projecting across [data-otm-scope] boundaries.
+	the("global-banner", "Online");
+	assert.equal(document.querySelector("#ws-global").textContent, "Online");
+	assert.equal(document.querySelector("#nested-global").textContent, "Online");
+});

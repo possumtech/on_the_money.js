@@ -615,42 +615,43 @@ export default class Linter {
 		}
 
 		// HTML-104: keys written globally in JS that also appear as data-text
-		// slots inside <template> subtrees — global writes walk the whole
-		// document and clobber every instance.
+		// or data-bind slots inside <template> or [data-otm-scope] subtrees —
+		// global writes walk the whole document and clobber every scoped slot.
 		const globalWriteKeys = Linter.#globalWriteKeys(cleanJsSources);
 
 		for (const { file, source } of htmlSources) {
 			const document = Markup.parse(file, source, {
 				sourceCodeLocationInfo: true,
 			});
-			Linter.#traverse(document, (node) => {
-				if (node.nodeName !== "template") return;
-				Linter.#traverse(node, (inner) => {
-					const slotKeys = [];
-					const dt = inner.attrs?.find((a) => a.name === "data-text");
-					if (dt?.value) slotKeys.push({ attr: "data-text", key: dt.value });
-					const db = inner.attrs?.find((a) => a.name === "data-bind");
-					for (const pair of db?.value?.split(/\s+/) ?? []) {
-						const i = pair.indexOf(":");
-						if (i >= 1)
-							slotKeys.push({ attr: "data-bind", key: pair.slice(i + 1) });
-					}
-					for (const { attr, key } of slotKeys) {
-						const writer = globalWriteKeys.get(key);
-						if (!writer) continue;
-						const loc = inner.sourceCodeLocation || {
-							startLine: 1,
-							startCol: 1,
-						};
-						Linter.#addViolation(
-							violations,
-							file,
-							{ line: loc.startLine, column: loc.startCol },
-							"HTML-104",
-							`Scoped slot ${attr} key "${key}" inside a <template> collides with the global the("${key}", ...) write in ${writer.file}:${writer.line} — the global write will clobber every cloned instance. Rename the template slot key or the global key.`,
-						);
-					}
-				});
+			Linter.#traverse(document, (inner, inTemplate, inScope) => {
+				if (!inTemplate && !inScope) return;
+				const slotKeys = [];
+				const dt = inner.attrs?.find((a) => a.name === "data-text");
+				if (dt?.value) slotKeys.push({ attr: "data-text", key: dt.value });
+				const db = inner.attrs?.find((a) => a.name === "data-bind");
+				for (const pair of db?.value?.split(/\s+/) ?? []) {
+					const i = pair.indexOf(":");
+					if (i >= 1)
+						slotKeys.push({ attr: "data-bind", key: pair.slice(i + 1) });
+				}
+				for (const { attr, key } of slotKeys) {
+					const writer = globalWriteKeys.get(key);
+					if (!writer) continue;
+					const loc = inner.sourceCodeLocation || {
+						startLine: 1,
+						startCol: 1,
+					};
+					const context = inTemplate
+						? "a <template>"
+						: "a [data-otm-scope] subtree";
+					Linter.#addViolation(
+						violations,
+						file,
+						{ line: loc.startLine, column: loc.startCol },
+						"HTML-104",
+						`Scoped slot ${attr} key "${key}" inside ${context} collides with the global the("${key}", ...) write in ${writer.file}:${writer.line} — the global write walks the whole document and will clobber it. Rename the scoped slot key or the global key.`,
+					);
+				}
 			});
 		}
 
@@ -849,15 +850,19 @@ export default class Linter {
 		return keys;
 	}
 
-	static #traverse(node, visitor, inTemplate = false) {
-		visitor(node, inTemplate);
+	static #traverse(node, visitor, inTemplate = false, inScope = false) {
+		const hasScope = Boolean(
+			node.attrs?.some((a) => a.name.toLowerCase() === "data-otm-scope"),
+		);
+		const nodeInScope = inScope || hasScope;
+		visitor(node, inTemplate, nodeInScope);
 		const childInTemplate = inTemplate || node.nodeName === "template";
 		// parse5 templates keep children under content.childNodes while
 		// childNodes stays a truthy empty array — walk both.
 		for (const child of node.childNodes || [])
-			Linter.#traverse(child, visitor, childInTemplate);
+			Linter.#traverse(child, visitor, childInTemplate, nodeInScope);
 		for (const child of node.content?.childNodes || [])
-			Linter.#traverse(child, visitor, true);
+			Linter.#traverse(child, visitor, true, nodeInScope);
 	}
 
 	static #addViolation(violations, file, loc, ruleId, message, severity) {

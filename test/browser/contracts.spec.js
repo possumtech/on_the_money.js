@@ -1325,3 +1325,80 @@ test("$.reconcile preserves DOM identity, active focus, textarea draft, and open
 		focusAfterReorder: true,
 	});
 });
+
+test("scoped writes respect nested [data-otm-scope] boundaries while global writes remain document-wide", async ({
+	page,
+}) => {
+	const result = await page.evaluate(async () => {
+		const { $, the } = await import("/src/core/index.js");
+		document.body.innerHTML = `
+			<div id="workspaces"></div>
+			<template id="workspace-card">
+				<article data-otm-scope>
+					<a class="ws-name" data-text="name" data-bind="href:url"></a>
+					<span class="ws-banner" data-text="banner"></span>
+					<ul class="sessions"></ul>
+				</article>
+			</template>
+			<template id="session-row">
+				<li data-otm-scope>
+					<a class="session-name" data-text="name" data-bind="href:url"></a>
+					<a class="parent-ref" data-otm-scope data-text="name" data-bind="href:url"></a>
+					<span class="session-banner" data-text="banner"></span>
+				</li>
+			</template>
+		`;
+		const [card] = $.reconcile(
+			"#workspaces",
+			"#workspace-card",
+			[{ id: "w1", name: "Core", url: "/w/1" }],
+			{
+				key: (w) => w.id,
+				fill: (el, w) => the(el, { name: w.name, url: w.url }),
+			},
+		);
+		const [row] = $.reconcile(
+			card.querySelector(".sessions"),
+			"#session-row",
+			[{ id: "s1", name: "Session 1", url: "/s/1" }],
+			{
+				key: (s) => s.id,
+				fill: (el, s) => {
+					the(el, { name: s.name, url: s.url });
+					the(el.querySelector(".parent-ref"), {
+						name: "Parent 0",
+						url: "/s/0",
+					});
+				},
+			},
+		);
+
+		// Re-write parent card after nested items exist, then delete parent url:
+		the(card, { name: "Core Updated", url: "/w/1-next" });
+		the(card, "url", null);
+		// Global write reaches through [data-otm-scope] into both outer and inner slots:
+		the("banner", "Synced");
+
+		return {
+			wsName: card.querySelector(".ws-name").textContent,
+			wsHref: card.querySelector(".ws-name").getAttribute("href"),
+			sessionName: row.querySelector(".session-name").textContent,
+			sessionHref: row.querySelector(".session-name").getAttribute("href"),
+			parentName: row.querySelector(".parent-ref").textContent,
+			parentHref: row.querySelector(".parent-ref").getAttribute("href"),
+			wsBanner: card.querySelector(".ws-banner").textContent,
+			sessionBanner: row.querySelector(".session-banner").textContent,
+		};
+	});
+
+	expect(result).toEqual({
+		wsName: "Core Updated",
+		wsHref: null,
+		sessionName: "Session 1",
+		sessionHref: "/s/1",
+		parentName: "Parent 0",
+		parentHref: "/s/0",
+		wsBanner: "Synced",
+		sessionBanner: "Synced",
+	});
+});
