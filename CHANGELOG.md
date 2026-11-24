@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-11-24
+
+This pre-1.0 minor release introduces explicit nested scope boundaries (`data-otm-scope`) for scoped `the(el, ...)` projection across SSR and CSR, extends `HTML-104` to cover SSR `[data-otm-scope]` subtrees, and ships the zero-core-cost WAI-ARIA APG Combobox subpath battery (`on_the_money/combobox`) backed by static `HTML-030` markup validation. Core JS runtime size is `14.4 KB` minified / `5.5 KiB` (`5,620 B`) gzipped (`+39 B` gzip from `data-otm-scope`; `0 B` from `on_the_money/combobox`).
+
 ### Added
 
 - **WAI-ARIA APG Combobox subpath battery (`on_the_money/combobox`):** added a zero-core-cost, DOM-native WAI-ARIA APG Combobox controller (`src/combobox/Combobox.js`, `src/combobox/index.js`, `src/combobox/index.d.ts`) operating directly over semantic `[role="combobox"]` / `[role="listbox"]` / `[role="option"]` markup (`0 B` added to core `on_the_money`). Owns `aria-expanded`, `aria-activedescendant`, `data-active` highlight projection, `aria-selected`, APG keyboard navigation (preserving native `Home`/`End`/`ArrowLeft`/`ArrowRight` caret movement in editable `<input>` comboboxes and supporting `Home`/`End`/`Space` in select-only comboboxes), pointer focus preservation, outside-click/blur dismissal, optional native `popover="manual"` Top Layer toggling, `sync()` for dynamic SSR/`$.reconcile()` updates, and `AbortSignal` teardown. Added `otm-lint` rule **`HTML-030`** for combobox markup wiring, permitted static `aria-controls` / `aria-autocomplete` in `otm/layer-discipline`, documented the explicit NOT-list and anti-widget-kit boundary in `README.md` and `AGENTS.md`, and verified across Chromium, Firefox, and WebKit. (#27)
